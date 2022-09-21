@@ -1,0 +1,90 @@
+{
+    "general": {
+        "scorm_nombreCookieSiguiente": "actividadSlide8",
+        "scorm_activarCookieSiguiente": "true",
+        "scorm_nombreCookieEvaluacion": "Evaluacion_DaviPay",
+        "scorm_activarCookieEvaluacion": "true",
+        "numero_preguntas": 6,
+        "instrucciones_titulo": "Juego IZAJE",
+        "instrucciones_parrafo": "Su misión,  si decide aceptarla, es colocar toda la carga sobre el camión. Para lograrlo, usted debe responder cada una de las preguntas de forma correcta. Para iniciar la actividad,  de clic en el botón 'Siguiente'.",
+        "retroalimentacion_generalMal": "<text class='titulo_act1'>¡Infortunadamente!</text><br><br>Su conocimiento sobre los cambios en Incoterms® no superó el puntaje mínimo de aprobación. Lo invitamos a repasar el contenido e intentarlo nuevamente.<br><br>De clic en <text style='color:#C1272D'>'Siguiente'</text> para avanzar.",
+        "retroalimentacion_generalRegular": "<text class='titulo_act1'>¡Bien!</text><br><br>Ha superado el porcentaje mínimo de aprobación. Si quiere mejorar su nota, repase el contenido e inténtelo otra vez.<br><br>De clic en <text style='color:#C1272D'>'Siguiente'</text> para avanzar.",
+        "retroalimentacion_generalMuyBien": "<text class='titulo_act1'>¡Felicitaciones!</text><br><br>Ha aprobado la actividad con el máximo puntaje.<br><br>De clic en <text style='color:#C1272D'>'Siguiente'</text> para avanzar.",
+        "font_sizeTitulo": "25px",
+        "font_familyTitulo": "'Raleway', sans-serif",
+        "font_sizeParrafo": "16px",
+        "font_familyParrafo": "'Lato', sans-serif"
+    },
+    "pregunta_1": {
+        "enunciado": "¿Existen nuevos costos en Incoterms®2020?",
+        "num_distractores": 4,
+        "distractor_1": "No realmente, pero ahora están listados con literales tipo a), b), c), d), etc. Lo que permite a los usuarios identificar cada ítem de costo.",
+        "distractor_2": "No, solamente que la versión 2020 los ha agrupado en el artículo A9-B9 y esto hace más fácil su estudio y aplicación.",
+        "distractor_3": "No, la versión 2020 no enumera costos específicos sino costos generales, los costos específicos deben ser acordados en el contrato de compraventa.",
+        "distractor_4": "Todas las anteriores.",
+        "respuesta_correcta": 4,
+        "retroalimentacion_incorrectoPrimerIntento": "La carga se ha roto. Su respuesta no es acertada ya que son los mismos costos de siempre. Pero esta vez, están reordenados. Por ejemplo, los costos de emisión del BL, en FOB, aparecen aún en A6/B6, pero aparecen listados en el artículo A9/B9.",
+        "retroalimentacion_incorrectoSegundoIntento": "¡Incorrecto! Utilizar DaviPay sí es seguro, porque es un canal transaccional implementado por el Banco Davivienda, que le brindara al igual que todos los productos, la misma seguridad y confianza.",
+        "retoalimentacion_correcta": "Su respuesta es acertada. La carga ha sido colocada correctamente sobre el camión. Cierre la ventana para continuar con la actividad."
+    },
+    "pregunta_2": {
+        "enunciado": "¿Cuál es un cambio importante en el nuevo CIP?",
+        "num_distractores": 4,
+        "distractor_1": "El vendedor ahora debe ser tomador, asegurado y beneficiario de la póliza.",
+        "distractor_2": "En el artículo A5, obliga al vendedor a tomar una póliza bajo  Cláusulas A (LMA/IUA) u otras cláusulas similares.",
+        "distractor_3": "En cualquier caso, para CIP, el comprador no puede tomar otras coberturas de seguro diferentes a “A”",
+        "distractor_4": "El comprador debe tomar siempre una póliza tipo “C” y debe solicitar al comprador una autorización para tomarla en condiciones “A”",
+        "respuesta_correcta": 2,
+        "retroalimentacion_incorrectoPrimerIntento": "La carga se ha roto. Su respuesta no es acertada ya que el vendedor siempre será solamente tomador, es decir, el asegurado y beneficiario siempre será el comprador o aquel que tenga interés asegurable (cadenas de ventas). El comprador puede ampliar las coberturas, siempre que solicite tales al vendedor y para tal debe acordarlo dentro del contrato de compraventa. Y recuerda que las cláusulas “C” de CIF y “A” de CIP son las coberturas mínimas, es decir, nada impide que puedan tomar otras coberturas si se acuerda entre las partes. ",
+        "retroalimentacion_incorrectoSegundoIntento": "",
+        "retoalimentacion_correcta": "Su respuesta es acertada. La carga ha sido colocada correctamente sobre el camión. Cierre la ventana para continuar con la actividad."
+    },
+    "pregunta_3": {
+        "enunciado": "¿Se permite en DAP, que un vendedor en vez de usar a un porteador, use sus propios medios de transporte?",
+        "num_distractores": 4,
+        "distractor_1": "No, el vendedor está obligado a contratar un porteador, es decir, un tercer transportador.",
+        "distractor_2": "El vendedor solamente puede disponer la mercancía a bordo de un vehículo de llegada que sea proporcionado por terceros porteadores.",
+        "distractor_3": "Claro, no es obligación del vendedor formalizar un contrato de transporte, sino que simplemente se disponga el transporte necesario",
+        "distractor_4": "Incoterms® 2020 es un reglamento que determina los contratos de transporte con transportadores o porteadores.",
+        "respuesta_correcta": 3,
+        "retroalimentacion_incorrectoPrimerIntento": "La carga se ha roto. Su respuesta no es acertada ya que el concepto de porteador se usa para determinar cuando un tercero recibe las mercancías en nombre del comprador. También, en los términos “D” para determinar como el vendedor debe disponer las cargas incluyendo transporte. Pero no es imperativo que contrate a un tercero. En la práctica puede hacerlo en sus propios medios.",
+        "retroalimentacion_incorrectoSegundoIntento": "¡Incorrecto! Para instalar DaviPay se requiere un Smartphone Android o iPhone con Plan de datos o WiFi que le permita descargar y utilizar la aplicación.(No funciona en otros dispositivos).",
+        "retoalimentacion_correcta": "Su respuesta es acertada. La carga ha sido colocada correctamente sobre el camión. Cierre la ventana para continuar con la actividad."
+    },
+    "pregunta_4": {
+        "enunciado": "¿Cuáles son los cambios sobre DAT?",
+        "num_distractores": 4,
+        "distractor_1": "2 cambios: primero, ahora DAP aparece antes que DPU(antes DAT), y el segundo, cambio de “terminal” por “descargado”.",
+        "distractor_2": "2 cambios: el nombre de DAT, por DPU, y el segundo, el concepto de “terminal” es diferente del concepto de “descargado”.",
+        "distractor_3": "1 cambio: el nombre de DAT por DPU.",
+        "distractor_4": "1 cambio: el cambio de nombre y el cambio del artículo sobre el descargue en DPU(antes DAT)",
+        "respuesta_correcta": 1,
+        "retroalimentacion_incorrectoPrimerIntento": "La carga se ha roto. Su respuesta no es acertada ya que realmente es un nuevo Incoterms DPU, solamente cambia su nombre, pues el concepto de “entregado en terminal” es un concepto de entrega descargado. Por esta razón el nuevo DPU habla de “descargado.  Recuerde que el concepto de transmisión de riesgo y costo, descargado, como tal, no cambia.",
+        "retroalimentacion_incorrectoSegundoIntento": "",
+        "retoalimentacion_correcta": "Su respuesta es acertada. La carga ha sido colocada correctamente sobre el camión. Cierre la ventana para continuar con la actividad."
+    },
+    "pregunta_5": {
+        "enunciado": "¿En que tipo de artículos se habla sobre las obligaciones con respecto de la seguridad en Incoterms®2020?",
+        "num_distractores": 4,
+        "distractor_1": "En los artículos de “transporte” (A4-B4) y en el artículo de “despacho aduanal” (A7.B7)",
+        "distractor_2": "En todos los artículos siempre se habla de seguridad (A1-A10-B1-B10)",
+        "distractor_3": "En el artículo de entrega (A2-B2) y en el de notificaciones (A10-B10)",
+        "distractor_4": "Ninguno de los anteriores.",
+        "respuesta_correcta": 1,
+        "retroalimentacion_incorrectoPrimerIntento": "La carga se ha roto. Su respuesta no es acertada ya que la seguridad no se toca en todos los artículos sino solamente en lo referente al transporte en el artículo A4-B4 y en lo referente a las aduanas y formalidades de las que se habla en A7-B7. ",
+        "retroalimentacion_incorrectoSegundoIntento": "",
+        "retoalimentacion_correcta": "Su respuesta es acertada. La carga ha sido colocada correctamente sobre el camión. Cierre la ventana para continuar con la actividad."
+    },
+    "pregunta_6": {
+        "enunciado": "¿Para qué sirven las notas explicativas para los usuarios?",
+        "num_distractores": 4,
+        "distractor_1": "Para poder exigir al vendedor y comprador otras obligaciones.",
+        "distractor_2": "Para ser exigibles tales notas en un proceso de cobro judicial.",
+        "distractor_3": "Para que los usuarios antes de cerrar el contrato, puedan conciliar, negociar, y pactar el Incoterms® adecuado que mejor satisface las partes.",
+        "distractor_4": "Para anexarlas al contrato o a la orden de compra.",
+        "respuesta_correcta": 3,
+        "retroalimentacion_incorrectoPrimerIntento": "La carga se ha roto. Su respuesta no es acertada ya que en las notas explicativas no se incluyen obligaciones, como tal, se explican los artículos de cada término (A1-A10,B1-B10) de forma que los usuarios comprendan fácilmente. Dado que son notas y no artículos del reglamento, no tienen carácter legal, y por tal no es necesario anexarlas al contrato de compraventa.",
+        "retroalimentacion_incorrectoSegundoIntento": "",
+        "retoalimentacion_correcta": "Su respuesta es acertada. La carga ha sido colocada correctamente sobre el camión. Cierre la ventana para continuar con la actividad."
+    }
+}

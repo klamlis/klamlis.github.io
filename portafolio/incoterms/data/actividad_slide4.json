@@ -1,0 +1,54 @@
+{
+    "general": {
+        "scorm_nombreCookieSiguiente": "actividadSlide8",
+        "scorm_activarCookieSiguiente": "true",
+        "scorm_nombreCookieEvaluacion": "Evaluacion_DaviPay",
+        "scorm_activarCookieEvaluacion": "true",
+        "numero_preguntas": 3,
+        "instrucciones_titulo": "Juego IZAJE",
+        "instrucciones_parrafo": "Su misión,  si decide aceptarla, es colocar toda la carga sobre el camión. Para lograrlo, usted debe responder cada una de las preguntas de forma correcta. Para iniciar la actividad,  de clic en el botón 'Siguiente'.",
+        "retroalimentacion_generalMal": "<text class='titulo_act1'>¡Infortunadamente!</text><br><br>Su conocimiento sobre ¿Qué es y que no es? Incoterms® no superó el puntaje mínimo de aprobación. Lo invitamos a repasar el contenido e intentarlo nuevamente.<br><br>Dé clic en <text style='color:#C1272D'>'Siguiente'</text> para avanzar.",
+        "retroalimentacion_generalRegular": "<text class='titulo_act1'>¡Bien!</text><br><br>Ha superado el porcentaje mínimo de aprobación. Si quiere mejorar su nota, repase el contenido e inténtelo otra vez.<br><br>Dé clic en <text style='color:#C1272D'>'Siguiente'</text> para avanzar.",
+        "retroalimentacion_generalMuyBien": "<text class='titulo_act1'>¡Felicitaciones!</text><br><br>Ha aprobado la actividad con el máximo puntaje.<br><br>Dé clic en <text style='color:#C1272D'>'Siguiente'</text> para avanzar.",
+        "font_sizeTitulo": "25px",
+        "font_familyTitulo": "'Raleway', sans-serif",
+        "font_sizeParrafo": "16px",
+        "font_familyParrafo": "'Lato', sans-serif"
+    },
+    "pregunta_1": {
+        "enunciado": "Incoterms®2020 es un reglamento de aplicación obligatoria en los contratos de compra venta.",
+        "num_distractores": 4,
+        "distractor_1": "Es obligatorio siempre hacer el uso de Incoterms, así sea de otras versiones (2010, 2020,etc)",
+        "distractor_2": "Siempre se aplica Incoterms® automáticamente, en cualquier contrato de compraventa internacional.",
+        "distractor_3": "Aplica solamente si las partes lo acogen, lo pactan,  dentro del contrato de compraventa.",
+        "distractor_4": "Los Incoterms® aplican cuando las partes acuerden un contrato de transporte.",
+        "respuesta_correcta": 3,
+        "retroalimentacion_incorrectoPrimerIntento": "La carga se ha roto. Su respuesta no es acertada ya que como un reglamento cualquiera, tendrá aplicación en el contrato solamente si las partes lo acuerdan. Es decir, no aplican los Incoterms®2020 automáticamente. Es entonces importante acordarlos, y poner siempre la versión (Incoterms®2020).",
+        "retroalimentacion_incorrectoSegundoIntento": "dfdf",
+        "retoalimentacion_correcta": "Su respuesta es acertada. La carga ha sido colocada correctamente sobre el camión. Cierre la ventana para continuar con la actividad."
+    },
+    "pregunta_2": {
+        "enunciado": "Los Incoterms®2020 determinan el paso del riesgo, el punto de entrega y la propiedad sobre los bienes transados.",
+        "num_distractores": 4,
+        "distractor_1": "No. Los Incoterms®2020 si bien determinan la transmisión de riesgo y el punto de entrega, no determinan la propiedad.",
+        "distractor_2": "Claro, si la carga está en el punto de entrega acordado, se transmite el riesgo y luego se transmite la propiedad de los bienes.",
+        "distractor_3": "Si, Incoterms®2020 es un instrumento para transferir la propiedad de los bienes en el contrato de compraventa",
+        "distractor_4": "La propiedad es el punto clave a la hora de pactar un Incoterms®2020 dado.",
+        "respuesta_correcta": 1,
+        "retroalimentacion_incorrectoPrimerIntento": "La carga se ha roto. Su respuesta no es acertada ya que los Incoterms® no determinan la propiedad. Si las partes requieren determinar este asunto, deben hacerlo en el contrato de compraventa, pues el reglamento Incoterms® no determina en ningún caso, la propiedad de los bienes transados.",
+        "retroalimentacion_incorrectoSegundoIntento": "fdfd",
+        "retoalimentacion_correcta": "Su respuesta es acertada. La carga ha sido colocada correctamente sobre el camión. Cierre la ventana para continuar con la actividad."
+    },
+    "pregunta_3": {
+        "enunciado": "El transporte internacional de las mercancías está determinado por el Incoterms®2020",
+        "num_distractores": 4,
+        "distractor_1": "Incoterms®2020 está diseñado para establecer las responsabilidades del contrato de transporte.",
+        "distractor_2": "Para establecer un contrato de transporte, se requiere conocer el Incoterms®2020.",
+        "distractor_3": "El Incoterms®2020 es la clave para que el transportador sepa las condiciones en las cuales debe prestar su servicio de transporte.",
+        "distractor_4": "Incoterms®2020 no es un reglamento sobre el contrato de transporte. Es un reglamento del contrato de compraventa que determina las condiciones en que el vendedor o el comprador deben proporcionar o contratar.",
+        "respuesta_correcta": 4,
+        "retroalimentacion_incorrectoPrimerIntento": "La carga se ha roto. Su respuesta no es acertada ya que Incoterms®2020 resuelve el asunto de la transmisión de riesgo en la entrega dentro del contrato de compraventa: Entonces, Incoterms® no es un asunto de transporte. Es decir, el reglamento Incoterms®2020 determina las condiciones en las cuales el vendedor entrega al comprador, a través de un porteador.",
+        "retroalimentacion_incorrectoSegundoIntento": "dfdf",
+        "retoalimentacion_correcta": "Su respuesta es acertada. La carga ha sido colocada correctamente sobre el camión. Cierre la ventana para continuar con la actividad."
+    }
+}
