@@ -212,13 +212,14 @@ tr:hover td{background:var(--s1)}
 }
 
 /* ── EVOL-X LOGO STYLES ── */
-.evol-logo-big { font-family:'Sora',sans-serif; font-size:54px; font-weight:800; text-align:center; margin-bottom:6px; line-height:1; }
-.evol-text { color:var(--blanco); }
-.evol-dash { display:inline-block; width:32px; height:12px; background:var(--cyan); border-radius:6px; margin:0 4px; vertical-align:middle; }
-.evol-x { color:var(--cyan); }
-.evol-logo-sm { font-family:'Sora',sans-serif; font-size:22px; font-weight:800; line-height:1; display:flex; align-items:center; gap:2px; }
-.evol-text-sm { color:var(--blanco); }
-.evol-dash-sm { display:inline-block; width:16px; height:6px; background:var(--cyan); border-radius:3px; margin:0 2px; }
+.evol-logo-big { font-family:'Sora',sans-serif; font-size:60px; font-weight:800; text-align:center; line-height:1; display:flex; align-items:center; justify-content:center; gap:0; }
+.evol-text { color:var(--cyan); letter-spacing:-1px; }
+.evol-dash { display:inline-block; width:38px; height:13px; background:var(--cyan); border-radius:99px; margin:0 5px 4px 5px; flex-shrink:0; }
+.evol-x { color:var(--cyan); letter-spacing:-1px; }
+.evol-gym { font-family:'Sora',sans-serif; font-size:13px; font-weight:500; letter-spacing:8px; color:#fff; text-align:center; margin-top:6px; margin-bottom:24px; }
+.evol-logo-sm { font-family:'Sora',sans-serif; font-size:22px; font-weight:800; line-height:1; display:flex; align-items:center; gap:0; }
+.evol-text-sm { color:var(--cyan); }
+.evol-dash-sm { display:inline-block; width:18px; height:7px; background:var(--cyan); border-radius:99px; margin:0 3px 2px 3px; flex-shrink:0; }
 .evol-x-sm { color:var(--cyan); }
 .pill-admin { background:linear-gradient(90deg,#1e2340,var(--cyan)); color:#fff; }
 /* ── TOPBAR ── */
@@ -235,8 +236,8 @@ tr:hover td{background:var(--s1)}
 <div id="loginScreen">
 <div class="login-wrap">
   <div class="login-card">
-    <div class="evol-logo-big"><span class="evol-text">evol</span><span class="evol-dash">-</span><span class="evol-x">x</span></div>
-    <div class="login-tag">G Y M</div>
+    <div class="evol-logo-big"><span class="evol-text">evol</span><span class="evol-dash"></span><span class="evol-x">x</span></div>
+    <div class="evol-gym">G Y M</div>
     <div class="fg"><label>Usuario o correo</label><input type="text" id="li_user" placeholder="Tu usuario o email" onkeypress="if(event.key==='Enter')login()"/></div>
     <div class="fg"><label>Contraseña</label><input type="password" id="li_pass" placeholder="••••••••" onkeypress="if(event.key==='Enter')login()"/></div>
     <button class="btn btn-p btn-full" onclick="login()">Ingresar →</button>
@@ -265,7 +266,7 @@ tr:hover td{background:var(--s1)}
 <div id="appScreen" class="hidden">
   <div class="topbar">
     <div>
-      <div class="evol-logo-sm"><span class="evol-text-sm">evol</span><span class="evol-dash-sm">-</span><span class="evol-x-sm">x</span></div>
+      <div class="evol-logo-sm"><span class="evol-text-sm">evol</span><span class="evol-dash-sm"></span><span class="evol-x-sm">x</span></div>
       <span class="logo-sub">GYM</span>
     </div>
     <div class="topbar-r">
@@ -584,8 +585,8 @@ tr:hover td{background:var(--s1)}
 //  STORAGE — Simple, directa, confiable
 // ═══════════════════════════════════════════════════════════
 var DB_KEY = 'evolx_db_v1';
-var GAS_URL = 'https://script.google.com/macros/s/AKfycbwhI-C--93IY0vWfh1jIeB36QL8t8NZ4O_yqppANZVOWxmIB7VXCQ7aNSjE18K8OMTm/exec';
-var GAS_SECRET = (function(){var _k=['I','v','o','n','n','e','W','e','l','l','n','e','s','s','2','0','2','4'];return _k.join('');})();
+var GAS_URL = 'https://script.google.com/macros/s/AKfycbyX4bnv1_sBpvl5CaQt7e7dA5uznDS4boY-Cn2qEHDGP1oXs4pk9YIbI391Y-rHoDhMUQ/exec';
+var GAS_SECRET = (function(){var _k=['E','v','o','l','X','@','G','m','2','0','2','5','!','k','Z','9'];return _k.join('');})();
 
 function db() {
   try {
@@ -2286,7 +2287,7 @@ function getGasCode() {
     '// EVOL-X GYM - Apps Script',
     '// Reemplaza SS_ID con el ID de tu Spreadsheet',
     "var SS_ID = 'AQUI_TU_ID_DE_SPREADSHEET';",
-    "var CLAVE = 'EvolX2024!';  // cambia por tu clave",
+    "var CLAVE = 'EvolX@Gm2025!kZ9'",
     '',
     'function doPost(e) {',
     '  try {',
