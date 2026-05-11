@@ -2955,33 +2955,50 @@ function pgAdminPanel() {
   if (CU.role !== 'admin') { toast('Acceso denegado'); return; }
   var d = db();
   var coaches = d.users.filter(function(u){return u.role==='coach';});
-  var admins = d.users.filter(function(u){return u.role==='admin';});
-  var html = '<div class="page-title">GESTIÓN DE CUENTAS</div>';
-  html += '<div class="page-sub">Administración de coaches y administradores</div>';
-  // Admins
-  html += '<div class="card"><div class="card-title">🔐 Administradores</div>';
+  var admins  = d.users.filter(function(u){return u.role==='admin';});
+  var html = '<div class="page-title">GESTION DE CUENTAS</div>';
+  html += '<div class="page-sub">Administracion de coaches y administradores</div>';
+  html += '<div class="card"><div class="card-title">Administradores</div>';
   admins.forEach(function(u) {
-    html += '<div class="u-row"><div class="u-av" style="background:linear-gradient(135deg,#1e2340,var(--cyan))">'+ini(u.name)+'</div>';
-    html += '<div class="u-info"><div class="u-name">'+u.name+'</div><div class="u-meta">'+u.username+' · '+( u.email||'')+'</div></div>';
+    html += '<div class="u-row">';
+    html += '<div class="u-av" style="background:linear-gradient(135deg,#1e2340,#00d4f5)">'+ini(u.name)+'</div>';
+    html += '<div class="u-info"><div class="u-name">'+u.name+'</div>';
+    html += '<div class="u-meta">'+u.username+' - '+(u.email||'')+'</div></div>';
     if (u.id !== CU.id) {
-      html += '<div class="u-btns"><button class="btn btn-g btn-sm" onclick="editPrivUser(''+u.id+'')">✏️ Editar</button><button class="btn btn-d btn-sm" onclick="delPrivUser(''+u.id+'')">🗑️</button></div>';
+      html += '<div class="u-btns">';
+      html += '<button class="btn btn-g btn-sm priv-edit-btn" data-uid="'+u.id+'">Editar</button>';
+      html += '<button class="btn btn-d btn-sm priv-del-btn" data-uid="'+u.id+'">Eliminar</button>';
+      html += '</div>';
     } else {
-      html += '<div class="u-btns"><span class="badge bk">Tú</span></div>';
+      html += '<div class="u-btns"><span class="badge bk">Tu cuenta</span></div>';
     }
     html += '</div>';
   });
-  html += '<div style="padding:12px"><button class="btn btn-p btn-sm" onclick="openNewPrivUser('admin')">+ Nuevo admin</button></div></div>';
-  // Coaches
-  html += '<div class="card"><div class="card-title">💪 Coaches</div>';
+  html += '<div style="padding:12px"><button class="btn btn-p btn-sm" id="btn_new_admin">+ Nuevo admin</button></div></div>';
+  html += '<div class="card"><div class="card-title">Coaches</div>';
   coaches.forEach(function(u) {
-    var userCount = d.users.filter(function(x){return x.role==='user';}).length;
-    html += '<div class="u-row"><div class="u-av" style="background:linear-gradient(135deg,#0c2a3e,var(--cyan))">'+ini(u.name)+'</div>';
-    html += '<div class="u-info"><div class="u-name">'+u.name+'</div><div class="u-meta">'+u.username+' · '+(u.email||'')+'</div></div>';
-    html += '<div class="u-btns"><button class="btn btn-g btn-sm" onclick="editPrivUser(''+u.id+'')">✏️ Editar</button><button class="btn btn-d btn-sm" onclick="delPrivUser(''+u.id+'')">🗑️</button></div>';
+    html += '<div class="u-row">';
+    html += '<div class="u-av" style="background:linear-gradient(135deg,#0c2a3e,#00d4f5)">'+ini(u.name)+'</div>';
+    html += '<div class="u-info"><div class="u-name">'+u.name+'</div>';
+    html += '<div class="u-meta">'+u.username+' - '+(u.email||'')+'</div></div>';
+    html += '<div class="u-btns">';
+    html += '<button class="btn btn-g btn-sm priv-edit-btn" data-uid="'+u.id+'">Editar</button>';
+    html += '<button class="btn btn-d btn-sm priv-del-btn" data-uid="'+u.id+'">Eliminar</button>';
+    html += '</div>';
     html += '</div>';
   });
-  html += '<div style="padding:12px"><button class="btn btn-p btn-sm" onclick="openNewPrivUser('coach')">+ Nuevo coach</button></div></div>';
+  html += '<div style="padding:12px"><button class="btn btn-p btn-sm" id="btn_new_coach">+ Nuevo coach</button></div></div>';
   setMain(html);
+  document.querySelectorAll('.priv-edit-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){ editPrivUser(this.getAttribute('data-uid')); });
+  });
+  document.querySelectorAll('.priv-del-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){ delPrivUser(this.getAttribute('data-uid')); });
+  });
+  var ba = document.getElementById('btn_new_admin');
+  if (ba) ba.addEventListener('click', function(){ openNewPrivUser('admin'); });
+  var bc = document.getElementById('btn_new_coach');
+  if (bc) bc.addEventListener('click', function(){ openNewPrivUser('coach'); });
 }
 
 function openNewPrivUser(role) {
