@@ -1,0 +1,3027 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>evol-x GYM</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --negro:#090d14;--vino:#0c1a2e;--mag:#00d4f5;--mag2:#00c4e0;
+  --oro:#00d4f5;--blanco:#f0f8ff;--gris:#6a8aaa;
+  --s1:rgba(0,212,245,0.05);--s2:rgba(0,212,245,0.09);
+  --brd:rgba(0,212,245,0.2);--r:12px;
+  --deep:#1e2340;--cyan:#00d4f5;--darkbg:#090d14;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Sora',sans-serif;background:rgba(9,13,20,1);color:var(--blanco);min-height:100vh;overflow-x:hidden}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:var(--cyan);border-radius:2px}
+
+/* TOPBAR */
+.topbar{position:sticky;top:0;z-index:200;background:rgba(9,13,20,0.97);backdrop-filter:blur(12px);border-bottom:1px solid var(--brd);padding:0 20px;height:56px;display:flex;align-items:center;justify-content:space-between}
+.logo{font-family:'Sora',sans-serif;font-weight:800;letter-spacing:1px;font-size:24px;letter-spacing:3px}
+.logo span{color:var(--mag2)}
+.logo-sub{font-size:9px;letter-spacing:4px;color:var(--oro);display:block;margin-top:-4px}
+.topbar-r{display:flex;align-items:center;gap:8px}
+.role-pill{font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:1px}
+.pill-coach{background:linear-gradient(90deg,#0c2a3e,var(--cyan));color:#fff}
+.pill-user{background:rgba(0,212,245,0.1);color:var(--cyan);border:1px solid rgba(0,212,245,0.3)}
+.avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#0c2a3e,var(--cyan));display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+
+/* LAYOUT */
+.layout{display:flex;height:calc(100vh - 56px)}
+.sidebar{width:210px;min-width:210px;background:rgba(9,13,20,0.75);border-right:1px solid var(--brd);padding:12px 10px;overflow-y:auto;display:flex;flex-direction:column;gap:2px}
+.s-sect{font-size:9px;font-weight:700;letter-spacing:2px;color:var(--gris);padding:12px 8px 5px;text-transform:uppercase}
+.nav-btn{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--r);font-size:13px;color:var(--gris);font-weight:500;cursor:pointer;transition:all 0.15s;border:none;background:none;width:100%;text-align:left;font-family:'Montserrat',sans-serif}
+.nav-btn:hover{background:var(--s2);color:var(--blanco)}
+.nav-btn.active{background:linear-gradient(90deg,rgba(0,212,245,0.15),rgba(0,180,216,0.07));color:var(--blanco);border-left:3px solid var(--mag)}
+.main{flex:1;overflow-y:auto;padding:24px 28px}
+
+/* FORMS */
+.fg{margin-bottom:12px}
+.fg label{display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gris);margin-bottom:5px}
+.fg input,.fg select,.fg textarea{width:100%;padding:9px 13px;background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);color:var(--blanco);font-family:'Sora',sans-serif;font-size:13px;transition:border-color 0.2s}
+.fg input:focus,.fg select:focus,.fg textarea:focus{outline:none;border-color:var(--mag)}
+.fg textarea{resize:vertical;min-height:70px}
+.fg select option{background:#1a0a1a}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fr3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 18px;border-radius:var(--r);font-family:'Sora',sans-serif;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all 0.18s;letter-spacing:0.5px}
+.btn-p{background:linear-gradient(135deg,#0c2a3e,var(--cyan));color:#fff}
+.btn-p:hover{opacity:0.9;transform:translateY(-1px)}
+.btn-g{background:var(--s1);border:1px solid var(--brd);color:var(--blanco)}
+.btn-g:hover{background:var(--s2)}
+.btn-d{background:rgba(180,40,40,0.2);color:#ff8080;border:1px solid rgba(180,40,40,0.3)}
+.btn-gold{background:linear-gradient(135deg,#0c3a4e,#00d4f5);color:#0d1a26;font-weight:700}
+.btn-sm{padding:5px 12px;font-size:11px}
+.btn-full{width:100%;padding:12px}
+.btn-warn{background:rgba(255,170,0,0.15);color:#ffaa44;border:1px solid rgba(255,170,0,0.3)}
+
+/* CARDS */
+.card{background:var(--s1);border:1px solid var(--brd);border-radius:16px;padding:18px 22px;margin-bottom:16px;position:relative;overflow:hidden}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#0c2a3e,var(--cyan),#00b4d8)}
+.page-title{font-family:'Sora',sans-serif;font-weight:800;letter-spacing:1px;font-size:28px;letter-spacing:3px;background:linear-gradient(90deg,var(--blanco),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px}
+.page-sub{font-size:12px;color:var(--gris);margin-bottom:20px}
+.card-title{font-family:'Sora',sans-serif;font-weight:800;letter-spacing:1px;font-size:18px;letter-spacing:2px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:18px}
+.stat{background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);padding:14px}
+.stat-l{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gris);margin-bottom:6px}
+.stat-v{font-family:'Sora',sans-serif;font-weight:800;letter-spacing:1px;font-size:32px;letter-spacing:1px;line-height:1}
+.stat-u{font-size:12px;color:var(--gris);margin-left:2px}
+
+/* TABLE */
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:7px 10px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gris);border-bottom:1px solid var(--brd)}
+td{padding:9px 10px;border-bottom:1px solid rgba(119,0,105,0.1)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--s1)}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:0.5px}
+.bm{background:rgba(0,212,245,0.15);color:#00d4f5;border:1px solid rgba(0,212,245,0.35)}
+.bg{background:rgba(160,128,144,0.15);color:var(--gris)}
+.bo{background:rgba(201,168,76,0.15);color:var(--oro);border:1px solid rgba(201,168,76,0.3)}
+.bk{background:rgba(80,200,120,0.15);color:#80d4a0;border:1px solid rgba(80,200,120,0.3)}
+.bw{background:rgba(200,80,80,0.15);color:#d48080;border:1px solid rgba(200,80,80,0.3)}
+
+/* MODAL */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:400;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.overlay.open{display:flex}
+.modal{background:rgba(9,13,20,1);border:1px solid var(--brd);border-radius:18px;padding:24px;width:520px;max-width:95vw;max-height:88vh;overflow-y:auto}
+.modal-lg{width:640px}
+.modal-title{font-family:'Sora',sans-serif;font-weight:800;letter-spacing:1px;font-size:20px;letter-spacing:2px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between}
+.close-btn{background:none;border:none;cursor:pointer;font-size:20px;color:var(--gris)}
+
+/* LOGIN */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 30% 50%,rgba(0,212,245,0.08) 0%,transparent 60%),radial-gradient(ellipse at 70% 20%,rgba(0,180,216,0.1) 0%,transparent 50%),var(--negro)}
+.login-card{background:rgba(9,13,20,0.92);border:1px solid var(--brd);border-radius:22px;padding:40px 34px;width:380px;max-width:95vw;backdrop-filter:blur(20px)}
+.login-logo{font-family:'Sora',sans-serif;font-weight:800;letter-spacing:1px;font-size:48px;letter-spacing:6px;text-align:center}
+.login-logo span{color:var(--mag2)}
+.login-tag{font-size:10px;letter-spacing:5px;color:var(--oro);text-align:center;margin-bottom:28px;font-weight:300}
+.hr{border:none;border-top:1px solid var(--brd);margin:16px 0}
+
+/* ONBOARDING */
+.ob-wrap{min-height:100vh;background:rgba(9,13,20,1);display:flex;align-items:flex-start;justify-content:center;padding:32px 16px}
+.ob-card{width:660px;max-width:100%;background:rgba(9,13,20,0.92);border:1px solid var(--brd);border-radius:22px;padding:32px 36px;backdrop-filter:blur(16px)}
+.ob-steps{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:24px}
+.ob-dot{width:10px;height:10px;border-radius:50%;background:var(--brd);transition:all 0.3s}
+.ob-dot.active{background:var(--mag);transform:scale(1.3)}
+.ob-dot.done{background:var(--oro)}
+.s-title{font-family:'Sora',sans-serif;font-weight:800;letter-spacing:1px;font-size:16px;letter-spacing:2px;color:var(--oro);margin:18px 0 10px;display:flex;align-items:center;gap:8px}
+.s-title::after{content:'';flex:1;height:1px;background:rgba(201,168,76,0.2)}
+.q-block{margin-bottom:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:var(--r);border:1px solid var(--brd)}
+.q-text{font-size:12px;color:var(--blanco);margin-bottom:8px;font-weight:500;line-height:1.6}
+.radio-g{display:flex;gap:8px}
+.r-opt{flex:1;display:flex;align-items:center;justify-content:center;padding:8px;border-radius:8px;border:1px solid var(--brd);cursor:pointer;font-size:13px;font-weight:600;transition:all 0.15s}
+.r-opt.sel{background:rgba(0,212,245,0.12);border-color:var(--cyan);color:var(--blanco)}
+.met-item{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid rgba(119,0,105,0.1);font-size:12px;color:var(--gris);line-height:1.7}
+.met-item:last-child{border-bottom:none}
+.met-num{min-width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#0c2a3e,var(--cyan));display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0}
+
+/* USER ROW */
+.u-row{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-bottom:1px solid var(--brd);transition:background 0.15s}
+.u-row:last-child{border-bottom:none}
+.u-row:hover{background:var(--s2)}
+.u-av{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#0c2a3e,var(--cyan));display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;border:2px solid rgba(119,0,105,0.4)}
+.u-info{flex:1;min-width:0}
+.u-name{font-weight:600;font-size:14px}
+.u-meta{font-size:11px;color:var(--gris);margin-top:2px}
+.u-btns{display:flex;flex-direction:column;gap:5px;min-width:115px}
+
+/* LOG ENTRY */
+.log-entry{display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid var(--brd);border-radius:var(--r);margin-bottom:8px;background:var(--s1)}
+.log-date{min-width:48px;text-align:center;background:linear-gradient(135deg,#0c2a3e,var(--cyan));border-radius:8px;padding:6px 4px;flex-shrink:0}
+.log-d{font-family:'Sora',sans-serif;font-weight:800;letter-spacing:1px;font-size:22px;line-height:1;color:#fff}
+.log-m{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,0.7)}
+.log-info{flex:1}
+.log-t{font-weight:600;font-size:13px}
+.log-s{font-size:11px;color:var(--gris);margin-top:2px}
+.log-c{font-size:11px;color:rgba(160,128,144,0.9);background:rgba(0,0,0,0.25);padding:5px 8px;border-radius:6px;margin-top:5px;font-style:italic;border-left:2px solid var(--cyan)}
+
+/* EXERCISE ROWS */
+.ex-hdr{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:6px;padding:5px 12px;background:rgba(0,0,0,0.2);font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gris)}
+.ex-row{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:6px;padding:9px 12px;border-bottom:1px solid rgba(119,0,105,0.1);font-size:12px;align-items:center}
+.ex-row:last-child{border-bottom:none}
+.ex-row:hover{background:var(--s1)}
+
+/* WORKOUT DAY */
+.w-day{border:1px solid var(--brd);border-radius:var(--r);overflow:hidden;margin-bottom:12px}
+.w-day-hdr{background:linear-gradient(90deg,rgba(0,180,216,0.15),rgba(0,212,245,0.08));padding:11px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--brd)}
+.w-day-t{font-family:'Sora',sans-serif;font-weight:800;letter-spacing:1px;font-size:16px;letter-spacing:2px}
+.w-day-s{font-size:11px;color:var(--oro);font-weight:600;text-transform:uppercase;letter-spacing:1px}
+
+/* MEASURE GRID */
+.m-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
+.m-item{background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);padding:9px 11px}
+.m-name{font-size:10px;color:var(--gris);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px}
+.m-val{font-family:'Sora',sans-serif;font-weight:800;letter-spacing:1px;font-size:20px;line-height:1}
+.m-u{font-size:10px;color:var(--gris)}
+.m-diff{font-size:10px;font-weight:600;margin-top:2px}
+
+/* TOAST */
+.toast{position:fixed;bottom:20px;right:20px;background:rgba(9,13,20,0.97);color:var(--blanco);border:1px solid var(--brd);padding:10px 18px;border-radius:var(--r);font-size:13px;font-weight:500;z-index:999;transform:translateY(80px);opacity:0;transition:all 0.3s;backdrop-filter:blur(12px);max-width:320px}
+.toast.show{transform:translateY(0);opacity:1}
+
+/* MOBILE */
+.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:300;background:rgba(9,13,20,0.97);backdrop-filter:blur(16px);border-top:1px solid var(--brd);padding:6px 0 env(safe-area-inset-bottom,6px)}
+.mob-items{display:flex;justify-content:space-around}
+.mob-btn{display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 10px;border-radius:8px;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--gris);cursor:pointer;border:none;background:none;font-family:'Sora',sans-serif;min-width:52px}
+.mob-btn.active{color:var(--mag2)}
+.mob-icon{font-size:19px;line-height:1}
+.mob-more{position:fixed;bottom:68px;left:0;right:0;z-index:299;background:rgba(9,13,20,0.98);border-top:1px solid var(--brd);padding:14px;display:none;flex-direction:column;gap:4px;max-height:55vh;overflow-y:auto}
+.mob-more.open{display:flex}
+
+/* EMPTY */
+.empty{text-align:center;padding:40px 16px;color:var(--gris)}
+.empty-icon{font-size:36px;margin-bottom:10px;opacity:0.4}
+.empty-t{font-family:'Sora',sans-serif;font-weight:800;letter-spacing:1px;font-size:20px;letter-spacing:2px;margin-bottom:6px}
+.empty-s{font-size:12px}
+
+/* AUTOCOMPLETE */
+.ac-wrap{position:relative}
+.ac-list{display:none;position:absolute;top:100%;left:0;right:0;z-index:999;background:rgba(9,13,20,0.99);border:1px solid var(--brd);border-radius:8px;max-height:180px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.5)}
+.ac-item{padding:8px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid rgba(119,0,105,0.1)}
+.ac-item:last-child{border-bottom:none}
+.ac-item:hover{background:var(--s2)}
+
+/* EDIT MODE */
+.edit-input{width:100%;padding:4px 8px;background:var(--s1);border:1px solid var(--brd);border-radius:6px;color:var(--blanco);font-family:'Sora',sans-serif;font-size:12px}
+
+/* RUTINA NUM BADGE */
+.rut-num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#0c2a3e,var(--cyan));font-size:11px;font-weight:700;margin-right:8px}
+
+.hidden{display:none!important}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+
+@media(max-width:768px){
+  .sidebar{display:none}
+  .mob-nav{display:block}
+  .main{padding:14px;padding-bottom:82px}
+  .layout{height:auto;min-height:calc(100vh - 56px)}
+  .fr,.fr3,.g2{grid-template-columns:1fr}
+  .ex-hdr{display:none}
+  .ex-row{grid-template-columns:1fr;gap:3px}
+  .stats{grid-template-columns:1fr 1fr}
+  .modal{padding:18px 14px}
+  .u-btns{flex-direction:row;flex-wrap:wrap;min-width:auto}
+  .ob-card{padding:22px 16px}
+}
+
+/* ── EVOL-X LOGO STYLES ── */
+.evol-logo-big { font-family:'Sora',sans-serif; font-size:54px; font-weight:800; text-align:center; margin-bottom:6px; line-height:1; }
+.evol-text { color:var(--blanco); }
+.evol-dash { display:inline-block; width:32px; height:12px; background:var(--cyan); border-radius:6px; margin:0 4px; vertical-align:middle; }
+.evol-x { color:var(--cyan); }
+.evol-logo-sm { font-family:'Sora',sans-serif; font-size:22px; font-weight:800; line-height:1; display:flex; align-items:center; gap:2px; }
+.evol-text-sm { color:var(--blanco); }
+.evol-dash-sm { display:inline-block; width:16px; height:6px; background:var(--cyan); border-radius:3px; margin:0 2px; }
+.evol-x-sm { color:var(--cyan); }
+.pill-admin { background:linear-gradient(90deg,#1e2340,var(--cyan)); color:#fff; }
+/* ── TOPBAR ── */
+.topbar { border-bottom:1px solid rgba(0,212,245,0.2); }
+/* ── CARD top accent ── */
+.card::before { background:linear-gradient(90deg,var(--deep),var(--cyan),#00b4d8); }
+/* ── LOGIN TAG ── */
+.login-tag { font-size:11px; letter-spacing:6px; color:var(--cyan); text-align:center; margin-bottom:28px; font-weight:500; }
+</style>
+</head>
+<body>
+
+<!-- ===== LOGIN ===== -->
+<div id="loginScreen">
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="evol-logo-big"><span class="evol-text">evol</span><span class="evol-dash">-</span><span class="evol-x">x</span></div>
+    <div class="login-tag">G Y M</div>
+    <div class="fg"><label>Usuario o correo</label><input type="text" id="li_user" placeholder="Tu usuario o email" onkeypress="if(event.key==='Enter')login()"/></div>
+    <div class="fg"><label>Contraseña</label><input type="password" id="li_pass" placeholder="••••••••" onkeypress="if(event.key==='Enter')login()"/></div>
+    <button class="btn btn-p btn-full" onclick="login()">Ingresar →</button>
+    <div id="li_status" style="font-size:11px;color:var(--gris);text-align:center;margin-top:10px;min-height:16px"></div>
+    <div class="hr"></div>
+    <div style="text-align:center;font-size:12px;color:var(--gris)">¿Primera vez? <span style="color:var(--cyan);cursor:pointer" onclick="showRegister()">Regístrate aquí</span></div>
+  </div>
+</div>
+</div>
+
+<!-- ===== ONBOARDING ===== -->
+<div id="obScreen" class="hidden">
+<div class="ob-wrap">
+  <div class="ob-card">
+    <div style="text-align:center;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--brd)">
+      <div style="font-family:'Sora',sans-serif;font-weight:800;letter-spacing:1px;font-size:24px;letter-spacing:3px;margin-bottom:6px">🦋 BIENVENIDA A TU TRANSFORMACIÓN</div>
+      <div style="font-size:12px;color:var(--gris)">Completa tu diagnóstico inicial para que tu coach diseñe tu plan</div>
+    </div>
+    <div class="ob-steps" id="ob_dots"></div>
+    <div id="ob_content"></div>
+  </div>
+</div>
+</div>
+
+<!-- ===== APP ===== -->
+<div id="appScreen" class="hidden">
+  <div class="topbar">
+    <div>
+      <div class="evol-logo-sm"><span class="evol-text-sm">evol</span><span class="evol-dash-sm">-</span><span class="evol-x-sm">x</span></div>
+      <span class="logo-sub">GYM</span>
+    </div>
+    <div class="topbar-r">
+      <span class="role-pill" id="tp_role"></span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <div class="avatar" id="tp_av"></div>
+        <span style="font-size:12px;font-weight:600" id="tp_name"></span>
+      </div>
+      <button class="btn btn-g btn-sm" onclick="logout()">Salir</button>
+    </div>
+  </div>
+  <div class="layout">
+    <div class="sidebar" id="sidebar"></div>
+    <div class="main" id="main"></div>
+  </div>
+</div>
+
+<!-- ===== MOBILE NAV ===== -->
+<div class="mob-nav" id="mobNav"><div class="mob-items" id="mobItems"></div></div>
+<div class="mob-more" id="mobMore"></div>
+
+<!-- ===== TOAST ===== -->
+<div class="toast" id="toast"></div>
+
+<!-- ===== MODALS ===== -->
+<!-- Nueva/Editar Usuaria -->
+<div class="overlay" id="m_usuaria">
+<div class="modal">
+  <div class="modal-title"><span id="m_usuaria_title">NUEVA USUARIA</span><button class="close-btn" onclick="closeModal('m_usuaria')">×</button></div>
+  <input type="hidden" id="u_edit_id"/>
+  <div class="fr">
+    <div class="fg"><label>Nombre completo</label><input type="text" id="u_nombre"/></div>
+    <div class="fg"><label>Username</label><input type="text" id="u_username"/></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Contraseña</label><input type="password" id="u_pass"/></div>
+    <div class="fg"><label>Email</label><input type="email" id="u_email"/></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Teléfono</label><input type="text" id="u_tel"/></div>
+    <div class="fg"><label>Objetivo</label><input type="text" id="u_obj" placeholder="Ej: Ganar masa muscular"/></div>
+  </div>
+  <div class="fg"><label>Observaciones / Lesiones</label><textarea id="u_obs" placeholder="Condiciones médicas, lesiones..."></textarea></div>
+  <div class="hr"></div>
+  <div style="font-size:11px;font-weight:700;color:var(--oro);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">💳 Membresía</div>
+  <div class="fr">
+    <div class="fg"><label>Fecha inicio</label><input type="date" id="u_mem_start"/></div>
+    <div class="fg"><label>Fecha fin</label><input type="date" id="u_mem_end"/></div>
+  </div>
+  <button class="btn btn-p btn-full" id="u_save_btn" onclick="saveUsuaria()">✅ Guardar</button>
+</div>
+</div>
+
+<!-- Medidas -->
+<div class="overlay" id="m_medidas">
+<div class="modal">
+  <div class="modal-title">📏 REGISTRAR MEDIDAS<button class="close-btn" onclick="closeModal('m_medidas')">×</button></div>
+  <div class="fr">
+    <div class="fg"><label>Usuaria</label><select id="med_uid"></select></div>
+    <div class="fg"><label>Fecha</label><input type="date" id="med_fecha"/></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Peso (kg)</label><input type="number" id="med_peso" step="0.1"/></div>
+    <div class="fg"><label>Talla (cm)</label><input type="number" id="med_talla" step="0.1"/></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Cuello (cm)</label><input type="number" id="med_cuello" step="0.1"/></div>
+    <div class="fg"><label>Hombro (cm)</label><input type="number" id="med_hombro" step="0.1"/></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Pectoral (cm)</label><input type="number" id="med_pect" step="0.1"/></div>
+    <div class="fg"><label>Cintura (cm)</label><input type="number" id="med_cin" step="0.1"/></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Abdomen (cm)</label><input type="number" id="med_abd" step="0.1"/></div>
+    <div class="fg"><label>Cadera (cm)</label><input type="number" id="med_cad" step="0.1"/></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Brazo D (cm)</label><input type="number" id="med_bD" step="0.1"/></div>
+    <div class="fg"><label>Brazo I (cm)</label><input type="number" id="med_bI" step="0.1"/></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Muslo (cm)</label><input type="number" id="med_mus" step="0.1"/></div>
+    <div class="fg"><label>Muslo medio (cm)</label><input type="number" id="med_musm" step="0.1"/></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Pantorrilla (cm)</label><input type="number" id="med_pant" step="0.1"/></div>
+    <div class="fg"><label>Antebrazo (cm)</label><input type="number" id="med_ant" step="0.1"/></div>
+  </div>
+  <div class="fg"><label>Observaciones</label><textarea id="med_obs"></textarea></div>
+  <button class="btn btn-p btn-full" onclick="saveMedidas()">💾 Guardar medidas</button>
+</div>
+</div>
+
+<!-- Ejercicio (Nueva/Editar) -->
+<div class="overlay" id="m_ejercicio">
+<div class="modal">
+  <div class="modal-title"><span id="m_ej_title">NUEVO EJERCICIO</span><button class="close-btn" onclick="closeModal('m_ejercicio')">×</button></div>
+  <input type="hidden" id="ej_edit_id"/>
+  <div class="fr">
+    <div class="fg"><label>Nombre</label><input type="text" id="ej_nombre" placeholder="Ej: Sentadilla con barra"/></div>
+    <div class="fg"><label>Grupo muscular</label>
+      <select id="ej_grupo">
+        <option>Pierna</option><option>Glúteo</option><option>Espalda</option>
+        <option>Pecho</option><option>Hombro</option><option>Bíceps</option>
+        <option>Tríceps</option><option>Core</option><option>Full Body</option><option>Cardio</option>
+      </select>
+    </div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>URL Video (YouTube)</label><input type="text" id="ej_video" placeholder="https://youtu.be/..."/></div>
+    <div class="fg"><label>Equipamiento</label><input type="text" id="ej_equipo" placeholder="Mancuernas, banda..."/></div>
+  </div>
+  <div class="fg"><label>Descripción / instrucciones</label><textarea id="ej_desc"></textarea></div>
+  <button class="btn btn-p btn-full" onclick="saveEjercicio()">💾 Guardar ejercicio</button>
+</div>
+</div>
+
+<!-- Rutina (Nueva/Editar) -->
+<div class="overlay" id="m_rutina">
+<div class="modal modal-lg">
+  <div class="modal-title"><span id="m_rut_title">CARGAR RUTINA</span><button class="close-btn" onclick="closeModal('m_rutina')">×</button></div>
+  <input type="hidden" id="rut_edit_id"/>
+  <div class="fr">
+    <div class="fg"><label>Usuaria</label><select id="rut_uid"></select></div>
+    <div class="fg"><label>Nombre del plan</label><input type="text" id="rut_nombre" placeholder="Ej: Abril — Mes 1"/></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Semana #</label><input type="number" id="rut_semana" min="1" max="52"/></div>
+    <div class="fg"><label>Intensidad</label>
+      <select id="rut_int">
+        <option>Baja (5-6)</option><option selected>Media (7-8)</option>
+        <option>Alta (8-9)</option><option>Máxima (9-10)</option>
+      </select>
+    </div>
+  </div>
+  <div class="fg"><label>Objetivo</label><input type="text" id="rut_obj" placeholder="Mejorar condición física"/></div>
+  <div class="fr">
+    <div class="fg"><label>Fecha inicio vigencia</label><input type="date" id="rut_fecha_ini"/></div>
+    <div class="fg"><label>Fecha fin vigencia (cambio estimado)</label><input type="date" id="rut_fecha_fin"/></div>
+  </div>
+  <div class="hr"></div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+    <div style="font-size:11px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:1px">Ejercicios</div>
+    <button class="btn btn-g btn-sm" onclick="addExRow()">+ Añadir ejercicio</button>
+  </div>
+  <div id="rut_exs"></div>
+  <button class="btn btn-p btn-full" onclick="saveRutina()">💾 Guardar rutina</button>
+</div>
+</div>
+
+<!-- Log sesión -->
+<div class="overlay" id="m_log">
+<div class="modal" style="width:600px">
+  <div class="modal-title">💪 REGISTRAR SESIÓN<button class="close-btn" onclick="closeModal('m_log')">×</button></div>
+  <div class="fr">
+    <div class="fg"><label>Fecha</label><input type="date" id="log_fecha"/></div>
+    <div class="fg"><label>Duración (min)</label><input type="number" id="log_dur" placeholder="30"/></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Plan</label><select id="log_rut" onchange="loadLogExs()"></select></div>
+    <div class="fg"><label>Día</label><select id="log_dia" onchange="loadLogExs()">
+      <option value="dia1">Día 1</option><option value="dia2">Día 2</option><option value="dia3">Día 3</option>
+    </select></div>
+  </div>
+  <div id="log_exs_wrap"></div>
+  <div class="hr"></div>
+  <div class="fr">
+    <div class="fg"><label>Peso hoy (kg)</label><input type="number" id="log_peso" step="0.1" placeholder="Opcional"/></div>
+    <div class="fg"><label>Esfuerzo percibido (1-10)</label>
+      <select id="log_esfuerzo">
+        <option value="">— Selecciona —</option>
+        <option value="1">1 — Muy fácil</option><option value="2">2 — Fácil</option>
+        <option value="3">3 — Moderado</option><option value="4">4 — Un poco duro</option>
+        <option value="5">5 — Duro</option><option value="6">6 — Bastante duro</option>
+        <option value="7">7 — Muy duro</option><option value="8">8 — Intenso</option>
+        <option value="9">9 — Muy intenso</option><option value="10">10 — Máximo esfuerzo</option>
+      </select>
+    </div>
+  </div>
+  <div class="fg"><label>¿Sentiste algún dolor o molestia?</label>
+    <select id="log_dolor">
+      <option value="no">No, todo bien</option>
+      <option value="leve">Leve molestia (normal)</option>
+      <option value="moderado">Dolor moderado</option>
+      <option value="fuerte">Dolor fuerte — necesito comentarlo</option>
+    </select>
+  </div>
+  <div class="fg"><label>Comentario — ¿Cómo te sentiste? ¿Qué fue difícil? ¿Qué lograste?</label>
+    <textarea id="log_comment" placeholder="Cuéntale a tu coach cómo fue tu sesión..." style="min-height:90px"></textarea>
+  </div>
+  <button class="btn btn-p btn-full" onclick="saveLog()">✅ Guardar sesión</button>
+</div>
+</div>
+
+<!-- Sesion libre (actividad extra) -->
+<div class="overlay" id="m_free_log">
+<div class="modal">
+  <div class="modal-title" id="m_free_log_title">REGISTRAR ACTIVIDAD<button class="close-btn" onclick="closeModal('m_free_log')">x</button></div>
+  <input type="hidden" id="free_log_id"/>
+  <div class="fg"><label>Tipo de actividad</label>
+    <select id="free_act_tipo">
+      <option value="">-- Selecciona o escribe abajo --</option>
+      <option>Caminata</option>
+      <option>Trote / Carrera</option>
+      <option>Tenis</option>
+      <option>Rumba / Zumba</option>
+      <option>Yoga</option>
+      <option>Natacion</option>
+      <option>Ciclismo</option>
+      <option>Clase grupal</option>
+      <option>Otra</option>
+    </select>
+  </div>
+  <div class="fg"><label>Nombre / descripcion</label>
+    <input type="text" id="free_act_nombre" placeholder="Ej: Caminata en el parque, Clase de tenis..."/>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Fecha</label><input type="date" id="free_act_fecha"/></div>
+    <div class="fg"><label>Duracion (min)</label><input type="number" id="free_act_dur" placeholder="45"/></div>
+  </div>
+  <div class="fg"><label>Como te sentiste?</label>
+    <textarea id="free_act_comment" placeholder="Cuenta como fue la actividad, como te sentiste, que lograste..." style="min-height:90px"></textarea>
+  </div>
+  <div class="fg"><label>Esfuerzo (1-10)</label>
+    <select id="free_act_esf">
+      <option value="">--</option>
+      <option value="1">1 - Muy facil</option><option value="2">2</option><option value="3">3</option>
+      <option value="4">4</option><option value="5">5 - Moderado</option><option value="6">6</option>
+      <option value="7">7</option><option value="8">8 - Intenso</option><option value="9">9</option>
+      <option value="10">10 - Maximo</option>
+    </select>
+  </div>
+  <button class="btn btn-p btn-full" id="free_log_save_btn" onclick="saveFreeLog()">Guardar actividad</button>
+</div>
+</div>
+
+<!-- Video Modal -->
+<div class="overlay" id="m_video" style="align-items:center;padding:16px">
+<div style="background:rgba(9,13,20,1);border:1px solid var(--brd);border-radius:18px;width:min(660px,95vw);overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.8)">
+  <div style="padding:14px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--brd)">
+    <div style="font-family:'Sora',sans-serif;font-weight:800;letter-spacing:1px;font-size:18px;letter-spacing:2px;color:var(--blanco)" id="m_video_title">VIDEO GUÍA</div>
+    <button class="close-btn" onclick="closeModal('m_video');stopVideo()" style="font-size:24px;color:var(--gris);background:none;border:none;cursor:pointer;padding:0 4px">×</button>
+  </div>
+  <div id="m_video_wrap" style="position:relative;padding-bottom:56.25%;height:0;background:#000;overflow:hidden"></div>
+  <div style="padding:12px 16px;display:flex;align-items:center;justify-content:space-between">
+    <div style="font-size:11px;color:var(--gris)">Toca el video para reproducir · Usa ⛶ para pantalla completa</div>
+    <a id="m_video_ext" href="#" target="_blank" style="font-size:11px;color:var(--cyan);text-decoration:none;font-weight:600">Abrir en YouTube ↗</a>
+  </div>
+</div>
+</div>
+
+<!-- Editar sesión -->
+<div class="overlay" id="m_edit_log">
+<div class="modal">
+  <div class="modal-title">✏️ EDITAR SESIÓN<button class="close-btn" onclick="closeModal('m_edit_log')">×</button></div>
+  <input type="hidden" id="edit_log_id"/>
+  <div class="fr">
+    <div class="fg"><label>Fecha</label><input type="date" id="edit_log_fecha"/></div>
+    <div class="fg"><label>Duración (min)</label><input type="number" id="edit_log_dur"/></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Peso (kg)</label><input type="number" id="edit_log_peso" step="0.1"/></div>
+    <div class="fg"><label>Esfuerzo (1-10)</label>
+      <select id="edit_log_esf">
+        <option value="">—</option>
+        <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+        <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+        <option value="7">7</option><option value="8">8</option><option value="9">9</option>
+        <option value="10">10</option>
+      </select>
+    </div>
+  </div>
+  <div class="fg"><label>¿Dolor o molestia?</label>
+    <select id="edit_log_dolor">
+      <option value="no">No, todo bien</option>
+      <option value="leve">Leve molestia</option>
+      <option value="moderado">Dolor moderado</option>
+      <option value="fuerte">Dolor fuerte</option>
+    </select>
+  </div>
+  <div class="fg"><label>Comentario</label><textarea id="edit_log_comment" style="min-height:80px"></textarea></div>
+  <div style="display:flex;gap:10px">
+    <button class="btn btn-p" style="flex:1" id="edit_log_save_btn" onclick="updateLog()">💾 Guardar cambios</button>
+    <button class="btn btn-d" onclick="deleteLog()">🗑️ Eliminar sesión</button>
+  </div>
+</div>
+</div>
+
+<!-- Detalle sesión (coach retroalimentación) -->
+<div class="overlay" id="m_log_detail">
+<div class="modal" style="width:640px">
+  <div class="modal-title">📋 DETALLE DE SESIÓN<button class="close-btn" onclick="closeModal('m_log_detail')">×</button></div>
+  <div id="m_log_detail_content"></div>
+</div>
+</div>
+
+<!-- Ver contraseña -->
+<div class="overlay" id="m_pass">
+<div class="modal">
+  <div class="modal-title">🔑 DATOS DE ACCESO<button class="close-btn" onclick="closeModal('m_pass')">×</button></div>
+  <div id="m_pass_content"></div>
+</div>
+</div>
+
+<!-- Diagnóstico -->
+<div class="overlay" id="m_diag">
+<div class="modal">
+  <div class="modal-title">📋 DIAGNÓSTICO INICIAL<button class="close-btn" onclick="closeModal('m_diag')">×</button></div>
+  <div id="m_diag_content"></div>
+</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  STORAGE — Simple, directa, confiable
+// ═══════════════════════════════════════════════════════════
+var DB_KEY = 'evolx_db_v1';
+var GAS_URL = 'https://script.google.com/macros/s/AKfycbwhI-C--93IY0vWfh1jIeB36QL8t8NZ4O_yqppANZVOWxmIB7VXCQ7aNSjE18K8OMTm/exec';
+var GAS_SECRET = (function(){var _k=['I','v','o','n','n','e','W','e','l','l','n','e','s','s','2','0','2','4'];return _k.join('');})();
+
+function db() {
+  try {
+    var raw = localStorage.getItem(DB_KEY);
+    var d = raw ? JSON.parse(raw) : {};
+    if (!d.users) d.users = [];
+    if (!d.medidas) d.medidas = [];
+    if (!d.rutinas) d.rutinas = [];
+    if (!d.logs) d.logs = [];
+    if (!d.ejercicios) d.ejercicios = [];
+    if (!d.deleted) d.deleted = [];
+    // Ensure coach exists
+    var hasCoach = false;
+    for (var i = 0; i < d.users.length; i++) { if (d.users[i].role === 'coach') { hasCoach = true; break; } }
+    if (!hasCoach) {
+      d.users.push({ id:'coach1', username:'ivonne', password:'Ivo2024**', name:'Ivonne Rodríguez', role:'coach', email:'ivo_wellness_coach@gmail.com' });
+      save(d);
+    }
+    var hasAdmin = false;
+    for (var j = 0; j < d.users.length; j++) { if (d.users[j].role === 'admin') { hasAdmin = true; break; } }
+    if (!hasAdmin) {
+      d.users.push({ id:'admin1', username:'admin', password:'EvolX2024!', name:'Administrador', role:'admin', email:'admin@evol-x.com' });
+      save(d);
+    }
+    return d;
+  } catch(e) {
+    return { users:[], medidas:[], rutinas:[], logs:[], ejercicios:[], deleted:[] };
+  }
+}
+
+function save(d) {
+  localStorage.setItem(DB_KEY, JSON.stringify(d));
+}
+
+// ═══════════════════════════════════════════════════
+// SHEETS API — JSONP para todo (lectura Y escritura)
+// Así podemos confirmar que los datos se guardaron
+// ═══════════════════════════════════════════════════
+
+function sheetsCall(params, cb, timeout) {
+  var cbName = '_sc_' + Date.now();
+  var s = document.createElement('script');
+  var t = setTimeout(function() { cleanup(); if(cb) cb(null); }, timeout||12000);
+  function cleanup() { delete window[cbName]; if(s.parentNode) s.parentNode.removeChild(s); clearTimeout(t); }
+  window[cbName] = function(data) { cleanup(); if(cb) cb(data); };
+  params.cb = cbName;
+  params.key = GAS_SECRET;
+  params._ = Date.now();
+  var qs = Object.keys(params).map(function(k){ return k+'='+encodeURIComponent(typeof params[k]==='object'?JSON.stringify(params[k]):params[k]); }).join('&');
+  s.src = GAS_URL + '?' + qs;
+  s.onerror = function() { cleanup(); if(cb) cb(null); };
+  document.head.appendChild(s);
+}
+
+// Sync a single record to Sheets via JSONP GET (readable, confirmable)
+function sync(action, payload, cb) {
+  sheetsCall({ action: action, payload: payload }, function(res) {
+    if (cb) cb(res);
+  }, 10000);
+}
+
+// Load ALL data from Sheets
+function loadFromSheets(cb) {
+  sheetsCall({ action: 'getAll' }, cb, 12000);
+}
+
+// Save to local + Sheets, then optionally refresh
+function saveAndSync(action, payload, onDone) {
+  // 1. Save locally immediately (fast UI)
+  var d = db();
+  applyChange(d, action, payload);
+  save(d);
+  // 2. Send to Sheets via JSONP
+  sync(action, payload, function(res) {
+    if (onDone) onDone(res && res.ok);
+  });
+}
+
+function applyChange(d, action, payload) {
+  var i, found;
+  if (action === 'saveUser') {
+    found = false;
+    for (i=0;i<d.users.length;i++){if(d.users[i].id===payload.id){d.users[i]=payload;found=true;break;}}
+    if(!found) d.users.push(payload);
+  } else if (action === 'saveMedida') {
+    found = false;
+    for (i=0;i<d.medidas.length;i++){if(d.medidas[i].id===payload.id){d.medidas[i]=payload;found=true;break;}}
+    if(!found) d.medidas.push(payload);
+  } else if (action === 'saveRutina') {
+    found = false;
+    for (i=0;i<d.rutinas.length;i++){if(d.rutinas[i].id===payload.id){d.rutinas[i]=payload;found=true;break;}}
+    if(!found) d.rutinas.push(payload);
+  } else if (action === 'saveLog') {
+    found = false;
+    for (i=0;i<d.logs.length;i++){if(d.logs[i].id===payload.id){d.logs[i]=payload;found=true;break;}}
+    if(!found) d.logs.push(payload);
+  } else if (action === 'saveEjercicio') {
+    if(!d.ejercicios) d.ejercicios=[];
+    found = false;
+    for (i=0;i<d.ejercicios.length;i++){if(d.ejercicios[i].id===payload.id){d.ejercicios[i]=payload;found=true;break;}}
+    if(!found) d.ejercicios.push(payload);
+  } else if (action === 'deleteUser') {
+    d.users = d.users.filter(function(x){return x.id!==payload.id;});
+    d.medidas = d.medidas.filter(function(x){return x.userId!==payload.id;});
+    d.rutinas = d.rutinas.filter(function(x){return x.userId!==payload.id;});
+    d.logs = d.logs.filter(function(x){return x.userId!==payload.id;});
+    if(!d.deleted) d.deleted=[];
+    d.deleted.push(payload.id);
+  } else if (action === 'deleteEjercicio') {
+    if(d.ejercicios) d.ejercicios = d.ejercicios.filter(function(x){return x.id!==payload.id;});
+  } else if (action === 'deleteRutina') {
+    d.rutinas = d.rutinas.filter(function(x){return x.id!==payload.id;});
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  AUTH
+// ═══════════════════════════════════════════════════════════
+var CU = null;
+var obStep = 0;
+
+function login() {
+  var u = document.getElementById('li_user').value.trim();
+  var p = document.getElementById('li_pass').value;
+  if (!u || !p) { toast('Ingresa usuario y contraseña'); return; }
+  var btn = document.querySelector('#loginScreen .btn-p');
+  btn.textContent = '⏳ Conectando...'; btn.disabled = true;
+  document.getElementById('li_status').textContent = 'Sincronizando datos...';
+  
+  loadFromSheets(function(remote) {
+    btn.textContent = 'Ingresar →'; btn.disabled = false;
+    // Merge remote into local (remote wins except for deleted and coach)
+    if (remote && remote.users) {
+      var d = db();
+      var deletedIds = d.deleted || [];
+      // Keep admin+coach from local
+      var localPriv = [];
+      for (var i = 0; i < d.users.length; i++) {
+        if (d.users[i].role === 'admin' || d.users[i].role === 'coach') localPriv.push(d.users[i]);
+      }
+      // Merge users (skip deleted, skip admin/coach from remote)
+      var remoteUsers = [];
+      for (var i = 0; i < (remote.users || []).length; i++) {
+        var ru = remote.users[i];
+        if (ru.role !== 'admin' && ru.role !== 'coach' && deletedIds.indexOf(ru.id) < 0) remoteUsers.push(ru);
+      }
+      d.users = localPriv.concat(remoteUsers);
+      // Merge other collections (skip deleted user IDs)
+      d.medidas = (remote.medidas || []).filter(function(m) { return deletedIds.indexOf(m.userId) < 0; });
+      d.rutinas = (remote.rutinas || []).filter(function(r) { return deletedIds.indexOf(r.userId) < 0; });
+      d.logs = (remote.logs || []).filter(function(l) { return deletedIds.indexOf(l.userId) < 0; });
+      d.ejercicios = remote.ejercicios || d.ejercicios;
+      save(d);
+    }
+    document.getElementById('li_status').textContent = '';
+    // Find user
+    var d2 = db();
+    var user = null;
+    for (var i = 0; i < d2.users.length; i++) {
+      var usr = d2.users[i];
+      if ((usr.username === u || usr.email === u) && usr.password === p) { user = usr; break; }
+    }
+    if (!user) { toast('❌ Usuario o contraseña incorrectos'); return; }
+    CU = user;
+    if (user.role === 'user' && !user.diagnostico) { showOb(); return; }
+    showApp();
+  });
+}
+
+function logout() {
+  CU = null;
+  document.getElementById('appScreen').classList.add('hidden');
+  document.getElementById('loginScreen').classList.remove('hidden');
+  document.getElementById('obScreen').classList.add('hidden');
+  document.getElementById('li_user').value = '';
+  document.getElementById('li_pass').value = '';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ONBOARDING
+// ═══════════════════════════════════════════════════════════
+var OB_STEPS = ['Datos', 'Salud', 'Metodología', 'Confirmación'];
+
+function showRegister() {
+  CU = { id: '', username: '', name: '', role: 'user' };
+  obStep = 0;
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('obScreen').classList.remove('hidden');
+  renderOb();
+}
+
+function showOb() {
+  obStep = 0;
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('obScreen').classList.remove('hidden');
+  renderOb();
+}
+
+function renderOb() {
+  var dots = document.getElementById('ob_dots');
+  dots.innerHTML = '';
+  for (var i = 0; i < OB_STEPS.length; i++) {
+    var d = document.createElement('div');
+    d.className = 'ob-dot' + (i === obStep ? ' active' : i < obStep ? ' done' : '');
+    d.title = OB_STEPS[i];
+    dots.appendChild(d);
+  }
+  var c = document.getElementById('ob_content');
+  if (obStep === 0) c.innerHTML = obStep0();
+  else if (obStep === 1) c.innerHTML = obStep1();
+  else if (obStep === 2) c.innerHTML = obStep2();
+  else c.innerHTML = obStep3();
+}
+
+function obStep0() {
+  var isNew = !CU.id;
+  return (isNew ? '<div class="fr"><div class="fg"><label>Nombre completo</label><input type="text" id="ob_nombre" placeholder="Tu nombre"/></div><div class="fg"><label>Username</label><input type="text" id="ob_user" placeholder="Sin espacios"/></div></div><div class="fr"><div class="fg"><label>Contraseña</label><input type="password" id="ob_pass"/></div><div class="fg"><label>Confirmar contraseña</label><input type="password" id="ob_pass2"/></div></div>' : '') +
+  '<div class="fr"><div class="fg"><label>Email</label><input type="email" id="ob_email" value="'+(CU.email||'')+'"/></div><div class="fg"><label>Teléfono</label><input type="text" id="ob_tel" value="'+(CU.tel||'')+'"/></div></div>' +
+  '<div class="fr"><div class="fg"><label>Peso (kg)</label><input type="number" id="ob_peso" step="0.1" value="'+(CU.peso||'')+'"/></div><div class="fg"><label>Talla (cm)</label><input type="number" id="ob_talla" step="0.1" value="'+(CU.talla||'')+'"/></div></div>' +
+  '<div class="fg"><label>Objetivo principal</label><input type="text" id="ob_obj" value="'+(CU.objetivo||'')+'" placeholder="¿Qué quieres lograr?"/></div>' +
+  '<div style="display:flex;justify-content:flex-end;margin-top:16px"><button class="btn btn-p" onclick="obNext()">Siguiente →</button></div>';
+}
+
+function obStep1() {
+  var qs = [
+    ['enf_card', '1. ¿Te han diagnosticado enfermedad cardiaca y recomendado tipo de actividad física?'],
+    ['dolor_pecho', '2. ¿Sientes dolor en el pecho al realizar actividad física?'],
+    ['mareos', '3. ¿Pierdes el equilibrio por mareos o has perdido la conciencia?'],
+    ['prob_oseo', '4. ¿Tienes algún problema óseo o articular que pueda agravarse?'],
+    ['medicacion', '5. ¿Te han prescrito medicación para la presión o problemas cardiacos?'],
+    ['otra_razon', '6. ¿Hay otra razón por la que no puedas hacer ejercicio?'],
+  ];
+  var diag = CU.diagnostico || {};
+  var html = '';
+  qs.forEach(function(q) {
+    var val = diag[q[0]] || 'no';
+    html += '<div class="q-block"><div class="q-text">'+q[1]+'</div><div class="radio-g">';
+    html += '<label class="r-opt'+(val==='si'?' sel':'')+'" id="ro_'+q[0]+'_si" onclick="selRad(\''+q[0]+'\',\'si\')">Sí</label>';
+    html += '<label class="r-opt'+(val!=='si'?' sel':'')+'" id="ro_'+q[0]+'_no" onclick="selRad(\''+q[0]+'\',\'no\')">No</label>';
+    html += '</div></div>';
+  });
+  html += '<div class="fg" style="margin-top:12px"><label>Observaciones adicionales</label><textarea id="ob_salud_obs" placeholder="Lesiones, cirugías...">'+(diag.obs||'')+'</textarea></div>';
+  html += '<div style="display:flex;justify-content:space-between;margin-top:16px"><button class="btn btn-g" onclick="obPrev()">← Atrás</button><button class="btn btn-p" onclick="obNext()">Siguiente →</button></div>';
+  return html;
+}
+
+function obStep2() {
+  var items = [
+    'Seguir los videos de ejecución. Dudas → video corto de máx 1 min al coach.',
+    'Preguntas al grupo de WhatsApp. Respuesta en 24 horas.',
+    'Registro fotográfico desde el Día 1: misma ropa, luz y posición. Vista frontal, posterior y lateral.',
+    'Pesar diariamente: en ayunas, después de ir al baño.',
+    'Cumplir los 3 días de entrenamiento por semana.',
+    'Actividad extra: caminar, bailar, nadar — lo que te guste.',
+    'Alimentación balanceada: 3 comidas principales mínimo.',
+    'Hidratación: mínimo 8 vasos de agua al día.'
+  ];
+  var html = '<div class="card" style="padding:14px;margin-bottom:14px">';
+  items.forEach(function(m, i) {
+    html += '<div class="met-item"><div class="met-num">'+(i+1)+'</div><div>'+m+'</div></div>';
+  });
+  html += '</div>';
+  html += '<div style="padding:12px;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:var(--r);font-size:12px;color:var(--oro);font-style:italic;text-align:center;margin-bottom:14px">"Hasta el viaje más largo comienza con un solo paso"</div>';
+  html += '<div style="display:flex;align-items:flex-start;gap:10px;padding:12px;background:rgba(0,212,245,0.06);border-radius:var(--r);margin-bottom:16px"><input type="checkbox" id="ob_acepto" style="margin-top:3px;accent-color:var(--cyan)"/><label for="ob_acepto" style="font-size:12px;color:var(--gris);cursor:pointer;line-height:1.7">He leído y acepto la metodología de trabajo de evol-x GYM.</label></div>';
+  html += '<div style="display:flex;justify-content:space-between"><button class="btn btn-g" onclick="obPrev()">← Atrás</button><button class="btn btn-p" onclick="obNext()">Siguiente →</button></div>';
+  return html;
+}
+
+function obStep3() {
+  return '<div class="card" style="padding:16px;text-align:center;margin-bottom:16px">' +
+    '<div style="font-size:32px;margin-bottom:8px">⚡</div>' +
+    '<div style="font-family:\'Sora\',sans-serif;font-weight:800;font-size:20px;letter-spacing:3px;margin-bottom:10px">¡CASI LISTA!</div>' +
+    '<div style="font-size:12px;color:var(--gris);line-height:1.8">Yo, <strong style="color:var(--blanco)">'+(CU.name||'_____')+'</strong>, confirmo que mis respuestas son verídicas y me comprometo a informar cualquier cambio en mi estado de salud.</div>' +
+    '</div>' +
+    '<div class="fg"><label>Firma (escribe tu nombre completo)</label><input type="text" id="ob_firma" value="'+(CU.name||'')+'" placeholder="Tu nombre completo"/></div>' +
+    '<div class="fg"><label>Fecha</label><input type="date" id="ob_fecha_diag" value="'+new Date().toISOString().split('T')[0]+'"/></div>' +
+    '<div style="display:flex;gap:10px;margin-top:16px"><button class="btn btn-g" onclick="obPrev()">← Atrás</button><button class="btn btn-gold btn-full" onclick="finishOb()">🎉 ¡Comenzar mi transformación!</button></div>';
+}
+
+function selRad(field, val) {
+  var si = document.getElementById('ro_'+field+'_si');
+  var no = document.getElementById('ro_'+field+'_no');
+  if (si) si.className = 'r-opt' + (val === 'si' ? ' sel' : '');
+  if (no) no.className = 'r-opt' + (val === 'no' ? ' sel' : '');
+}
+
+function getRad(field) {
+  var si = document.getElementById('ro_'+field+'_si');
+  return (si && si.classList.contains('sel')) ? 'si' : 'no';
+}
+
+function obNext() {
+  var d = db();
+  if (obStep === 0) {
+    var isNew = !CU.id;
+    if (isNew) {
+      var nombre = (document.getElementById('ob_nombre') || {}).value || '';
+      var uname = (document.getElementById('ob_user') || {}).value || '';
+      var pass = (document.getElementById('ob_pass') || {}).value || '';
+      var pass2 = (document.getElementById('ob_pass2') || {}).value || '';
+      if (!nombre.trim() || !uname.trim()) { toast('Ingresa nombre y username'); return; }
+      if (!pass) { toast('Ingresa una contraseña'); return; }
+      if (pass !== pass2) { toast('Las contraseñas no coinciden'); return; }
+      for (var i = 0; i < d.users.length; i++) {
+        if (d.users[i].username === uname.trim()) { toast('Ese username ya existe'); return; }
+      }
+      CU = { id: uname.trim(), username: uname.trim(), password: pass, name: nombre.trim(), role: 'user' };
+      d.users.push(CU);
+    }
+    CU.email = (document.getElementById('ob_email') || {}).value || '';
+    CU.tel = (document.getElementById('ob_tel') || {}).value || '';
+    CU.peso = (document.getElementById('ob_peso') || {}).value || '';
+    CU.talla = (document.getElementById('ob_talla') || {}).value || '';
+    CU.objetivo = (document.getElementById('ob_obj') || {}).value || '';
+    var idx = -1;
+    for (var i = 0; i < d.users.length; i++) { if (d.users[i].id === CU.id) { idx = i; break; } }
+    if (idx >= 0) d.users[idx] = CU; else d.users.push(CU);
+    save(d);
+  }
+  if (obStep === 1) {
+    var fields = ['enf_card','dolor_pecho','mareos','prob_oseo','medicacion','otra_razon'];
+    if (!CU.diagnostico) CU.diagnostico = {};
+    fields.forEach(function(f) { CU.diagnostico[f] = getRad(f); });
+    var obsEl = document.getElementById('ob_salud_obs');
+    CU.diagnostico.obs = obsEl ? obsEl.value : '';
+    var idx2 = -1;
+    for (var i = 0; i < d.users.length; i++) { if (d.users[i].id === CU.id) { idx2 = i; break; } }
+    if (idx2 >= 0) d.users[idx2] = CU;
+    save(d);
+  }
+  if (obStep === 2) {
+    var acepto = document.getElementById('ob_acepto');
+    if (!acepto || !acepto.checked) { toast('Debes aceptar la metodología'); return; }
+    CU.aceptoMet = true;
+    var idx3 = -1;
+    for (var i = 0; i < d.users.length; i++) { if (d.users[i].id === CU.id) { idx3 = i; break; } }
+    if (idx3 >= 0) d.users[idx3] = CU;
+    save(d);
+  }
+  obStep = Math.min(obStep + 1, 3);
+  renderOb();
+}
+
+function obPrev() { obStep = Math.max(obStep - 1, 0); renderOb(); }
+
+function finishOb() {
+  var firma = (document.getElementById('ob_firma') || {}).value || '';
+  if (!firma.trim()) { toast('Firma con tu nombre completo'); return; }
+  var d = db();
+  if (!CU.diagnostico) CU.diagnostico = {};
+  CU.diagnostico.firma = firma.trim();
+  CU.diagnostico.fecha = (document.getElementById('ob_fecha_diag') || {}).value || '';
+  var idx = -1;
+  for (var i = 0; i < d.users.length; i++) { if (d.users[i].id === CU.id) { idx = i; break; } }
+  if (idx >= 0) d.users[idx] = CU;
+  save(d);
+  saveAndSync('saveUser', CU);
+  document.getElementById('obScreen').classList.add('hidden');
+  toast('🎉 ¡Bienvenida! Tu perfil está listo.');
+  showApp();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  APP SETUP & NAVIGATION
+// ═══════════════════════════════════════════════════════════
+var curPage = '';
+
+function showApp() {
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('obScreen').classList.add('hidden');
+  document.getElementById('appScreen').classList.remove('hidden');
+  // Topbar
+  document.getElementById('tp_name').textContent = CU.name.split(' ')[0];
+  document.getElementById('tp_av').textContent = CU.name.split(' ').map(function(n){return n[0];}).join('').slice(0,2).toUpperCase();
+  var rp = document.getElementById('tp_role');
+  rp.textContent = CU.role==='admin'?'ADMIN':CU.role==='coach'?'COACH':'USUARIO';
+  rp.className='role-pill '+(CU.role==='admin'?'pill-admin':CU.role==='coach'?'pill-coach':'pill-user');
+  buildSidebar();
+  buildMobNav();
+  nav(CU.role==='admin'||CU.role==='coach' ? 'dashboard' : 'miRutina');
+}
+
+var COACH_MENU = [
+  {s:'Panel'}, {id:'dashboard',l:'Resumen',ic:'📊'},
+  {s:'Usuarios'}, {id:'usuarias',l:'Usuarios',ic:'👥'}, {id:'medidas',l:'Medidas',ic:'📏'},
+  {s:'Entrenamiento'}, {id:'rutinas',l:'Rutinas',ic:'🏋️'}, {id:'ejercicios',l:'Biblioteca',ic:'📚'}, {id:'logs',l:'Registro global',ic:'📋'},
+  {s:'Sistema'}, {id:'ajustes',l:'Configuración',ic:'⚙️'}, {id:'admPanel',l:'Gestión Cuentas',ic:'🔐',adminOnly:true}
+];
+var USER_MENU = [
+  {s:'Entrenamiento'}, {id:'miRutina',l:'Mi Rutina',ic:'🏋️'}, {id:'registrar',l:'Registrar Sesión',ic:'✅'}, {id:'miProgreso',l:'Mi Progreso',ic:'📈'},
+  {s:'Historial'}, {id:'miHistorial',l:'Historial',ic:'📋'}, {id:'miPerfil',l:'Mi Perfil',ic:'👤'}
+];
+
+function buildSidebar() {
+  var menu = (CU.role==='admin'||CU.role==='coach') ? COACH_MENU : USER_MENU;
+  var sb = document.getElementById('sidebar');
+  sb.innerHTML = '';
+  menu.forEach(function(item) {
+    if (item.adminOnly && CU.role !== 'admin') return;
+    if (item.s) {
+      var d = document.createElement('div'); d.className = 's-sect'; d.textContent = item.s; sb.appendChild(d);
+    } else {
+      var b = document.createElement('button');
+      b.className = 'nav-btn'; b.id = 'nb_' + item.id;
+      b.innerHTML = '<span style="font-size:15px;width:20px;text-align:center">' + item.ic + '</span>' + item.l;
+      b.onclick = (function(id) { return function() { nav(id); }; })(item.id);
+      sb.appendChild(b);
+    }
+  });
+}
+
+var COACH_MOB = [{id:'dashboard',l:'Inicio',ic:'📊'},{id:'usuarias',l:'Usuarias',ic:'👥'},{id:'rutinas',l:'Rutinas',ic:'🏋️'},{id:'medidas',l:'Medidas',ic:'📏'},{id:'__more',l:'Más',ic:'☰'}];
+var USER_MOB = [{id:'miRutina',l:'Rutina',ic:'🏋️'},{id:'miHistorial',l:'Historial',ic:'📋'},{id:'registrar',l:'Sesion',ic:'✅'},{id:'__free',l:'Extra',ic:'🏃'},{id:'__more',l:'Mas',ic:'☰'}];
+var COACH_MORE = [{id:'ejercicios',l:'Biblioteca',ic:'📚'},{id:'logs',l:'Registro',ic:'📋'},{id:'ajustes',l:'Ajustes',ic:'⚙️'}];
+var USER_MORE = [{id:'miPerfil',l:'Mi Perfil',ic:'👤'}];
+
+function buildMobNav() {
+  var items = (CU.role==='admin'||CU.role==='coach') ? COACH_MOB : USER_MOB;
+  var moreItems = (CU.role==='admin'||CU.role==='coach') ? COACH_MORE : USER_MORE;
+  var ni = document.getElementById('mobItems');
+  var more = document.getElementById('mobMore');
+  ni.innerHTML = ''; more.innerHTML = '';
+  items.forEach(function(item) {
+    var b = document.createElement('button');
+    b.className = 'mob-btn'; b.id = 'mb_' + item.id;
+    b.innerHTML = '<span class="mob-icon">' + item.ic + '</span>' + item.l;
+    if (item.id === '__free') {
+      b.onclick = function() { openFreeLog(); };
+    } else if (item.id === '__more') {
+      b.onclick = function() { more.classList.toggle('open'); };
+    } else {
+      b.onclick = (function(id) { return function() { more.classList.remove('open'); nav(id); }; })(item.id);
+    }
+    ni.appendChild(b);
+  });
+  moreItems.forEach(function(item) {
+    var b = document.createElement('button');
+    b.className = 'nav-btn'; b.id = 'mb_more_' + item.id;
+    b.innerHTML = '<span style="font-size:15px;width:20px;text-align:center">' + item.ic + '</span>' + item.l;
+    b.onclick = (function(id) { return function() { more.classList.remove('open'); nav(id); }; })(item.id);
+    more.appendChild(b);
+  });
+  var lb = document.createElement('button');
+  lb.className = 'nav-btn'; lb.style.color = '#ff8080'; lb.style.marginTop = '8px';
+  lb.innerHTML = '<span style="font-size:15px;width:20px;text-align:center">🚪</span>Salir';
+  lb.onclick = function() { more.classList.remove('open'); logout(); };
+  more.appendChild(lb);
+}
+
+function nav(page) {
+  curPage = page;
+  document.querySelectorAll('.nav-btn,.mob-btn').forEach(function(b) { b.classList.remove('active'); });
+  var nb = document.getElementById('nb_' + page);
+  if (nb) nb.classList.add('active');
+  var mb = document.getElementById('mb_' + page);
+  if (mb) mb.classList.add('active');
+  var pages = {
+    dashboard: pgDashboard, usuarias: pgUsuarias, medidas: pgMedidas,
+    rutinas: pgRutinas, ejercicios: pgEjercicios, logs: pgLogs, ajustes: pgAjustes,
+    admPanel: pgAdminPanel,
+    miRutina: pgMiRutina, registrar: function() { pgMiRutina(); setTimeout(openLogModal, 200); },
+    miProgreso: pgMiProgreso, miHistorial: pgMiHistorial, miPerfil: pgMiPerfil
+  };
+  if (pages[page]) pages[page]();
+}
+
+function setMain(html) { document.getElementById('main').innerHTML = html; }
+
+// ═══════════════════════════════════════════════════════════
+//  MODALS
+// ═══════════════════════════════════════════════════════════
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+document.addEventListener('click', function(e) {
+  document.querySelectorAll('.overlay.open').forEach(function(ov) {
+    if (e.target === ov) ov.classList.remove('open');
+  });
+  if (!e.target.closest('#mobNav') && !e.target.closest('#mobMore')) {
+    document.getElementById('mobMore').classList.remove('open');
+  }
+});
+
+// ═══════════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════════
+function toast(msg, dur) {
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, dur || 3000);
+}
+
+function memStatus(u) {
+  if (!u.mem_end) return { label: 'Sin membresía', color: 'var(--gris)' };
+  var hoy = new Date(); hoy.setHours(0,0,0,0);
+  var fin = new Date(u.mem_end); fin.setHours(0,0,0,0);
+  var diff = Math.ceil((fin - hoy) / 86400000);
+  if (diff < 0) return { label: 'Vencida', color: '#ff8080' };
+  if (diff === 0) return { label: 'Vence hoy', color: '#ffaa44' };
+  if (diff <= 7) return { label: diff + ' días', color: '#ffaa44' };
+  return { label: 'Activa ' + diff + 'd', color: '#80d4a0' };
+}
+
+function fDate(s) { try { return new Date(s).toLocaleDateString('es-CO', {day:'numeric',month:'short',year:'numeric'}); } catch(e) { return s; } }
+function numF(v) { return parseFloat(v) || null; }
+function ini(name) { return name.split(' ').map(function(n){return n[0];}).join('').slice(0,2).toUpperCase(); }
+
+function getMedDiff(last, first, key) {
+  if (!first || !last[key] || !first[key] || first[key] === last[key]) return '';
+  var diff = (last[key] - first[key]).toFixed(1);
+  var isGood = ['muslo','musloMedio','brazoD','brazoI','pectoral','talla'].indexOf(key) >= 0 ? diff > 0 : diff < 0;
+  var color = isGood ? '#80d4a0' : '#ff8080';
+  return '<div class="m-diff" style="color:' + color + '">' + (diff > 0 ? '+' : '') + diff + '</div>';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  COACH: DASHBOARD
+// ═══════════════════════════════════════════════════════════
+function pgDashboard() {
+  var d = db();
+  var usr = d.users.filter(function(u) { return u.role === 'user'; });
+  var logsW = 0;
+  var now = Date.now();
+  d.logs.forEach(function(l) { if (now - new Date(l.fecha).getTime() < 7 * 86400000) logsW++; });
+  // Membership alerts
+  var alerts = [];
+  usr.forEach(function(u) {
+    var st = memStatus(u);
+    if (st.color !== 'var(--gris)' && st.color !== '#80d4a0') alerts.push({ name: u.name, label: st.label, color: st.color });
+  });
+  // Rutina expiry alerts
+  var hoyD = new Date(); hoyD.setHours(0,0,0,0);
+  d.rutinas.forEach(function(r) {
+    if (!r.fechaFin) return;
+    var fin = new Date(r.fechaFin); fin.setHours(0,0,0,0);
+    var diff = Math.ceil((fin - hoyD) / 86400000);
+    if (diff <= 7) {
+      var u2=null; for(var i=0;i<d.users.length;i++){if(d.users[i].id===r.userId){u2=d.users[i];break;}}
+      var msg = diff<0?'Rutina vencida hace '+Math.abs(diff)+'d':diff===0?'Rutina vence HOY':'Rutina vence en '+diff+'d';
+      alerts.push({ name:(u2?u2.name:''), label:msg, color:'#ffaa44' });
+    }
+  });
+  var alertHtml = '';
+  if (alerts.length > 0) {
+    alertHtml = '<div style="background:rgba(255,170,0,0.08);border:1px solid rgba(255,170,0,0.25);border-radius:12px;padding:14px;margin-bottom:16px">';
+    alertHtml += '<div style="font-size:11px;font-weight:700;color:#ffaa44;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">⚠️ ALERTAS</div>';
+    alerts.forEach(function(a) {
+      alertHtml += '<div style="font-size:12px;color:' + a.color + ';padding:3px 0">' + a.name + ' — ' + a.label + '</div>';
+    });
+    alertHtml += '</div>';
+  }
+  var recentLogs = '';
+  var sortedLogs = d.logs.slice().sort(function(a,b){return b.fecha.localeCompare(a.fecha);}).slice(0, 5);
+  if (sortedLogs.length === 0) {
+    recentLogs = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-t">SIN SESIONES</div></div>';
+  } else {
+    sortedLogs.forEach(function(l) {
+      var u2 = null;
+      for (var i = 0; i < d.users.length; i++) { if (d.users[i].id === l.userId) { u2 = d.users[i]; break; } }
+      var dt = new Date(l.fecha);
+      recentLogs += '<div class="log-entry"><div class="log-date"><div class="log-d">' + dt.getDate() + '</div><div class="log-m">' + dt.toLocaleDateString('es',{month:'short'}) + '</div></div>';
+      recentLogs += '<div class="log-info"><div class="log-t">' + (u2 ? u2.name : '') + ' — Día ' + (l.dia||'').replace('dia','') + '</div>';
+      recentLogs += '<div class="log-s">' + (l.duracion || '?') + ' min' + (l.peso ? ' · ' + l.peso + ' kg' : '') + '</div>';
+      if (l.comentario) recentLogs += '<div class="log-c">' + l.comentario + '</div>';
+      recentLogs += '</div></div>';
+    });
+  }
+  setMain('<div class="page-title">PANEL</div><div class="page-sub">Bienvenido/a, ' + CU.name.split(' ')[0] + ' — ' + new Date().toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long'}) + '</div>' +
+    alertHtml +
+    '<div class="stats"><div class="stat"><div class="stat-l">Usuarias</div><div class="stat-v">' + usr.length + '</div></div>' +
+    '<div class="stat"><div class="stat-l">Sesiones totales</div><div class="stat-v">' + d.logs.length + '</div></div>' +
+    '<div class="stat"><div class="stat-l">Esta semana</div><div class="stat-v">' + logsW + '</div></div>' +
+    '<div class="stat"><div class="stat-l">Rutinas</div><div class="stat-v">' + d.rutinas.length + '</div></div></div>' +
+    '<div class="g2">' +
+    '<div class="card"><div class="card-title">👥 Usuarias</div>' + (usr.length === 0 ? '<div class="empty"><div class="empty-icon">👥</div><div class="empty-t">SIN USUARIAS</div></div>' : usr.map(function(u) {
+      var ul = null; d.logs.forEach(function(l){if(l.userId===u.id&&(!ul||l.fecha>ul.fecha))ul=l;});
+      var st = memStatus(u);
+      return '<div class="u-row" style="cursor:pointer" onclick="nav(\'usuarias\')"><div class="u-av">' + ini(u.name) + '</div><div class="u-info"><div class="u-name">' + u.name + '</div><div class="u-meta">' + (ul ? fDate(ul.fecha) : 'Sin sesiones') + ' · <span style="color:' + st.color + '">' + st.label + '</span></div></div></div>';
+    }).join('')) + '<div style="padding:12px"><button class="btn btn-g btn-sm" onclick="openNuevaUsuaria()">+ Nueva usuaria</button></div></div>' +
+    '<div class="card"><div class="card-title">📋 Últimas sesiones</div>' + recentLogs + '</div>' +
+    '</div>');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  COACH: USUARIAS
+// ═══════════════════════════════════════════════════════════
+function pgUsuarias() {
+  var d = db();
+  var usr = d.users.filter(function(u) { return u.role === 'user'; });
+  var html = '<div class="page-title">MIS USUARIAS</div><div class="page-sub">' + usr.length + ' usuarias registradas</div>';
+  html += '<div style="margin-bottom:14px"><button class="btn btn-p" onclick="openNuevaUsuaria()">+ Nueva usuaria</button></div>';
+  html += '<div class="card" style="padding:0">';
+  if (usr.length === 0) {
+    html += '<div class="empty"><div class="empty-icon">👥</div><div class="empty-t">SIN USUARIAS</div><div class="empty-s">Añade tu primera clienta</div></div>';
+  } else {
+    usr.forEach(function(u) {
+      var ruts = 0; d.rutinas.forEach(function(r){if(r.userId===u.id)ruts++;});
+      var sesiones = 0; d.logs.forEach(function(l){if(l.userId===u.id)sesiones++;});
+      var um = null; d.medidas.forEach(function(m){if(m.userId===u.id&&(!um||m.fecha>um.fecha))um=m;});
+      var hasDiag = !!u.diagnostico;
+      var st = memStatus(u);
+      html += '<div class="u-row"><div class="u-av">' + ini(u.name) + '</div>';
+      html += '<div class="u-info">';
+      html += '<div class="u-name">' + u.name + '</div>';
+      html += '<div class="u-meta">' + (u.email || '') + (u.tel ? ' · ' + u.tel : '') + '</div>';
+      html += '<div style="font-size:11px;color:var(--gris);margin-top:2px">' + (u.objetivo || '') + '</div>';
+      html += '<div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap">';
+      html += '<span class="badge bm">' + ruts + ' rutinas</span>';
+      html += '<span class="badge bg">' + sesiones + ' sesiones</span>';
+      if (um) html += '<span class="badge bo">' + um.peso + ' kg</span>';
+      html += '<span class="badge ' + (hasDiag ? 'bk' : 'bw') + '">' + (hasDiag ? '✓ Diag' : 'Sin diag') + '</span>';
+      html += '<span class="badge" style="color:' + st.color + ';border:1px solid ' + st.color + '40">' + st.label + '</span>';
+      html += '</div></div>';
+      // BUTTONS — no onclick with args, using global functions with IDs stored in data attrs
+      html += '<div class="u-btns">';
+      html += '<button class="btn btn-g btn-sm" data-uid="' + u.id + '" data-action="medidas">📏 Medidas</button>';
+      html += '<button class="btn btn-g btn-sm" data-uid="' + u.id + '" data-action="rutina">🏋️ Rutina</button>';
+      html += '<button class="btn btn-g btn-sm" data-uid="' + u.id + '" data-action="membresia">💳 Membresía</button>';
+      if (hasDiag) html += '<button class="btn btn-g btn-sm" data-uid="' + u.id + '" data-action="diag">📋 Diagnóstico</button>';
+      html += '<button class="btn btn-g btn-sm" data-uid="' + u.id + '" data-action="pass">🔑 Contraseña</button>';
+      html += '<button class="btn btn-g btn-sm" data-uid="' + u.id + '" data-action="editar">✏️ Editar</button>';
+      html += '<button class="btn btn-d btn-sm" data-uid="' + u.id + '" data-action="eliminar">🗑️ Eliminar</button>';
+      html += '</div></div>';
+    });
+  }
+  html += '</div>';
+  setMain(html);
+  // Single delegated listener — no inline onclick needed
+  var card = document.querySelector('#main .card');
+  if (card) {
+    card.addEventListener('click', function(ev) {
+      var btn = ev.target.closest('[data-action]');
+      if (!btn) return;
+      var uid = btn.getAttribute('data-uid');
+      var action = btn.getAttribute('data-action');
+      if (action === 'medidas') openMedidasFor(uid);
+      else if (action === 'rutina') openNuevaRutina(uid);
+      else if (action === 'membresia') openMembresiaFor(uid);
+      else if (action === 'diag') showDiag(uid);
+      else if (action === 'pass') showPass(uid);
+      else if (action === 'editar') editUsuaria(uid);
+      else if (action === 'eliminar') delUsuaria(uid);
+    });
+  }
+}
+
+function openNuevaUsuaria() {
+  document.getElementById('m_usuaria_title').textContent = 'NUEVO USUARIO';
+  document.getElementById('u_edit_id').value = '';
+  ['u_nombre','u_username','u_email','u_tel','u_obj','u_obs','u_mem_start','u_mem_end'].forEach(function(id){ var el=document.getElementById(id); if(el)el.value=''; });
+  document.getElementById('u_pass').value = '';
+  openModal('m_usuaria');
+}
+
+function editUsuaria(uid) {
+  var d = db();
+  var u = null;
+  for (var i = 0; i < d.users.length; i++) { if (d.users[i].id === uid) { u = d.users[i]; break; } }
+  if (!u) return;
+  document.getElementById('m_usuaria_title').textContent = 'EDITAR USUARIO';
+  document.getElementById('u_edit_id').value = uid;
+  document.getElementById('u_nombre').value = u.name || '';
+  document.getElementById('u_username').value = u.username || '';
+  document.getElementById('u_pass').value = '';
+  document.getElementById('u_email').value = u.email || '';
+  document.getElementById('u_tel').value = u.tel || '';
+  document.getElementById('u_obj').value = u.objetivo || '';
+  document.getElementById('u_obs').value = u.obs || '';
+  document.getElementById('u_mem_start').value = u.mem_start || '';
+  document.getElementById('u_mem_end').value = u.mem_end || '';
+  openModal('m_usuaria');
+}
+
+function saveUsuaria() {
+  if (_saving['usuaria']) return;
+  var editId   = document.getElementById('u_edit_id').value;
+  var nombre   = document.getElementById('u_nombre').value.trim();
+  var username = document.getElementById('u_username').value.trim();
+  var pass     = document.getElementById('u_pass').value;
+  if (!nombre||!username) { toast('Nombre y username son obligatorios'); return; }
+  var d = db();
+  if (!editId) {
+    if (!pass) { toast('La contraseña es obligatoria'); return; }
+    for(var i=0;i<d.users.length;i++){
+      if(d.users[i].username===username){toast('Ese username ya existe');return;}
+    }
+    var privRole = editId && editId.startsWith('__priv__') ? editId.replace('__priv__','') : 'user';
+    var nu = {id:username,username:username,password:pass,name:nombre,role:privRole,
+      email:document.getElementById('u_email').value,
+      tel:document.getElementById('u_tel').value,
+      objetivo:document.getElementById('u_obj').value,
+      obs:document.getElementById('u_obs').value,
+      mem_start:document.getElementById('u_mem_start').value||null,
+      mem_end:document.getElementById('u_mem_end').value||null};
+    _saving['usuaria'] = true;
+    var btn = document.querySelector('#m_usuaria .btn-p');
+    if(btn){btn.disabled=true;btn.textContent='⏳ Guardando...';}
+    saveAndSync('saveUser', nu, function(res) {
+      _saving['usuaria'] = false;
+      if(btn){btn.disabled=false;btn.textContent='✅ Guardar';}
+      closeModal('m_usuaria');
+      toast(res&&res.ok?'✅ Usuaria creada en Drive: '+nombre:'✅ Usuaria creada: '+nombre);
+      pgUsuarias();
+    });
+  } else {
+    var idx=-1;
+    for(var i=0;i<d.users.length;i++){if(d.users[i].id===editId){idx=i;break;}}
+    if(idx<0){toast('Usuaria no encontrada');return;}
+    d.users[idx].name=nombre; d.users[idx].username=username;
+    if(pass) d.users[idx].password=pass;
+    d.users[idx].email=document.getElementById('u_email').value;
+    d.users[idx].tel=document.getElementById('u_tel').value;
+    d.users[idx].objetivo=document.getElementById('u_obj').value;
+    d.users[idx].obs=document.getElementById('u_obs').value;
+    d.users[idx].mem_start=document.getElementById('u_mem_start').value||null;
+    d.users[idx].mem_end=document.getElementById('u_mem_end').value||null;
+    _saving['usuaria'] = true;
+    var btn2 = document.querySelector('#m_usuaria .btn-p');
+    if(btn2){btn2.disabled=true;btn2.textContent='⏳ Guardando...';}
+    saveAndSync('saveUser', d.users[idx], function(res) {
+      _saving['usuaria'] = false;
+      if(btn2){btn2.disabled=false;btn2.textContent='✅ Guardar';}
+      closeModal('m_usuaria');
+      toast(res&&res.ok?'✅ Usuaria actualizada en Drive':'✅ Usuaria actualizada');
+      pgUsuarias();
+    });
+  }
+}
+
+function delUsuaria(uid) {
+  var d = db();
+  var u = null;
+  for (var i = 0; i < d.users.length; i++) { if (d.users[i].id === uid) { u = d.users[i]; break; } }
+  if (!u) { toast('Usuaria no encontrada'); return; }
+  if (!confirm('¿Eliminar a ' + u.name + '?\nSe borran sus medidas, rutinas y sesiones.\nEsta acción no se puede deshacer.')) return;
+  // Remove from all collections
+  var newU = [], newM = [], newR = [], newL = [];
+  for (var i = 0; i < d.users.length; i++) { if (d.users[i].id !== uid) newU.push(d.users[i]); }
+  for (var i = 0; i < d.medidas.length; i++) { if (d.medidas[i].userId !== uid) newM.push(d.medidas[i]); }
+  for (var i = 0; i < d.rutinas.length; i++) { if (d.rutinas[i].userId !== uid) newR.push(d.rutinas[i]); }
+  for (var i = 0; i < d.logs.length; i++) { if (d.logs[i].userId !== uid) newL.push(d.logs[i]); }
+  d.users = newU; d.medidas = newM; d.rutinas = newR; d.logs = newL;
+  if (!d.deleted) d.deleted = [];
+  d.deleted.push(uid);
+  saveAndSync('deleteUser', {id: uid}, function(){
+    toast('✅ ' + u.name + ' eliminada');
+    pgUsuarias();
+  });
+}
+
+function showPass(uid) {
+  var d = db();
+  var u = null;
+  for (var i = 0; i < d.users.length; i++) { if (d.users[i].id === uid) { u = d.users[i]; break; } }
+  if (!u) return;
+  document.getElementById('m_pass_content').innerHTML =
+    '<div style="background:var(--s2);border:1px solid var(--brd);border-radius:10px;padding:14px;margin-bottom:14px"><div style="font-size:12px;color:var(--gris);margin-bottom:4px">Usuaria</div><div style="font-size:16px;font-weight:600">' + u.name + '</div></div>' +
+    '<div class="fr">' +
+    '<div style="background:var(--s2);border:1px solid var(--brd);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--gris);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Usuario</div><div style="font-size:20px;font-weight:700;font-family:monospace">' + u.username + '</div></div>' +
+    '<div style="background:var(--s2);border:1px solid var(--brd);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--gris);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Contraseña</div><div style="font-size:20px;font-weight:700;font-family:monospace;color:var(--oro)">' + u.password + '</div></div>' +
+    '</div>' +
+    '<button class="btn btn-p btn-full" style="margin-top:14px" onclick="editUsuaria(\'' + uid + '\');closeModal(\'m_pass\')">✏️ Cambiar contraseña</button>';
+  openModal('m_pass');
+}
+
+function showDiag(uid) {
+  var d = db();
+  var u = null;
+  for (var i = 0; i < d.users.length; i++) { if (d.users[i].id === uid) { u = d.users[i]; break; } }
+  if (!u || !u.diagnostico) return;
+  var diag = u.diagnostico;
+  var qs = [['enf_card','Enfermedad cardiaca'],['dolor_pecho','Dolor en pecho'],['mareos','Mareos'],['prob_oseo','Problema óseo'],['medicacion','Medicación corazón'],['otra_razon','Otra razón']];
+  var html = '<div style="font-size:14px;font-weight:600;margin-bottom:14px">' + u.name + '</div>';
+  qs.forEach(function(q) {
+    var val = diag[q[0]] === 'si';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--brd)"><span style="font-size:12px;color:var(--gris)">' + q[1] + '</span><span class="badge ' + (val ? 'bw' : 'bk') + '">' + (val ? 'Sí' : 'No') + '</span></div>';
+  });
+  if (diag.obs) html += '<div style="margin-top:10px;padding:10px;background:var(--s2);border-radius:8px;font-size:12px;color:var(--gris)">' + diag.obs + '</div>';
+  if (diag.firma) html += '<div style="margin-top:12px;padding:10px;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:8px;font-size:11px;color:var(--gris)">Firma: <strong style="color:var(--blanco)">' + diag.firma + '</strong> · ' + (diag.fecha || '') + '</div>';
+  document.getElementById('m_diag_content').innerHTML = html;
+  openModal('m_diag');
+}
+
+function openMembresiaFor(uid) {
+  editUsuaria(uid);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  COACH: MEDIDAS
+// ═══════════════════════════════════════════════════════════
+function pgMedidas() {
+  var d = db();
+  var usr = d.users.filter(function(u){return u.role==='user';});
+  var html = '<div class="page-title">CONTROL DE MEDIDAS</div><div class="page-sub">Valoración física y seguimiento</div>';
+  html += '<div style="margin-bottom:16px"><button class="btn btn-p" onclick="openMedidasFor(\'\')">+ Registrar medidas</button></div>';
+  var hasMeds = false;
+  usr.forEach(function(u) {
+    var meds = d.medidas.filter(function(m){return m.userId===u.id;}).sort(function(a,b){return a.fecha.localeCompare(b.fecha);});
+    if (!meds.length) return;
+    hasMeds = true;
+    var last = meds[meds.length-1]; var first = meds[0];
+    var FIELDS = [
+      {k:'peso',l:'Peso',u:'kg'},{k:'cuello',l:'Cuello',u:'cm'},{k:'hombro',l:'Hombro',u:'cm'},
+      {k:'pectoral',l:'Pectoral',u:'cm'},{k:'cintura',l:'Cintura',u:'cm'},{k:'abdomen',l:'Abdomen',u:'cm'},
+      {k:'cadera',l:'Cadera',u:'cm'},{k:'muslo',l:'Muslo',u:'cm'},{k:'musloMedio',l:'Muslo Medio',u:'cm'},
+      {k:'pantorrilla',l:'Pantorrilla',u:'cm'},{k:'brazoD',l:'Brazo D',u:'cm'},{k:'antebrazo',l:'Antebrazo',u:'cm'}
+    ];
+    var grid = '';
+    FIELDS.forEach(function(f) {
+      var v = last[f.k]; if (!v) return;
+      grid += '<div class="m-item"><div class="m-name">' + f.l + '</div><div class="m-val">' + v + '<span class="m-u"> ' + f.u + '</span></div>' + getMedDiff(last, first, f.k) + '</div>';
+    });
+    html += '<div class="card"><div class="card-title"><span>📏 ' + u.name + '</span><button class="btn btn-g btn-sm" onclick="openMedidasFor(\'' + u.id + '\')">+ Nueva medición</button></div>';
+    html += '<div class="m-grid">' + grid + '</div>';
+    if (meds.length > 1) html += '<div style="margin-top:10px;font-size:11px;color:var(--gris)">▲▼ comparado con primera medición (' + fDate(first.fecha) + ') · Última: ' + fDate(last.fecha) + '</div>';
+    html += '</div>';
+  });
+  if (!hasMeds) html += '<div class="empty"><div class="empty-icon">📏</div><div class="empty-t">SIN MEDIDAS</div><div class="empty-s">Registra la primera valoración</div></div>';
+  setMain(html);
+}
+
+function openMedidasFor(uid) {
+  var d = db();
+  var usr = d.users.filter(function(u){return u.role==='user';});
+  var sel = document.getElementById('med_uid');
+  sel.innerHTML = usr.map(function(u){return '<option value="'+u.id+'"'+(u.id===uid?' selected':'')+'>'+u.name+'</option>';}).join('');
+  document.getElementById('med_fecha').value = new Date().toISOString().split('T')[0];
+  ['med_peso','med_talla','med_cuello','med_hombro','med_pect','med_cin','med_abd','med_cad','med_bD','med_bI','med_mus','med_musm','med_pant','med_ant','med_obs'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+  openModal('m_medidas');
+}
+
+function saveMedidas() {
+  if (_saving['medidas']) return;
+  var uid = document.getElementById('med_uid').value;
+  var fecha = document.getElementById('med_fecha').value;
+  if (!uid || !fecha) { toast('Selecciona usuaria y fecha'); return; }
+  var med = { id: 'm'+Date.now(), userId: uid, fecha: fecha,
+    peso: numF(document.getElementById('med_peso').value),
+    talla: numF(document.getElementById('med_talla').value),
+    cuello: numF(document.getElementById('med_cuello').value),
+    hombro: numF(document.getElementById('med_hombro').value),
+    pectoral: numF(document.getElementById('med_pect').value),
+    cintura: numF(document.getElementById('med_cin').value),
+    abdomen: numF(document.getElementById('med_abd').value),
+    cadera: numF(document.getElementById('med_cad').value),
+    brazoD: numF(document.getElementById('med_bD').value),
+    brazoI: numF(document.getElementById('med_bI').value),
+    muslo: numF(document.getElementById('med_mus').value),
+    musloMedio: numF(document.getElementById('med_musm').value),
+    pantorrilla: numF(document.getElementById('med_pant').value),
+    antebrazo: numF(document.getElementById('med_ant').value),
+    obs: document.getElementById('med_obs').value
+  };
+  _saving['medidas'] = true;
+  var medBtn = document.querySelector('#m_medidas .btn-p');
+  if (medBtn) { medBtn.disabled=true; medBtn.textContent='⏳ Guardando...'; }
+  saveAndSync('saveMedida', med, function(res){
+    _saving['medidas'] = false;
+    if (medBtn) { medBtn.disabled=false; medBtn.textContent='💾 Guardar medidas'; }
+    closeModal('m_medidas'); toast(res&&res.ok?'✅ Medidas guardadas en Drive':'✅ Medidas guardadas'); pgMedidas();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  COACH: EJERCICIOS (BIBLIOTECA)
+// ═══════════════════════════════════════════════════════════
+function pgEjercicios() {
+  var d = db();
+  var exs = d.ejercicios || [];
+  var html = '<div class="page-title">BIBLIOTECA</div><div class="page-sub">Ejercicios guardados para usar en rutinas</div>';
+  html += '<div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">';
+  html += '<input type="text" id="ej_search" placeholder="Buscar..." oninput="filterEjs()" style="flex:1;min-width:180px;padding:9px 13px;background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);color:var(--blanco);font-family:\'Sora\',sans-serif;font-size:13px">';
+  html += '<button class="btn btn-p" onclick="openNewEj()">+ Nuevo ejercicio</button></div>';
+  html += '<div id="ej_grid"></div>';
+  setMain(html);
+  renderEjGrid(exs);
+}
+
+function renderEjGrid(exs) {
+  var grid = document.getElementById('ej_grid');
+  if (!grid) return;
+  if (!exs || !exs.length) {
+    grid.innerHTML = '<div class="empty"><div class="empty-icon">📚</div><div class="empty-t">SIN EJERCICIOS</div><div class="empty-s">Añade ejercicios a la biblioteca</div></div>';
+    return;
+  }
+  var grupos = {};
+  exs.forEach(function(e) {
+    var g = e.grupo || 'General';
+    if (!grupos[g]) grupos[g] = [];
+    grupos[g].push(e);
+  });
+  var html = '';
+  Object.keys(grupos).forEach(function(g) {
+    html += '<div style="margin-bottom:16px">';
+    html += '<div style="font-family:\'Sora\',sans-serif;font-weight:800;font-size:15px;letter-spacing:2px;color:var(--oro);margin-bottom:8px">' + g + '</div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px">';
+    grupos[g].forEach(function(e) {
+      // Store ID in data attribute, attach listeners after render
+      html += '<div class="card" style="padding:13px">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">';
+      html += '<div style="font-weight:600;font-size:13px">' + e.nombre + '</div>';
+      html += '<div style="display:flex;gap:4px">';
+      html += '<button class="btn btn-g btn-sm ej-edit-btn" data-id="' + e.id + '">✏️ Editar</button>';
+      html += '<button class="btn btn-d btn-sm ej-del-btn" data-id="' + e.id + '">🗑️</button>';
+      html += '</div></div>';
+      if (e.equipo) html += '<div style="font-size:11px;color:var(--gris);margin-bottom:4px">' + e.equipo + '</div>';
+      if (e.desc) html += '<div style="font-size:11px;color:var(--gris);line-height:1.5">' + e.desc + '</div>';
+      if (e.video) html += '<a href="' + e.video + '" target="_blank" style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:600;background:rgba(0,212,245,0.15);color:#00d4f5;border:1px solid rgba(0,212,245,0.35);text-decoration:none;margin-top:8px">▶ Ver video</a>';
+      html += '</div>';
+    });
+    html += '</div></div>';
+  });
+  grid.innerHTML = html;
+  // Attach listeners AFTER innerHTML is set
+  grid.querySelectorAll('.ej-edit-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      openEditEj(this.getAttribute('data-id'));
+    });
+  });
+  grid.querySelectorAll('.ej-del-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      delEj(this.getAttribute('data-id'));
+    });
+  });
+}
+
+function filterEjs() {
+  var d = db();
+  var q = '';
+  var el = document.getElementById('ej_search');
+  if (el) q = el.value.toLowerCase();
+  var exs = d.ejercicios || [];
+  if (q) exs = exs.filter(function(e){ return e.nombre.toLowerCase().indexOf(q)>=0 || (e.grupo||'').toLowerCase().indexOf(q)>=0; });
+  renderEjGrid(exs);
+}
+
+function attachEjListeners() {
+  var grid = document.getElementById('ej_grid');
+  if (!grid) return;
+  // Remove old listener by cloning
+  var newGrid = grid.cloneNode(true);
+  grid.parentNode.replaceChild(newGrid, grid);
+  newGrid.addEventListener('click', function(ev) {
+    var btn = ev.target.closest('[data-ejaction]');
+    if (!btn) return;
+    var ejid = btn.getAttribute('data-ejid');
+    var action = btn.getAttribute('data-ejaction');
+    if (action === 'editar') openEditEj(ejid);
+    else if (action === 'borrar') delEj(ejid);
+  });
+}
+
+function openNewEj() {
+  document.getElementById('m_ej_title').textContent = 'NUEVO EJERCICIO';
+  document.getElementById('ej_edit_id').value = '';
+  ['ej_nombre','ej_video','ej_equipo','ej_desc'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('ej_grupo').value = 'Pierna';
+  openModal('m_ejercicio');
+}
+
+function openEditEj(ejid) {
+  var d = db();
+  var e = null;
+  for (var i = 0; i < d.ejercicios.length; i++) { if (d.ejercicios[i].id === ejid) { e = d.ejercicios[i]; break; } }
+  if (!e) return;
+  document.getElementById('m_ej_title').textContent = 'EDITAR EJERCICIO';
+  document.getElementById('ej_edit_id').value = ejid;
+  document.getElementById('ej_nombre').value = e.nombre || '';
+  document.getElementById('ej_grupo').value = e.grupo || 'Pierna';
+  document.getElementById('ej_video').value = e.video || '';
+  document.getElementById('ej_equipo').value = e.equipo || '';
+  document.getElementById('ej_desc').value = e.desc || '';
+  openModal('m_ejercicio');
+}
+
+function saveEjercicio() {
+  if (_saving['ejercicio']) return;
+  var editId = document.getElementById('ej_edit_id').value;
+  var nombre = document.getElementById('ej_nombre').value.trim();
+  if (!nombre) { toast('Ingresa el nombre del ejercicio'); return; }
+  var d = db();
+  // Check duplicate name (only for new)
+  if (!editId) {
+    var dup = (d.ejercicios||[]).filter(function(e){return e.nombre.toLowerCase()===nombre.toLowerCase();});
+    if (dup.length > 0) {
+      if (!confirm('"'+nombre+'" ya existe en la biblioteca.\n¿Guardar de todas formas?')) return;
+    }
+  }
+  var vidRaw = document.getElementById('ej_video').value.trim();
+  var vid = vidRaw;
+  var ytM = vidRaw.match(/(?:youtu\.be\/|youtube\.com\/watch\?v=)([^&\s]+)/);
+  if (ytM) vid = 'https://www.youtube.com/embed/'+ytM[1];
+  var ej = {
+    id: editId || 'ej'+Date.now(),
+    nombre: nombre,
+    grupo: document.getElementById('ej_grupo').value,
+    video: vid,
+    equipo: document.getElementById('ej_equipo').value.trim(),
+    desc: document.getElementById('ej_desc').value.trim()
+  };
+  _saving['ejercicio'] = true;
+  var btn = document.querySelector('#m_ejercicio .btn-p');
+  if(btn){btn.disabled=true;btn.textContent='⏳ Guardando...';}
+  saveAndSync('saveEjercicio', ej, function(res) {
+    _saving['ejercicio'] = false;
+    if(btn){btn.disabled=false;btn.textContent='💾 Guardar ejercicio';}
+    closeModal('m_ejercicio');
+    toast(res&&res.ok?'✅ Ejercicio guardado en Drive: '+nombre:'✅ Ejercicio guardado: '+nombre);
+    pgEjercicios();
+  });
+}
+
+function delEj(ejid) {
+  var d = db();
+  var e = null;
+  for (var i = 0; i < d.ejercicios.length; i++) { if (d.ejercicios[i].id === ejid) { e = d.ejercicios[i]; break; } }
+  if (!e) return;
+  if (!confirm('¿Eliminar el ejercicio "' + e.nombre + '"?')) return;
+  d.ejercicios = d.ejercicios.filter(function(x){return x.id !== ejid;});
+  saveAndSync('deleteEjercicio', {id: ejid}, function(){
+    toast('Ejercicio eliminado'); pgEjercicios();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  COACH: RUTINAS
+// ═══════════════════════════════════════════════════════════
+var exCount = 0;
+
+function pgRutinas() {
+  var d = db();
+  var usr = d.users.filter(function(u){return u.role==='user';});
+  var hoy = new Date(); hoy.setHours(0,0,0,0);
+  var html = '<div class="page-title">RUTINAS</div><div class="page-sub">Planes de entrenamiento por usuaria</div>';
+  html += '<div style="margin-bottom:16px"><button class="btn btn-p" onclick="openNuevaRutina(\'\')">+ Nueva rutina</button></div>';
+  // Rutina expiry alerts
+  var alertas = [];
+  d.rutinas.forEach(function(r) {
+    if (!r.fechaFin) return;
+    var fin = new Date(r.fechaFin); fin.setHours(0,0,0,0);
+    var diff = Math.ceil((fin - hoy) / 86400000);
+    if (diff <= 7) {
+      var u2 = null;
+      for (var i=0;i<d.users.length;i++){if(d.users[i].id===r.userId){u2=d.users[i];break;}}
+      alertas.push({ name: (u2?u2.name:''), rutName: r.nombre||'Sem.'+r.semana, diff: diff, rid: r.id });
+    }
+  });
+  if (alertas.length) {
+    html += '<div style="background:rgba(255,140,0,0.1);border:1px solid rgba(255,140,0,0.3);border-radius:12px;padding:14px 16px;margin-bottom:16px">';
+    html += '<div style="font-size:11px;font-weight:700;color:#ffaa44;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">⏰ RUTINAS POR VENCER / CAMBIAR</div>';
+    alertas.forEach(function(a) {
+      var msg = a.diff < 0 ? 'Venció hace '+Math.abs(a.diff)+' días' : a.diff===0 ? 'Vence HOY' : 'Vence en '+a.diff+' días';
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,140,0,0.1)">';
+      html += '<span style="font-size:12px;color:var(--blanco)">'+a.name+' — '+a.rutName+'</span>';
+      html += '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:#ffaa44">'+msg+'</span>';
+      html += '<button class="btn btn-warn btn-sm" onclick="openEditRutina(\''+a.rid+'\')">✏️ Cambiar</button></div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+  usr.forEach(function(u) {
+    var ruts = d.rutinas.filter(function(r){return r.userId===u.id;}).sort(function(a,b){return a.semana-b.semana;});
+    html += '<div class="card"><div class="card-title">';
+    html += '<span>🏋️ '+u.name+' <span class="badge bm" style="font-size:11px">'+ruts.length+' planes</span></span>';
+    html += '<button class="btn btn-g btn-sm" onclick="openNuevaRutina(\''+u.id+'\')">+ Añadir</button>';
+    html += '</div>';
+    if (!ruts.length) {
+      html += '<div style="font-size:12px;color:var(--gris)">Sin rutinas. Carga el primer plan.</div>';
+    } else {
+      ruts.forEach(function(r) {
+        var finDate = r.fechaFin ? new Date(r.fechaFin) : null;
+        finDate && finDate.setHours(0,0,0,0);
+        var diffDays = finDate ? Math.ceil((finDate-hoy)/86400000) : null;
+        var vigenciaHtml = '';
+        if (r.fechaIni || r.fechaFin) {
+          var color = diffDays===null ? 'var(--gris)' : diffDays<0 ? '#ff8080' : diffDays<=7 ? '#ffaa44' : '#80d4a0';
+          var vigLabel = '';
+          if (r.fechaIni) vigLabel += '📅 '+fDate(r.fechaIni);
+          if (r.fechaFin) vigLabel += ' → '+fDate(r.fechaFin);
+          if (diffDays!==null) vigLabel += ' · <span style="color:'+color+'">'+( diffDays<0?'Venció':'Vence en '+diffDays+' días')+'</span>';
+          vigenciaHtml = '<div style="font-size:11px;color:var(--gris);margin-top:4px">'+vigLabel+'</div>';
+        }
+        html += '<details style="margin-bottom:8px">';
+        html += '<summary style="cursor:pointer;padding:10px 13px;background:var(--s2);border-radius:var(--r);font-size:13px;font-weight:600;list-style:none;display:flex;justify-content:space-between;align-items:flex-start;border:1px solid var(--brd)">';
+        html += '<div><div style="display:flex;align-items:center"><span class="rut-num">'+r.semana+'</span>'+(r.nombre||'Semana '+r.semana)+'<span style="font-size:11px;color:var(--gris);margin-left:8px">'+(r.intensidad||'')+'</span></div>'+vigenciaHtml+'</div>';
+        html += '<div style="display:flex;gap:5px;margin-top:2px" onclick="event.stopPropagation()">';
+        html += '<button class="btn btn-g btn-sm" onclick="openEditRutina(\''+r.id+'\')">✏️ Editar</button>';
+        html += '<button class="btn btn-d btn-sm" onclick="delRutina(\''+r.id+'\')">🗑️</button>';
+        html += '</div></summary>';
+        html += '<div style="padding:8px 4px">'+renderRutinaContent(r)+'</div>';
+        html += '</details>';
+      });
+    }
+    html += '</div>';
+  });
+  setMain(html);
+}
+
+function renderRutinaContent(r) {
+  var html = '';
+  (r.dias || []).forEach(function(dia) {
+    html += '<div class="w-day"><div class="w-day-hdr"><span class="w-day-t">' + dia.nombre + '</span><span class="w-day-s">' + (dia.tipo||'') + '</span></div>';
+    html += '<div class="ex-hdr"><span>Ejercicio</span><span>Series×Reps</span><span>Carga</span><span>Descanso</span><span>Video</span></div>';
+    (dia.ejercicios||[]).forEach(function(e) {
+      var vidHtml = e.videoUrl ? '<a href="' + e.videoUrl + '" target="_blank" style="font-size:10px;color:var(--cyan);text-decoration:none">▶ Ver</a>' : '—';
+      html += '<div class="ex-row"><span style="font-weight:500">' + e.nombre + '</span><span style="color:var(--gris)">' + (e.dosis||'—') + '</span><span style="color:var(--gris)">' + (e.carga||'—') + '</span><span style="color:var(--gris)">' + (e.descanso||'—') + '</span><span>' + vidHtml + '</span></div>';
+    });
+    html += '</div>';
+  });
+  return html;
+}
+
+function openNuevaRutina(uid) {
+  var d = db();
+  var usr = d.users.filter(function(u){return u.role==='user';});
+  document.getElementById('m_rut_title').textContent = 'NUEVA RUTINA';
+  document.getElementById('rut_edit_id').value = '';
+  var sel = document.getElementById('rut_uid');
+  sel.innerHTML = usr.map(function(u){return '<option value="'+u.id+'"'+(u.id===uid?' selected':'')+'>'+u.name+'</option>';}).join('');
+  document.getElementById('rut_nombre').value = '';
+  document.getElementById('rut_obj').value = '';
+  document.getElementById('rut_int').value = 'Media (7-8)';
+  // Fecha inicio = hoy
+  var hoy = new Date().toISOString().split('T')[0];
+  document.getElementById('rut_fecha_ini').value = hoy;
+  // Fecha fin = 4 semanas por defecto
+  var fin = new Date(); fin.setDate(fin.getDate() + 28);
+  document.getElementById('rut_fecha_fin').value = fin.toISOString().split('T')[0];
+  // Auto semana
+  var autoSem = 1;
+  d.rutinas.forEach(function(r){ if(r.userId===uid && r.semana>=autoSem) autoSem=r.semana+1; });
+  document.getElementById('rut_semana').value = autoSem;
+  exCount = 0;
+  document.getElementById('rut_exs').innerHTML = '';
+  openModal('m_rutina');
+}
+
+function openEditRutina(rid) {
+  var d = db();
+  var r = null;
+  for (var i = 0; i < d.rutinas.length; i++) { if (d.rutinas[i].id === rid) { r = d.rutinas[i]; break; } }
+  if (!r) return;
+  var usr = d.users.filter(function(u){return u.role==='user';});
+  document.getElementById('m_rut_title').textContent = 'EDITAR RUTINA';
+  document.getElementById('rut_edit_id').value = rid;
+  var sel = document.getElementById('rut_uid');
+  sel.innerHTML = usr.map(function(u){return '<option value="'+u.id+'"'+(u.id===r.userId?' selected':'')+'>'+u.name+'</option>';}).join('');
+  document.getElementById('rut_nombre').value = r.nombre || '';
+  document.getElementById('rut_semana').value = r.semana || '';
+  document.getElementById('rut_obj').value = r.objetivo || '';
+  document.getElementById('rut_int').value = r.intensidad || 'Media (7-8)';
+  document.getElementById('rut_fecha_ini').value = r.fechaIni || r.fechaCarga || '';
+  document.getElementById('rut_fecha_fin').value = r.fechaFin || '';
+  exCount = 0;
+  document.getElementById('rut_exs').innerHTML = '';
+  (r.dias || []).forEach(function(dia) {
+    (dia.ejercicios || []).forEach(function(e) { addExRow(dia.dia, e); });
+  });
+  openModal('m_rutina');
+}
+
+function addExRow(diaVal, existing) {
+  var i = exCount++;
+  var div = document.createElement('div');
+  div.style.cssText = 'background:rgba(0,0,0,0.2);border:1px solid var(--brd);border-radius:10px;padding:11px;margin-bottom:7px';
+  var diaOpts = ['dia1','dia2','dia3'].map(function(d,idx){return '<option value="'+d+'"'+(d===(diaVal||'dia1')?' selected':'')+'>Día '+(idx+1)+'</option>';}).join('');
+  var e = existing || {};
+  div.innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px">' +
+    '<span style="font-size:11px;font-weight:700;color:var(--oro);letter-spacing:1px">EJERCICIO #'+(i+1)+'</span>' +
+    '<select id="rex_dia_'+i+'" style="padding:3px 7px;background:var(--s1);border:1px solid var(--brd);border-radius:6px;color:var(--blanco);font-size:11px;font-family:\'Montserrat\',sans-serif">'+diaOpts+'</select>' +
+    '</div>' +
+    '<div class="fr"><div class="fg ac-wrap">' +
+    '<label style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gris);display:block;margin-bottom:5px">Ejercicio</label>' +
+    '<input type="text" id="rex_nom_'+i+'" value="'+(e.nombre||'')+'" placeholder="Escribe o busca..." autocomplete="off" style="width:100%;padding:9px 13px;background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);color:var(--blanco);font-family:\'Sora\',sans-serif;font-size:13px">' +
+    '<div id="rex_sug_'+i+'" class="ac-list"></div>'
+    +'<div id="rex_info_'+i+'" style="display:none;padding:6px 2px;margin-top:4px"></div></div>' +
+    '<div class="fg"><label style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gris);display:block;margin-bottom:5px">Series × Reps</label><input type="text" id="rex_dos_'+i+'" value="'+(e.dosis||'')+'" placeholder="3x15" style="width:100%;padding:9px 13px;background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);color:var(--blanco);font-family:\'Sora\',sans-serif;font-size:13px"></div></div>' +
+    '<div class="fr3">' +
+    '<div class="fg"><label style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gris);display:block;margin-bottom:5px">Carga</label><input type="text" id="rex_car_'+i+'" value="'+(e.carga||'')+'" placeholder="5kg" style="width:100%;padding:9px 13px;background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);color:var(--blanco);font-family:\'Sora\',sans-serif;font-size:13px"></div>' +
+    '<div class="fg"><label style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gris);display:block;margin-bottom:5px">Descanso</label><input type="text" id="rex_des_'+i+'" value="'+(e.descanso||'')+'" placeholder="1:30 min" style="width:100%;padding:9px 13px;background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);color:var(--blanco);font-family:\'Sora\',sans-serif;font-size:13px"></div>' +
+    '<div class="fg"><label style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gris);display:block;margin-bottom:5px">Video URL</label><input type="text" id="rex_vid_'+i+'" value="'+(e.videoUrl||'')+'" placeholder="youtu.be/..." style="width:100%;padding:9px 13px;background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);color:var(--blanco);font-family:\'Sora\',sans-serif;font-size:13px"></div>' +
+    '</div>';
+  document.getElementById('rut_exs').appendChild(div);
+  // Attach autocomplete
+  var inp = document.getElementById('rex_nom_'+i);
+  var sug = document.getElementById('rex_sug_'+i);
+  if (inp && sug) {
+    inp.addEventListener('input', function() {
+      var q = this.value.toLowerCase().trim();
+      if (q.length < 1) { sug.style.display = 'none'; return; }
+      var exs = (db().ejercicios || []).filter(function(e){return e.nombre.toLowerCase().indexOf(q) >= 0;}).slice(0,8);
+      if (!exs.length) { sug.style.display = 'none'; return; }
+      sug.innerHTML = '';
+      exs.forEach(function(ex) {
+        var item = document.createElement('div'); item.className = 'ac-item';
+        item.textContent = ex.nombre + (ex.grupo ? ' (' + ex.grupo + ')' : '');
+        item.onmousedown = function(ev) {
+          ev.preventDefault();
+          inp.value = ex.nombre;
+          sug.style.display = 'none';
+          // Auto-fill from library
+          var dosEl  = document.getElementById('rex_dos_'+i);
+          var carEl  = document.getElementById('rex_car_'+i);
+          var vidEl  = document.getElementById('rex_vid_'+i);
+          // Only fill if empty
+          if (ex.equipo && carEl && !carEl.value) carEl.value = ex.equipo;
+          if (ex.video && vidEl && !vidEl.value) vidEl.value = ex.video;
+          // Show library info below
+          var infoEl = document.getElementById('rex_info_'+i);
+          if (infoEl) {
+            var info = '';
+            if (ex.grupo) info += '<span class="badge bm">'+ex.grupo+'</span> ';
+            if (ex.equipo) info += '<span class="badge bg">'+ex.equipo+'</span> ';
+            if (ex.desc) info += '<span style="font-size:11px;color:var(--gris)">'+ex.desc+'</span>';
+            if (ex.video) info += ' <a href="'+ex.video+'" target="_blank" style="font-size:11px;color:var(--cyan);text-decoration:none">▶ Ver video</a>';
+            infoEl.innerHTML = info;
+            infoEl.style.display = info ? 'block' : 'none';
+          }
+        };
+        sug.appendChild(item);
+      });
+      sug.style.display = 'block';
+    });
+    inp.addEventListener('blur', function() { setTimeout(function(){sug.style.display='none';}, 200); });
+  }
+}
+
+function saveRutina() {
+  if (_saving['rutina']) return;
+  var editId   = document.getElementById('rut_edit_id').value;
+  var userId   = document.getElementById('rut_uid').value;
+  var semana   = parseInt(document.getElementById('rut_semana').value)||0;
+  var nombre   = document.getElementById('rut_nombre').value||'Semana '+semana;
+  var fechaIni = document.getElementById('rut_fecha_ini').value||new Date().toISOString().split('T')[0];
+  var fechaFin = document.getElementById('rut_fecha_fin').value||'';
+  if(!userId||!semana){toast('Selecciona usuaria y número de semana');return;}
+  var dias={
+    dia1:{dia:'dia1',nombre:'Día 1',tipo:'',ejercicios:[]},
+    dia2:{dia:'dia2',nombre:'Día 2',tipo:'',ejercicios:[]},
+    dia3:{dia:'dia3',nombre:'Día 3',tipo:'',ejercicios:[]}
+  };
+  var hasExs=false;
+  for(var i=0;i<exCount;i++){
+    var elN=document.getElementById('rex_nom_'+i);
+    if(!elN||!elN.value.trim()) continue;
+    var diaKey=(document.getElementById('rex_dia_'+i)||{value:'dia1'}).value;
+    var vidRaw=(document.getElementById('rex_vid_'+i)||{value:''}).value.trim();
+    var vid=vidRaw;
+    var ytM=vidRaw.match(/(?:youtu\.be\/|youtube\.com\/watch\?v=)([^&\s]+)/);
+    if(ytM) vid='https://www.youtube.com/embed/'+ytM[1];
+    dias[diaKey].ejercicios.push({
+      nombre:elN.value.trim(),
+      dosis:(document.getElementById('rex_dos_'+i)||{value:''}).value,
+      carga:(document.getElementById('rex_car_'+i)||{value:''}).value,
+      descanso:(document.getElementById('rex_des_'+i)||{value:''}).value,
+      videoUrl:vid
+    });
+    hasExs=true;
+  }
+  if(!hasExs){toast('Añade al menos un ejercicio');return;}
+  var diasArr=[];
+  ['dia1','dia2','dia3'].forEach(function(k){if(dias[k].ejercicios.length>0)diasArr.push(dias[k]);});
+  var d=db();
+  var btn=document.querySelector('#m_rutina .btn-p');
+  _saving['rutina']=true;
+  if(btn){btn.disabled=true;btn.textContent='⏳ Guardando en Drive...';}
+  var done=function(res){
+    _saving['rutina']=false;
+    if(btn){btn.disabled=false;btn.textContent='💾 Guardar rutina';}
+    closeModal('m_rutina');
+    toast(res&&res.ok?'✅ Rutina guardada en Drive: '+nombre:'✅ Rutina guardada: '+nombre);
+    pgRutinas();
+  };
+  if(editId){
+    for(var i=0;i<d.rutinas.length;i++){
+      if(d.rutinas[i].id===editId){
+        d.rutinas[i].nombre=nombre; d.rutinas[i].semana=semana;
+        d.rutinas[i].objetivo=document.getElementById('rut_obj').value;
+        d.rutinas[i].intensidad=document.getElementById('rut_int').value;
+        d.rutinas[i].fechaIni=fechaIni; d.rutinas[i].fechaFin=fechaFin;
+        d.rutinas[i].dias=diasArr; d.rutinas[i].fechaUpdate=new Date().toISOString().split('T')[0];
+        saveAndSync('saveRutina',d.rutinas[i],done); return;
+      }
+    }
+    toast('Rutina no encontrada'); _saving['rutina']=false; if(btn){btn.disabled=false;btn.textContent='💾 Guardar rutina';}
+  } else {
+    // Check duplicate semana
+    var exists=d.rutinas.filter(function(r){return r.userId===userId&&r.semana===semana;});
+    if(exists.length>0){
+      if(!confirm('Ya existe una rutina para Semana '+semana+' de esta usuaria.\n¿Reemplazarla?')){
+        _saving['rutina']=false; if(btn){btn.disabled=false;btn.textContent='💾 Guardar rutina';} return;
+      }
+    }
+    var rutina={id:'r'+Date.now(),userId:userId,semana:semana,nombre:nombre,
+      objetivo:document.getElementById('rut_obj').value,
+      intensidad:document.getElementById('rut_int').value,
+      fechaIni:fechaIni,fechaFin:fechaFin,
+      fechaCarga:new Date().toISOString().split('T')[0],dias:diasArr};
+    d.rutinas=d.rutinas.filter(function(r){return!(r.userId===userId&&r.semana===semana);});
+    d.rutinas.push(rutina);
+    saveAndSync('saveRutina',rutina,done);
+  }
+}
+
+function delRutina(rid) {
+  var d = db();
+  var r = null;
+  for (var i = 0; i < d.rutinas.length; i++) { if (d.rutinas[i].id === rid) { r = d.rutinas[i]; break; } }
+  if (!r) return;
+  if (!confirm('¿Eliminar la rutina "' + (r.nombre||'Semana '+r.semana) + '"?')) return;
+  d.rutinas = d.rutinas.filter(function(x){return x.id !== rid;});
+  saveAndSync('deleteRutina', {id: rid}, function(){
+    toast('Rutina eliminada'); pgRutinas();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  COACH: LOGS
+// ═══════════════════════════════════════════════════════════
+function pgLogs() {
+  var d = db();
+  var sorted = d.logs.slice().sort(function(a,b){return b.fecha.localeCompare(a.fecha);});
+  // Filters
+  var html = '<div class="page-title">REGISTRO GLOBAL</div>';
+  html += '<div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">';
+  html += '<select id="log_filter_u" onchange="pgLogs()" style="padding:7px 12px;background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);color:var(--blanco);font-family:\'Sora\',sans-serif;font-size:12px">';
+  html += '<option value="">Todas las usuarias</option>';
+  d.users.filter(function(u){return u.role==='user';}).forEach(function(u){
+    html += '<option value="'+u.id+'">'+u.name+'</option>';
+  });
+  html += '</select>';
+  html += '<input type="date" id="log_filter_date" onchange="pgLogs()" style="padding:7px 12px;background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);color:var(--blanco);font-family:\'Sora\',sans-serif;font-size:12px" placeholder="Filtrar por fecha">';
+  html += '<select id="log_filter_dolor" onchange="pgLogs()" style="padding:7px 12px;background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);color:var(--blanco);font-family:\'Sora\',sans-serif;font-size:12px">';
+  html += '<option value="">Todos</option><option value="fuerte">⚠️ Con dolor fuerte</option><option value="sin_feedback">Sin retroalimentar</option>';
+  html += '</select>';
+  html += '<span style="font-size:12px;color:var(--gris);align-self:center">'+sorted.length+' sesiones</span>';
+  html += '</div>';
+
+  // Apply filters
+  var filterU  = (document.getElementById('log_filter_u')||{value:''}).value;
+  var filterD  = (document.getElementById('log_filter_date')||{value:''}).value;
+  var filterDo = (document.getElementById('log_filter_dolor')||{value:''}).value;
+  if (filterU)  sorted = sorted.filter(function(l){return l.userId===filterU;});
+  if (filterD)  sorted = sorted.filter(function(l){return l.fecha===filterD;});
+  if (filterDo === 'fuerte') sorted = sorted.filter(function(l){return l.dolor==='fuerte';});
+  if (filterDo === 'sin_feedback') sorted = sorted.filter(function(l){return !l.feedback;});
+
+  if (!sorted.length) {
+    html += '<div class="empty"><div class="empty-icon">📋</div><div class="empty-t">SIN SESIONES</div></div>';
+    setMain(html); return;
+  }
+
+  sorted.forEach(function(l) {
+    var u = null;
+    for (var i=0;i<d.users.length;i++){if(d.users[i].id===l.userId){u=d.users[i];break;}}
+    var r = null;
+    for (var i=0;i<d.rutinas.length;i++){if(d.rutinas[i].id===l.rutId){r=d.rutinas[i];break;}}
+    var diaData = null;
+    if (r){for(var i=0;i<r.dias.length;i++){if(r.dias[i].dia===l.dia){diaData=r.dias[i];break;}}}
+    var dt = new Date(l.fecha);
+    var hasDolor = l.dolor && l.dolor !== 'no';
+    var hasFeedback = !!l.feedback;
+    var esfColor = l.esfuerzo >= 8 ? '#ff8080' : l.esfuerzo >= 6 ? '#ffaa44' : '#80d4a0';
+
+    html += '<div class="card" style="margin-bottom:14px;padding:0;cursor:pointer" onclick="showLogDetail(\''+l.id+'\')">';
+    // Header
+    html += '<div style="padding:14px 16px;display:flex;gap:12px;align-items:flex-start">';
+    html += '<div class="log-date"><div class="log-d">'+dt.getDate()+'</div><div class="log-m">'+dt.toLocaleDateString('es',{month:'short'})+'</div></div>';
+    html += '<div style="flex:1">';
+    html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
+    html += '<span style="font-weight:600;font-size:14px">'+(u?u.name:'')+'</span>';
+    html += '<span class="badge bm">'+(diaData?diaData.nombre:'Día '+l.dia.replace('dia',''))+'</span>';
+    if (r) html += '<span class="badge bg">'+( r.nombre||'Sem.'+r.semana)+'</span>';
+    if (hasDolor) html += '<span class="badge bw">⚠️ Dolor '+l.dolor+'</span>';
+    if (!hasFeedback) html += '<span class="badge" style="background:rgba(201,168,76,0.15);color:var(--oro);border:1px solid rgba(201,168,76,0.3)">Sin retroalimentar</span>';
+    if (hasFeedback) html += '<span class="badge bk">✓ Retroalimentada</span>';
+    html += '</div>';
+    // Stats row
+    html += '<div style="display:flex;gap:12px;margin-top:6px;flex-wrap:wrap">';
+    if (l.duracion) html += '<span style="font-size:11px;color:var(--gris)">⏱ '+l.duracion+' min</span>';
+    if (l.peso) html += '<span style="font-size:11px;color:var(--gris)">⚖️ '+l.peso+' kg</span>';
+    if (l.esfuerzo) html += '<span style="font-size:11px;color:'+esfColor+'">💪 Esfuerzo '+l.esfuerzo+'/10</span>';
+    if (l.ejercicios) {
+      var completados = l.ejercicios.filter(function(e){return e.completado;}).length;
+      html += '<span style="font-size:11px;color:var(--gris)">✅ '+completados+'/'+l.ejercicios.length+' ejercicios</span>';
+    }
+    html += '</div>';
+    if (l.comentario) html += '<div class="log-c" style="margin-top:8px">'+l.comentario+'</div>';
+    html += '</div>';
+    html += '<div style="font-size:11px;color:var(--cyan);font-weight:600;align-self:center;padding-right:4px">Ver detalle →</div>';
+    html += '</div>';
+
+    // Exercises mini-table
+    if (l.ejercicios && l.ejercicios.length) {
+      html += '<div style="border-top:1px solid var(--brd);padding:10px 16px;overflow-x:auto">';
+      html += '<table style="min-width:400px"><thead><tr>';
+      html += '<th>Ejercicio</th><th>Planeado</th><th>Realizado</th><th>Carga</th><th>Estado</th>';
+      html += '</tr></thead><tbody>';
+      l.ejercicios.forEach(function(e) {
+        var ok = e.completado;
+        html += '<tr><td style="font-weight:500">'+e.nombre+'</td>';
+        html += '<td style="color:var(--gris)">'+( e.dosisPlaneada||'—')+'</td>';
+        html += '<td style="color:'+(ok?'#80d4a0':'var(--gris)')+'">'+( e.reps||'—')+'</td>';
+        html += '<td style="color:'+(ok?'#80d4a0':'var(--gris)')+'">'+( e.carga||'—')+'</td>';
+        html += '<td><span class="badge '+(ok?'bk':'bw')+'">'+(ok?'✓':'Pendiente')+'</span></td>';
+        html += '</tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+
+    // Feedback section
+    if (hasFeedback) {
+      html += '<div style="border-top:1px solid var(--brd);padding:12px 16px;background:rgba(0,212,245,0.04)">';
+      html += '<div style="font-size:10px;font-weight:700;color:var(--cyan);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">💬 RETROALIMENTACIÓN DEL COACH</div>';
+      html += '<div style="font-size:12px;color:var(--blanco);line-height:1.7">'+l.feedback+'</div>';
+      if (l.fechaFeedback) html += '<div style="font-size:10px;color:var(--gris);margin-top:4px">'+fDate(l.fechaFeedback)+'</div>';
+      html += '</div>';
+    }
+
+    html += '</div>';
+  });
+
+  setMain(html);
+}
+function showLogDetail(logId) {
+  var d = db();
+  var l = null;
+  for (var i=0;i<d.logs.length;i++){if(d.logs[i].id===logId){l=d.logs[i];break;}}
+  if (!l) return;
+  var u = null;
+  for (var i=0;i<d.users.length;i++){if(d.users[i].id===l.userId){u=d.users[i];break;}}
+  var r = null;
+  for (var i=0;i<d.rutinas.length;i++){if(d.rutinas[i].id===l.rutId){r=d.rutinas[i];break;}}
+  var diaData = null;
+  if (r){for(var i=0;i<r.dias.length;i++){if(r.dias[i].dia===l.dia){diaData=r.dias[i];break;}}}
+  var dt = new Date(l.fecha);
+  var isCoach = CU.role==='coach' || CU.role==='admin';
+  var esfColor = l.esfuerzo >= 8 ? '#ff8080' : l.esfuerzo >= 6 ? '#ffaa44' : '#80d4a0';
+
+  var html = '';
+  // Header info
+  html += '<div style="background:var(--s2);border-radius:10px;padding:14px;margin-bottom:14px">';
+  html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">';
+  html += '<div>';
+  html += '<div style="font-weight:600;font-size:15px">'+(u?u.name:'')+'</div>';
+  html += '<div style="font-size:12px;color:var(--gris);margin-top:2px">';
+  html += fDate(l.fecha)+' · '+(diaData?diaData.nombre:'Día '+l.dia.replace('dia',''));
+  if (r) html += ' · '+(r.nombre||'Sem.'+r.semana);
+  html += '</div></div>';
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap">';
+  if (l.duracion) html += '<div style="text-align:center"><div style="font-family:\'Sora\',sans-serif;font-weight:800;font-size:22px">'+l.duracion+'</div><div style="font-size:10px;color:var(--gris)">MINUTOS</div></div>';
+  if (l.peso) html += '<div style="text-align:center"><div style="font-family:\'Sora\',sans-serif;font-weight:800;font-size:22px">'+l.peso+'</div><div style="font-size:10px;color:var(--gris)">KG HOY</div></div>';
+  if (l.esfuerzo) html += '<div style="text-align:center"><div style="font-family:\'Sora\',sans-serif;font-weight:800;font-size:22px;color:'+esfColor+'">'+l.esfuerzo+'/10</div><div style="font-size:10px;color:var(--gris)">ESFUERZO</div></div>';
+  html += '</div></div>';
+  // Dolor badge
+  if (l.dolor && l.dolor !== 'no') {
+    var dolorLabels = {leve:'Leve molestia', moderado:'Dolor moderado', fuerte:'⚠️ Dolor fuerte'};
+    html += '<div style="margin-top:10px;padding:7px 10px;background:rgba(200,50,50,0.15);border-radius:8px;border:1px solid rgba(200,50,50,0.3);font-size:12px;color:#ff8080">';
+    html += (dolorLabels[l.dolor]||l.dolor)+'</div>';
+  }
+  html += '</div>';
+
+  // Exercises detail
+  if (l.ejercicios && l.ejercicios.length) {
+    html += '<div style="font-size:11px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">📝 DETALLE DE EJERCICIOS</div>';
+    html += '<div style="overflow-x:auto;margin-bottom:14px">';
+    html += '<table><thead><tr><th>Ejercicio</th><th>Planeado</th><th>Carga plan</th><th>Reps real</th><th>Carga real</th><th>Estado</th></tr></thead><tbody>';
+    l.ejercicios.forEach(function(e) {
+      var ok = e.completado;
+      // Progress vs planned
+      var progress = '';
+      if (e.reps && e.dosisPlaneada) {
+        var planNum = parseInt(e.dosisPlaneada.match(/\d+/g)||[0]);
+        var realNum = parseInt(e.reps.match(/\d+/g)||[0]);
+        if (planNum && realNum) {
+          var pct = Math.round(realNum/planNum*100);
+          progress = ' <span style="font-size:10px;color:'+(pct>=100?'#80d4a0':pct>=80?'#ffaa44':'#ff8080')+'">'+pct+'%</span>';
+        }
+      }
+      html += '<tr>';
+      html += '<td style="font-weight:500">'+e.nombre+'</td>';
+      html += '<td style="color:var(--gris)">'+( e.dosisPlaneada||'—')+'</td>';
+      html += '<td style="color:var(--gris)">'+( e.cargaPlaneada||'—')+'</td>';
+      html += '<td style="color:'+(ok?'#80d4a0':'#ff8080')+'">'+( e.reps||'—')+progress+'</td>';
+      html += '<td style="color:'+(ok?'#80d4a0':'var(--gris)')+'">'+( e.carga||'—')+'</td>';
+      html += '<td><span class="badge '+(ok?'bk':'bw')+'">'+(ok?'✓ OK':'No registrado')+'</span></td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+  }
+
+  // Comment from user
+  if (l.comentario) {
+    html += '<div style="margin-bottom:14px">';
+    html += '<div style="font-size:11px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">💬 COMENTARIO DE LA USUARIA</div>';
+    html += '<div style="background:rgba(0,0,0,0.2);padding:12px;border-radius:8px;font-size:13px;border-left:3px solid var(--mag);line-height:1.7">'+l.comentario+'</div>';
+    html += '</div>';
+  }
+
+  // Existing feedback
+  if (l.feedback) {
+    html += '<div style="margin-bottom:14px;background:rgba(0,212,245,0.06);border:1px solid var(--brd);border-radius:10px;padding:12px">';
+    html += '<div style="font-size:11px;font-weight:700;color:var(--cyan);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">✅ RETROALIMENTACIÓN ENVIADA</div>';
+    html += '<div style="font-size:13px;line-height:1.7">'+l.feedback+'</div>';
+    if (l.fechaFeedback) html += '<div style="font-size:10px;color:var(--gris);margin-top:6px">'+fDate(l.fechaFeedback)+'</div>';
+    html += '</div>';
+  }
+
+  // Feedback form (coach only)
+  if (isCoach) {
+    html += '<div style="font-size:11px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">'+(l.feedback?'✏️ EDITAR RETROALIMENTACIÓN':'💬 DEJAR RETROALIMENTACIÓN')+'</div>';
+    html += '<textarea id="feedback_text" placeholder="Escribe tu retroalimentación para la usuaria..." style="width:100%;padding:10px 13px;background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);color:var(--blanco);font-family:\'Sora\',sans-serif;font-size:13px;min-height:100px;resize:vertical;margin-bottom:10px">'+( l.feedback||'')+'</textarea>';
+    html += '<button class="btn btn-p btn-full" onclick="saveFeedback(\''+logId+'\')">💬 Enviar retroalimentación</button>';
+  } else {
+    // User view: show feedback
+    if (l.feedback) {
+      html += '<div style="background:rgba(0,212,245,0.06);border:1px solid var(--brd);border-radius:10px;padding:14px">';
+      html += '<div style="font-size:11px;font-weight:700;color:var(--cyan);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">💬 RETROALIMENTACIÓN DEL COACH</div>';
+      html += '<div style="font-size:13px;line-height:1.8">'+l.feedback+'</div>';
+      html += '</div>';
+    }
+  }
+
+  document.getElementById('m_log_detail_content').innerHTML = html;
+  openModal('m_log_detail');
+}
+
+function saveFeedback(logId) {
+  if (_saving['feedback_'+logId]) return;
+  var text = (document.getElementById('feedback_text')||{value:''}).value.trim();
+  if (!text) { toast('Escribe la retroalimentación'); return; }
+  var d = db();
+  var idx = -1;
+  for (var i=0;i<d.logs.length;i++){if(d.logs[i].id===logId){idx=i;break;}}
+  if (idx < 0) { toast('Sesión no encontrada'); return; }
+  d.logs[idx].feedback = text;
+  d.logs[idx].feedbackBy = CU.name;
+  d.logs[idx].fechaFeedback = new Date().toISOString().split('T')[0];
+  save(d);
+  _saving['feedback_'+logId] = true;
+  var fbBtn = document.querySelector('#m_log_detail_content .btn-p');
+  if (fbBtn) { fbBtn.disabled=true; fbBtn.textContent='⏳ Guardando...'; }
+  saveAndSync('saveLog', d.logs[idx], function(res) {
+    _saving['feedback_'+logId] = false;
+    if (fbBtn) { fbBtn.disabled=false; fbBtn.textContent='💬 Enviar retroalimentación'; }
+    toast(res && res.ok ? '✅ Retroalimentación guardada en Drive' : '✅ Retroalimentación guardada');
+    closeModal('m_log_detail');
+    pgLogs();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  COACH: AJUSTES
+// ═══════════════════════════════════════════════════════════
+function pgAjustes() {
+  var html = '';
+  html += '<div class="page-title">CONFIGURACION</div>';
+  html += '<div class="page-sub">Sistema y Google Sheets</div>';
+  html += '<div class="card">';
+  html += '<div class="card-title">Cambiar contrasena coach</div>';
+  html += '<div class="fr">';
+  html += '<div class="fg"><label>Contrasena actual</label><input type="password" id="cp_actual"/></div>';
+  html += '<div class="fg"><label>Nueva contrasena</label><input type="password" id="cp_nueva"/></div>';
+  html += '</div>';
+  html += '<div class="fg"><label>Confirmar nueva</label><input type="password" id="cp_conf"/></div>';
+  html += '<button class="btn btn-p btn-sm" onclick="changeCoachPass()">Actualizar</button>';
+  html += '</div>';
+  html += '<div class="card">';
+  html += '<div class="card-title">Google Sheets</div>';
+  html += '<div style="background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:10px;padding:12px;margin-bottom:14px">';
+  html += '<div style="font-size:11px;color:var(--oro);font-weight:700;margin-bottom:6px">URL CONFIGURADA:</div>';
+  html += '<div id="ajustes_url_display" style="font-size:10px;color:var(--gris);word-break:break-all;line-height:1.6"></div>';
+  html += '</div>';
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap">';
+  html += '<button class="btn btn-p btn-sm" onclick="testSheets()">Probar conexion</button>';
+  html += '<button class="btn btn-g btn-sm" onclick="pushAll()">Subir todos los datos</button>';
+  html += '<button class="btn btn-g btn-sm" onclick="pullAll()">Cargar desde Sheets</button>';
+  html += '</div>';
+  html += '<div id="sheets_status" style="margin-top:12px"></div>';
+  html += '</div>';
+  html += '<div class="card">';
+  html += '<div class="card-title">Codigo Apps Script</div>';
+  html += '<div style="font-size:11px;color:var(--gris);line-height:1.9;margin-bottom:12px">';
+  html += '1. Google Sheets - Extensiones - Apps Script - borra todo<br>';
+  html += '2. Pega el codigo de abajo<br>';
+  html += '3. Implementar - Web App - Nueva version - Cualquier persona';
+  html += '</div>';
+  html += '<button class="btn btn-g btn-sm" style="margin-bottom:10px" onclick="copyCode()">Copiar codigo</button>';
+  html += '<pre id="gas_code" style="background:rgba(0,0,0,0.4);border:1px solid var(--brd);border-radius:10px;padding:14px;font-size:10px;overflow:auto;color:var(--oro);line-height:1.8;max-height:360px;white-space:pre-wrap;word-break:break-all"></pre>';
+  html += '</div>';
+  html += '<div class="card">';
+  html += '<div class="card-title">Backup</div>';
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap">';
+  html += '<button class="btn btn-g btn-sm" onclick="exportData()">Descargar JSON</button>';
+  html += '<button class="btn btn-d btn-sm" onclick="resetData()">Borrar datos locales</button>';
+  html += '</div></div>';
+  setMain(html);
+  setTimeout(function() {
+    var urlDisplay = document.getElementById('ajustes_url_display');
+    if (urlDisplay) urlDisplay.textContent = GAS_URL.slice(0,45)+'...[protegido]';
+    var pre = document.getElementById('gas_code');
+    if (pre) pre.textContent = getGasCode();
+  }, 50);
+}
+
+function changeCoachPass() {
+  var actual = document.getElementById('cp_actual').value;
+  var nueva = document.getElementById('cp_nueva').value;
+  var conf = document.getElementById('cp_conf').value;
+  var d = db();
+  var coach = null; var ci = -1;
+  for (var i = 0; i < d.users.length; i++) { if (d.users[i].role === 'coach') { coach = d.users[i]; ci = i; break; } }
+  if (!coach) { toast('Error: coach no encontrado'); return; }
+  if (coach.password !== actual) { toast('❌ Contraseña actual incorrecta'); return; }
+  if (!nueva || nueva.length < 6) { toast('Mínimo 6 caracteres'); return; }
+  if (nueva !== conf) { toast('Las contraseñas no coinciden'); return; }
+  d.users[ci].password = nueva;
+  saveAndSync('saveUser', d.users[ci], function(){ toast('✅ Contraseña actualizada en Drive'); });
+  document.getElementById('cp_actual').value = '';
+  document.getElementById('cp_nueva').value = '';
+  document.getElementById('cp_conf').value = '';
+}
+
+function testSheets() {
+  var st = document.getElementById('sheets_status');
+  if (st) st.innerHTML = '<div style="font-size:12px;color:var(--gris)">🔄 Probando...</div>';
+  loadFromSheets(function(data) {
+    if (!st) return;
+    if (data && data.users) {
+      var nu = data.users.filter(function(u){return u.role==='user';}).length;
+      st.innerHTML = '<div style="font-size:12px;color:#80d4a0;background:rgba(80,200,120,0.1);padding:10px;border-radius:8px">✅ Conectado — ' + nu + ' usuarias · ' + (data.logs||[]).length + ' sesiones · ' + (data.ejercicios||[]).length + ' ejercicios</div>';
+    } else {
+      st.innerHTML = '<div style="font-size:12px;color:#ff8080;background:rgba(200,50,50,0.1);padding:10px;border-radius:8px">❌ Sin conexión. Verifica el Apps Script.</div>';
+    }
+  });
+}
+
+function pushAll() {
+  var d = db();
+  toast('⬆️ Subiendo datos...');
+  d.users.filter(function(u){return u.role==='user';}).forEach(function(u){ sync('saveUser', u); });
+  d.medidas.forEach(function(m){ sync('saveMedida', m); });
+  d.rutinas.forEach(function(r){ sync('saveRutina', r); });
+  d.logs.forEach(function(l){ sync('saveLog', l); });
+  (d.ejercicios||[]).forEach(function(e){ sync('saveEjercicio', e); });
+  setTimeout(function(){ toast('✅ Datos subidos'); }, 1000);
+}
+
+function pullAll() {
+  var st = document.getElementById('sheets_status');
+  if (st) st.innerHTML = '<div style="font-size:12px;color:var(--gris)">🔄 Cargando...</div>';
+  loadFromSheets(function(data) {
+    if (!data) { if(st) st.innerHTML = '<div style="font-size:12px;color:#ff8080">❌ No se pudo conectar</div>'; return; }
+    var d = db();
+    var del = d.deleted || [];
+    if (data.users) {
+      var coach = null;
+      var privUsers2 = d.users.filter(function(u){return u.role==='admin'||u.role==='coach';});
+      d.users = privUsers2.concat((data.users||[]).filter(function(u){return u.role!=='admin'&&u.role!=='coach'&&del.indexOf(u.id)<0;}));
+    }
+    if (data.medidas) d.medidas = data.medidas.filter(function(m){return del.indexOf(m.userId)<0;});
+    if (data.rutinas) d.rutinas = data.rutinas.filter(function(r){return del.indexOf(r.userId)<0;});
+    if (data.logs) d.logs = data.logs.filter(function(l){return del.indexOf(l.userId)<0;});
+    if (data.ejercicios) d.ejercicios = data.ejercicios;
+    save(d);
+    if (st) st.innerHTML = '<div style="font-size:12px;color:#80d4a0;background:rgba(80,200,120,0.1);padding:10px;border-radius:8px">✅ Datos actualizados</div>';
+    toast('✅ Datos cargados de Sheets');
+  });
+}
+
+function copyCode() {
+  var pre = document.getElementById('gas_code');
+  var code = pre ? pre.textContent : getGasCode();
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(code).then(function(){toast('📋 Código copiado');}).catch(function(){fbCopy(code);});
+  } else fbCopy(code);
+}
+function fbCopy(text) {
+  var ta = document.createElement('textarea'); ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); toast('📋 Copiado');
+}
+
+function exportData() {
+  var d = db();
+  var b = new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
+  var a = document.createElement('a'); a.href = URL.createObjectURL(b);
+  a.download = 'ivonnefit_backup_' + new Date().toISOString().split('T')[0] + '.json'; a.click();
+}
+
+function resetData() {
+  if (!confirm('¿Borrar todos los datos locales? Los datos en Sheets no se borran.')) return;
+  localStorage.removeItem(DB_KEY); toast('Datos borrados'); pgAjustes();
+}
+
+function getGasCode() {
+  return [
+    '// EVOL-X GYM - Apps Script',
+    '// Reemplaza SS_ID con el ID de tu Spreadsheet',
+    "var SS_ID = 'AQUI_TU_ID_DE_SPREADSHEET';",
+    "var CLAVE = 'EvolX2024!';  // cambia por tu clave",
+    '',
+    'function doPost(e) {',
+    '  try {',
+    '    var data = JSON.parse(e.postData.contents);',
+    '    if (data.key !== CLAVE) return resp({error:"Acceso denegado"});',
+    '    var ss = SpreadsheetApp.openById(SS_ID);',
+    '    var p = data.payload;',
+    '    var a = data.action;',
+    '    if (a==="saveUser")   upsert(ss,"usuarios",p.id,p);',
+    '    if (a==="saveMedida") upsert(ss,"medidas",p.id,p);',
+    '    if (a==="saveRutina") upsert(ss,"rutinas",p.userId+"_"+p.semana,p);',
+    '    if (a==="saveLog")    upsert(ss,"logs",p.id,p);',
+    '    if (a==="saveEjercicio") upsert(ss,"ejercicios",p.id,p);',
+    '    if (a==="deleteUser")    delRow(ss,"usuarios",p.id);',
+    '    if (a==="deleteEjercicio") delRow(ss,"ejercicios",p.id);',
+    '    if (a==="deleteRutina")  delRow(ss,"rutinas",p.id);',
+    '    return resp({ok:true});',
+    '  } catch(err) { return resp({error:err.toString()}); }',
+    '}',
+    '',
+    'function upsert(ss, sheet, key, data) {',
+    '  var s = ss.getSheetByName(sheet) || ss.insertSheet(sheet);',
+    '  var rows = s.getDataRange().getValues();',
+    '  for (var i=0;i<rows.length;i++) {',
+    '    if (String(rows[i][0])===String(key)) {',
+    '      s.getRange(i+1,1,1,2).setValues([[key,JSON.stringify(data)]]);',
+    '      return;',
+    '    }',
+    '  }',
+    '  s.appendRow([key, JSON.stringify(data)]);',
+    '}',
+    '',
+    'function delRow(ss, sheet, key) {',
+    '  var s = ss.getSheetByName(sheet);',
+    '  if (!s) return;',
+    '  var rows = s.getDataRange().getValues();',
+    '  for (var i=rows.length-1;i>=0;i--) {',
+    '    if (String(rows[i][0])===String(key)) { s.deleteRow(i+1); return; }',
+    '  }',
+    '}',
+    '',
+    'function doGet(e) {',
+    '  var p = e.parameter;',
+    '  var cb = p.cb || "cb";',
+    '  if (p.key !== CLAVE) return jsonp(cb, {error:"Acceso denegado"});',
+    '  var ss = SpreadsheetApp.openById(SS_ID);',
+    '  // WRITE via GET/JSONP (for cross-origin compatibility)',
+    '  if (p.action && p.action !== "getAll") {',
+    '    try {',
+    '      var payload = p.payload ? JSON.parse(decodeURIComponent(p.payload)) : {};',
+    '      var a = p.action;',
+    '      if (a==="saveUser")        upsert(ss,"usuarios",payload.id,payload);',
+    '      if (a==="saveMedida")      upsert(ss,"medidas",payload.id,payload);',
+    '      if (a==="saveRutina")      upsert(ss,"rutinas",payload.userId+"_"+payload.semana,payload);',
+    '      if (a==="saveLog")         upsert(ss,"logs",payload.id,payload);',
+    '      if (a==="saveEjercicio")   upsert(ss,"ejercicios",payload.id,payload);',
+    '      if (a==="deleteUser")      delRow(ss,"usuarios",payload.id);',
+    '      if (a==="deleteEjercicio") delRow(ss,"ejercicios",payload.id);',
+    '      if (a==="deleteRutina")    delRow(ss,"rutinas",payload.id);',
+    '      return jsonp(cb, {ok:true, action:a});',
+    '    } catch(err) { return jsonp(cb, {error:err.toString()}); }',
+    '  }',
+    '  // READ all data',
+    '  var result = {users:[],medidas:[],rutinas:[],logs:[],ejercicios:[]};',
+    '  var map = {usuarios:"users",medidas:"medidas",rutinas:"rutinas",logs:"logs",ejercicios:"ejercicios"};',
+    '  Object.keys(map).forEach(function(name) {',
+    '    var s = ss.getSheetByName(name);',
+    '    if (!s || s.getLastRow()===0) return;',
+    '    s.getDataRange().getValues().forEach(function(r) {',
+    '      try { var obj=JSON.parse(r[1]!==""?r[1]:r[0]); if(obj) result[map[name]].push(obj); }',
+    '      catch(e2) {}',
+    '    });',
+    '  });',
+    '  return jsonp(cb, result);',
+    '}',
+    '',
+    'function resp(d){return ContentService.createTextOutput(JSON.stringify(d)).setMimeType(ContentService.MimeType.JSON);}',
+    'function jsonp(cb,d){return ContentService.createTextOutput(cb+"("+JSON.stringify(d)+")").setMimeType(ContentService.MimeType.JAVASCRIPT);}'
+  ].join('\n');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  USER: MI RUTINA
+// ═══════════════════════════════════════════════════════════
+function pgMiRutina() {
+  var d = db();
+  var ruts = d.rutinas.filter(function(r){return r.userId===CU.id;}).sort(function(a,b){return b.semana-a.semana;});
+  if (!ruts.length) {
+    setMain('<div class="page-title">MI RUTINA</div><div class="empty"><div class="empty-icon">🏋️</div><div class="empty-t">SIN RUTINA</div><div class="empty-s">Tu coach cargará tu plan pronto. ¡Prepárate! 💪</div></div>');
+    return;
+  }
+  var r = ruts[0];
+  var vigStr = '';
+  if (r.fechaIni) vigStr += '📅 '+fDate(r.fechaIni);
+  if (r.fechaFin) { var dDiff=Math.ceil((new Date(r.fechaFin)-new Date())/86400000); vigStr += ' → '+fDate(r.fechaFin); if(dDiff<=7) vigStr+=' ⚠️'; }
+  var html = '<div class="page-title">MI RUTINA</div><div class="page-sub">' + (r.nombre||'Semana '+r.semana) + ' · ' + (r.objetivo||'') + (vigStr?' · '+vigStr:'') + '</div>';
+  html += '<div style="display:flex;gap:8px;margin-bottom:16px;overflow-x:auto">';
+  r.dias.forEach(function(dia, i) {
+    html += '<button class="btn btn-g" id="rdt_'+i+'" onclick="showDia('+i+','+r.dias.length+')">' + dia.nombre + '</button>';
+  });
+  html += '</div>';
+  r.dias.forEach(function(dia, i) {
+    html += '<div id="rd_'+i+'" class="' + (i>0?'hidden':'') + '">';
+    html += '<div class="w-day"><div class="w-day-hdr"><span class="w-day-t">'+dia.nombre+'</span><span class="w-day-s">'+(dia.tipo||'')+'</span></div>';
+    html += '<div class="ex-hdr"><span>Ejercicio</span><span>Series×Reps</span><span>Carga</span><span>Descanso</span><span>Video</span></div>';
+    (dia.ejercicios||[]).forEach(function(e) {
+      var vidHtml = '—';
+      if (e.videoUrl) {
+        // Check if it's a YouTube embed
+        if (e.videoUrl.indexOf('youtube.com/embed/') >= 0 || e.videoUrl.indexOf('youtu.be/') >= 0) {
+          var embedUrl = e.videoUrl.indexOf('youtube.com/embed/') >= 0 ? e.videoUrl : e.videoUrl.replace('youtu.be/','youtube.com/embed/');
+          vidHtml = '<button class="vid-play-btn" data-url="'+embedUrl+'" data-nom="'+e.nombre.replace(/"/g,'&quot;')+'" style="background:rgba(119,0,105,0.2);border:1px solid rgba(119,0,105,0.4);color:var(--cyan);font-size:10px;font-weight:600;padding:3px 9px;border-radius:20px;cursor:pointer;font-family:inherit">&#9654; Ver video</button>';
+        } else {
+          vidHtml = '<a href="'+e.videoUrl+'" target="_blank" style="font-size:10px;color:var(--cyan);text-decoration:none;font-weight:600">▶ Ver</a>';
+        }
+      }
+      html += '<div class="ex-row"><span style="font-weight:500">'+e.nombre+'</span><span style="color:var(--gris)">'+(e.dosis||'—')+'</span><span style="color:var(--gris)">'+(e.carga||'—')+'</span><span style="color:var(--gris)">'+(e.descanso||'—')+'</span><span>'+vidHtml+'</span></div>';
+    });
+    html += '</div>';
+    html += '<button class="btn btn-p" style="margin-top:12px;width:100%" onclick="openLogForDia(\''+r.id+'\',\''+dia.dia+'\')">✅ Registrar esta sesión</button>';
+    html += '</div>';
+  });
+  // Previous weeks
+  if (ruts.length > 1) {
+    html += '<div class="card" style="margin-top:14px"><div class="card-title" style="font-size:15px">📅 Semanas anteriores</div>';
+    ruts.slice(1).forEach(function(r2) {
+      html += '<div style="padding:8px 0;border-bottom:1px solid var(--brd);font-size:13px">Semana '+r2.semana+' — '+(r2.nombre||'')+' · '+(r2.fechaCarga?fDate(r2.fechaCarga):'')+' · '+r2.dias.length+' días</div>';
+    });
+    html += '</div>';
+  }
+  setMain(html);
+  // Activate first tab
+  setTimeout(function(){ var b=document.getElementById('rdt_0'); if(b) b.classList.add('active'); }, 0);
+}
+
+function showDia(idx, total) {
+  for (var i = 0; i < total; i++) {
+    var el = document.getElementById('rd_'+i);
+    if (el) el.classList.toggle('hidden', i !== idx);
+    var btn = document.getElementById('rdt_'+i);
+    if (btn) btn.classList.toggle('active', i === idx);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  LOG MODAL
+// ═══════════════════════════════════════════════════════════
+function openLogModal() {
+  var d = db();
+  var ruts = d.rutinas.filter(function(r){return r.userId===CU.id;});
+  var sel = document.getElementById('log_rut');
+  sel.innerHTML = ruts.map(function(r){return '<option value="'+r.id+'">'+(r.nombre||'Semana '+r.semana)+'</option>';}).join('');
+  document.getElementById('log_fecha').value = new Date().toISOString().split('T')[0];
+  document.getElementById('log_dur').value = '';
+  document.getElementById('log_peso').value = '';
+  document.getElementById('log_comment').value = '';
+  loadLogExs();
+  openModal('m_log');
+}
+
+function openLogForDia(rutId, diaVal) {
+  var d = db();
+  var ruts = d.rutinas.filter(function(r){return r.userId===CU.id;});
+  var sel = document.getElementById('log_rut');
+  sel.innerHTML = ruts.map(function(r){return '<option value="'+r.id+'"'+(r.id===rutId?' selected':'')+'>'+( r.nombre||'Semana '+r.semana)+'</option>';}).join('');
+  document.getElementById('log_dia').value = diaVal;
+  document.getElementById('log_fecha').value = new Date().toISOString().split('T')[0];
+  document.getElementById('log_dur').value = '';
+  document.getElementById('log_peso').value = '';
+  document.getElementById('log_comment').value = '';
+  loadLogExs();
+  openModal('m_log');
+}
+
+function loadLogExs() {
+  var d = db();
+  var rutId = (document.getElementById('log_rut')||{value:''}).value;
+  var diaVal = (document.getElementById('log_dia')||{value:'dia1'}).value;
+  var r = null;
+  for (var i = 0; i < d.rutinas.length; i++) { if (d.rutinas[i].id === rutId) { r = d.rutinas[i]; break; } }
+  var dia = null;
+  if (r) { for (var i = 0; i < r.dias.length; i++) { if (r.dias[i].dia === diaVal) { dia = r.dias[i]; break; } } }
+  var wrap = document.getElementById('log_exs_wrap');
+  if (!dia || !dia.ejercicios || !dia.ejercicios.length) { wrap.innerHTML = ''; return; }
+  var html = '<div style="background:rgba(0,0,0,0.15);border-radius:8px;padding:12px;margin-bottom:12px"><div style="font-size:10px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">📝 Registra tus repeticiones y carga real</div>';
+  dia.ejercicios.forEach(function(e, i) {
+    html += '<div style="margin-bottom:8px;padding:8px;background:var(--s1);border-radius:8px;border:1px solid var(--brd)">';
+    html += '<div style="font-size:12px;font-weight:600;margin-bottom:6px">' + e.nombre + '</div>';
+    html += '<div style="font-size:11px;color:var(--gris);margin-bottom:8px">' + (e.dosis||'') + (e.carga?' · '+e.carga:'') + '</div>';
+    html += '<div class="fr">';
+    html += '<div class="fg"><label>Reps realizadas</label><input type="text" id="lex_r_'+i+'" placeholder="'+(e.dosis||'')+'"/></div>';
+    html += '<div class="fg"><label>Carga usada</label><input type="text" id="lex_c_'+i+'" placeholder="'+(e.carga||'—')+'"/></div>';
+    html += '</div></div>';
+  });
+  html += '</div>';
+  wrap.innerHTML = html;
+}
+
+function saveLog() {
+  if (_saving['log']) return; // prevent double-click
+  var fecha = document.getElementById('log_fecha').value;
+  if (!fecha) { toast('Selecciona la fecha'); return; }
+  var rutId    = (document.getElementById('log_rut')||{value:''}).value;
+  var dia      = (document.getElementById('log_dia')||{value:'dia1'}).value;
+  var duracion = parseInt((document.getElementById('log_dur')||{value:''}).value)||null;
+  var peso     = parseFloat((document.getElementById('log_peso')||{value:''}).value)||null;
+  var esfuerzo = (document.getElementById('log_esfuerzo')||{value:''}).value;
+  var dolor    = (document.getElementById('log_dolor')||{value:'no'}).value;
+  var comentario = (document.getElementById('log_comment')||{value:''}).value.trim();
+  // Check duplicate: same user + same date + same dia
+  var d = db();
+  var dup = d.logs.filter(function(l){return l.userId===CU.id && l.fecha===fecha && l.dia===dia;});
+  if (dup.length > 0) {
+    if (!confirm('Ya registraste el '+dia.replace('dia','Día ')+' del '+fecha+'.\n¿Quieres guardar otra sesión de todas formas?')) return;
+  }
+  var r = null;
+  for(var i=0;i<d.rutinas.length;i++){if(d.rutinas[i].id===rutId){r=d.rutinas[i];break;}}
+  var diaData = null;
+  if(r){for(var i=0;i<r.dias.length;i++){if(r.dias[i].dia===dia){diaData=r.dias[i];break;}}}
+  var ejercicios = [];
+  if(diaData&&diaData.ejercicios){
+    diaData.ejercicios.forEach(function(e,i){
+      var rEl=document.getElementById('lex_r_'+i);
+      var cEl=document.getElementById('lex_c_'+i);
+      var reps=rEl?rEl.value.trim():'';
+      var carga=cEl?cEl.value.trim():'';
+      ejercicios.push({nombre:e.nombre,dosisPlaneada:e.dosis||'',cargaPlaneada:e.carga||'',reps:reps,carga:carga,completado:!!(reps||carga)});
+    });
+  }
+  var log = {id:'l'+Date.now(),userId:CU.id,fecha:fecha,rutId:rutId,semana:r?r.semana:0,
+    dia:dia,duracion:duracion,peso:peso,esfuerzo:esfuerzo,dolor:dolor,
+    comentario:comentario,ejercicios:ejercicios,feedback:null,fechaFeedback:null};
+  // Lock button
+  _saving['log'] = true;
+  var saveBtn = document.querySelector('#m_log .btn-p');
+  if (saveBtn) { saveBtn.disabled=true; saveBtn.textContent='⏳ Guardando en Drive...'; }
+  saveAndSync('saveLog', log, function(res) {
+    _saving['log'] = false;
+    if (saveBtn) { saveBtn.disabled=false; saveBtn.textContent='✅ Guardar sesión'; }
+    closeModal('m_log');
+    toast(res&&res.ok ? '🔥 Sesión guardada en Drive' : '🔥 Sesión guardada localmente');
+    nav('miHistorial');
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  USER: PROGRESO
+// ═══════════════════════════════════════════════════════════
+function pgMiProgreso() {
+  var d = db();
+  var meds = d.medidas.filter(function(m){return m.userId===CU.id;}).sort(function(a,b){return a.fecha.localeCompare(b.fecha);});
+  var logs = d.logs.filter(function(l){return l.userId===CU.id;});
+  var last = meds.length ? meds[meds.length-1] : null;
+  var first = meds.length > 1 ? meds[0] : null;
+  var html = '<div class="page-title">MI PROGRESO</div><div class="page-sub">Tu evolución durante el programa</div>';
+  if (last) {
+    var wDiff = first ? (last.peso - first.peso).toFixed(1) : null;
+    html += '<div class="stats">';
+    html += '<div class="stat"><div class="stat-l">Peso actual</div><div class="stat-v">' + last.peso + '<span class="stat-u">kg</span></div>' + (wDiff !== null && wDiff != 0 ? '<div style="font-size:11px;color:'+(wDiff<0?'#80d4a0':'#ff8080')+';margin-top:4px">'+(wDiff>0?'+':'')+wDiff+' kg</div>' : '') + '</div>';
+    html += '<div class="stat"><div class="stat-l">Sesiones</div><div class="stat-v">' + logs.length + '</div></div>';
+    if (last.cintura) html += '<div class="stat"><div class="stat-l">Cintura</div><div class="stat-v">' + last.cintura + '<span class="stat-u">cm</span></div></div>';
+    html += '</div>';
+    var FIELDS = [{k:'peso',l:'Peso',u:'kg'},{k:'cuello',l:'Cuello',u:'cm'},{k:'hombro',l:'Hombro',u:'cm'},{k:'pectoral',l:'Pectoral',u:'cm'},{k:'cintura',l:'Cintura',u:'cm'},{k:'abdomen',l:'Abdomen',u:'cm'},{k:'cadera',l:'Cadera',u:'cm'},{k:'muslo',l:'Muslo',u:'cm'},{k:'musloMedio',l:'Muslo Medio',u:'cm'},{k:'pantorrilla',l:'Pantorrilla',u:'cm'},{k:'brazoD',l:'Brazo D',u:'cm'},{k:'antebrazo',l:'Antebrazo',u:'cm'}];
+    html += '<div class="card"><div class="card-title">📏 Últimas medidas ' + (first ? '<span style="font-size:12px;color:var(--gris);font-weight:400">▲▼ vs inicio</span>' : '') + '</div>';
+    html += '<div class="m-grid">';
+    FIELDS.forEach(function(f) {
+      var v = last[f.k]; if (!v) return;
+      html += '<div class="m-item"><div class="m-name">'+f.l+'</div><div class="m-val">'+v+'<span class="m-u"> '+f.u+'</span></div>' + getMedDiff(last,first,f.k) + '</div>';
+    });
+    html += '</div></div>';
+    // History table
+    if (meds.length > 1) {
+      html += '<div class="card"><div class="card-title">📅 Historial de medidas</div><table><thead><tr><th>Fecha</th><th>Peso</th><th>Cintura</th><th>Cadera</th><th>Muslo</th></tr></thead><tbody>';
+      meds.slice().reverse().forEach(function(m) {
+        html += '<tr><td>'+fDate(m.fecha)+'</td><td><strong>'+m.peso+'</strong> kg</td><td>'+(m.cintura||'—')+' cm</td><td>'+(m.cadera||'—')+' cm</td><td>'+(m.muslo||'—')+' cm</td></tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+  } else {
+    html += '<div class="empty"><div class="empty-icon">📊</div><div class="empty-t">SIN MEDIDAS AÚN</div><div class="empty-s">Tu coach registrará tus medidas periódicamente</div></div>';
+  }
+  setMain(html);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  USER: HISTORIAL
+// ═══════════════════════════════════════════════════════════
+function pgMiHistorial() {
+  var d = db();
+  var allLogs = d.logs.filter(function(l) { return l.userId === CU.id; })
+    .sort(function(a,b) { return b.fecha.localeCompare(a.fecha); });
+  var rutLogs  = allLogs.filter(function(l) { return l.tipo !== 'libre'; });
+  var freeLogs = allLogs.filter(function(l) { return l.tipo === 'libre'; });
+
+  // Header + buttons
+  var html = '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px">';
+  html += '<div class="page-title">MI HISTORIAL</div>';
+  html += '<div style="display:flex;gap:8px">';
+  html += '<button class="btn btn-p btn-sm" onclick="openLogModal()">+ Sesion rutina</button>';
+  html += '<button class="btn btn-gold btn-sm" onclick="openFreeLog()">+ Actividad extra</button>';
+  html += '</div></div>';
+  html += '<div class="page-sub">' + rutLogs.length + ' sesiones de rutina · ' + freeLogs.length + ' actividades extra</div>';
+
+  // Stats
+  if (allLogs.length) {
+    var totalMin = 0; var conFeedback = 0;
+    allLogs.forEach(function(l) { if(l.duracion) totalMin += l.duracion; if(l.feedback) conFeedback++; });
+    html += '<div class="stats" style="margin-bottom:16px">';
+    html += '<div class="stat"><div class="stat-l">Total sesiones</div><div class="stat-v">' + allLogs.length + '</div></div>';
+    html += '<div class="stat"><div class="stat-l">Minutos totales</div><div class="stat-v">' + totalMin + '</div></div>';
+    html += '<div class="stat"><div class="stat-l">Con feedback</div><div class="stat-v">' + conFeedback + '</div></div>';
+    html += '</div>';
+  }
+
+  if (!allLogs.length) {
+    html += '<div class="empty"><div class="empty-icon">&#128203;</div><div class="empty-t">SIN SESIONES</div><div class="empty-s">Empieza hoy tu primera sesion!</div></div>';
+    setMain(html); return;
+  }
+
+  allLogs.forEach(function(l) {
+    var dt = new Date(l.fecha);
+    var isLibre = l.tipo === 'libre';
+
+    if (isLibre) {
+      // Free activity card
+      var esfColor = l.esfuerzo >= 8 ? '#ff8080' : l.esfuerzo >= 6 ? '#ffaa44' : '#80d4a0';
+      html += '<div class="card" style="padding:0;margin-bottom:10px">';
+      html += '<div style="padding:12px 14px;display:flex;gap:10px;align-items:flex-start">';
+      html += '<div class="log-date" style="background:linear-gradient(135deg,#2D6A4F,#40916C)">';
+      html += '<div class="log-d">' + dt.getDate() + '</div>';
+      html += '<div class="log-m">' + dt.toLocaleDateString('es',{month:'short'}) + '</div></div>';
+      html += '<div style="flex:1">';
+      html += '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">';
+      html += '<span style="font-weight:600;font-size:13px">' + (l.actNombre || 'Actividad') + '</span>';
+      html += '<span class="badge" style="background:rgba(45,106,79,0.2);color:#80d4a0;border:1px solid rgba(45,106,79,0.4)">Actividad extra</span>';
+      if (l.actTipo) html += '<span class="badge bg">' + l.actTipo + '</span>';
+      html += '</div>';
+      html += '<div style="display:flex;gap:10px;margin-top:5px;flex-wrap:wrap">';
+      if (l.duracion) html += '<span style="font-size:11px;color:var(--gris)">&#9201; ' + l.duracion + ' min</span>';
+      if (l.esfuerzo) html += '<span style="font-size:11px;color:' + esfColor + '">Esfuerzo ' + l.esfuerzo + '/10</span>';
+      html += '</div>';
+      if (l.comentario) html += '<div class="log-c" style="margin-top:6px">' + l.comentario + '</div>';
+      html += '</div>';
+      html += '<button class="btn btn-g btn-sm edit-free-btn" data-lid="' + l.id + '" style="font-size:10px;align-self:flex-start">&#9998;</button>';
+      html += '</div></div>';
+    } else {
+      // Regular session card
+      var r = null;
+      for (var i=0;i<d.rutinas.length;i++){if(d.rutinas[i].id===l.rutId){r=d.rutinas[i];break;}}
+      var diaData = null;
+      if (r){for(var i=0;i<r.dias.length;i++){if(r.dias[i].dia===l.dia){diaData=r.dias[i];break;}}}
+      var esfColor2 = l.esfuerzo >= 8 ? '#ff8080' : l.esfuerzo >= 6 ? '#ffaa44' : '#80d4a0';
+      var hasFeedback = !!l.feedback;
+      var hasDolor = l.dolor && l.dolor !== 'no';
+      html += '<div class="card" style="padding:0;margin-bottom:10px;cursor:pointer" onclick="showLogDetail(\'' + l.id + '\')">';
+      html += '<div style="padding:12px 14px;display:flex;gap:10px;align-items:flex-start">';
+      html += '<div class="log-date"><div class="log-d">' + dt.getDate() + '</div><div class="log-m">' + dt.toLocaleDateString('es',{month:'short'}) + '</div></div>';
+      html += '<div style="flex:1">';
+      html += '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">';
+      html += '<span style="font-weight:600;font-size:13px">' + (diaData?diaData.nombre:'Dia '+l.dia.replace('dia','')) + '</span>';
+      if (r) html += '<span class="badge bg">' + (r.nombre||'Sem.'+r.semana) + '</span>';
+      if (hasFeedback) html += '<span class="badge bk">Feedback del coach</span>';
+      if (hasDolor) html += '<span class="badge bw">Dolor</span>';
+      html += '</div>';
+      html += '<div style="display:flex;gap:10px;margin-top:5px;flex-wrap:wrap">';
+      if (l.duracion) html += '<span style="font-size:11px;color:var(--gris)">&#9201; ' + l.duracion + ' min</span>';
+      if (l.peso) html += '<span style="font-size:11px;color:var(--gris)">' + l.peso + ' kg</span>';
+      if (l.esfuerzo) html += '<span style="font-size:11px;color:' + esfColor2 + '">Esf. ' + l.esfuerzo + '/10</span>';
+      if (l.ejercicios) {
+        var ok = l.ejercicios.filter(function(e){return e.completado;}).length;
+        html += '<span style="font-size:11px;color:var(--gris)">' + ok + '/' + l.ejercicios.length + ' ejercicios</span>';
+      }
+      html += '</div>';
+      if (l.comentario) html += '<div class="log-c" style="margin-top:6px">' + l.comentario + '</div>';
+      if (hasFeedback) {
+        html += '<div style="margin-top:6px;padding:7px 9px;background:rgba(119,0,105,0.1);border-radius:7px;border-left:3px solid var(--mag2)">';
+        html += '<div style="font-size:10px;font-weight:700;color:var(--cyan);margin-bottom:2px">COACH:</div>';
+        html += '<div style="font-size:11px;line-height:1.5">' + l.feedback.slice(0,100) + (l.feedback.length>100?'...':'') + '</div>';
+        html += '</div>';
+      }
+      html += '</div>';
+      html += '<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;padding:0 2px">';
+      html += '<span style="font-size:10px;color:var(--cyan);font-weight:600">Ver</span>';
+      html += '<button class="btn btn-g btn-sm edit-log-btn" data-lid="' + l.id + '" style="font-size:10px;padding:3px 7px">&#9998;</button>';
+      html += '</div>';
+      html += '</div>';
+      // Exercises summary
+      if (l.ejercicios && l.ejercicios.length) {
+        html += '<div style="border-top:1px solid var(--brd);padding:7px 14px;display:flex;flex-wrap:wrap;gap:4px">';
+        l.ejercicios.forEach(function(e) {
+          html += '<span class="badge ' + (e.completado?'bk':'bg') + '" style="font-size:10px">' + e.nombre.slice(0,18) + (e.reps?' ('+e.reps+')':'') + '</span>';
+        });
+        html += '</div>';
+      }
+      html += '</div>';
+    }
+  });
+  setMain(html);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  USER: MI PERFIL
+// ═══════════════════════════════════════════════════════════
+function pgMiPerfil() {
+  var d = db();
+  var u = null;
+  for (var i = 0; i < d.users.length; i++) { if (d.users[i].id === CU.id) { u = d.users[i]; break; } }
+  if (!u) u = CU;
+  var diag = u.diagnostico || {};
+  var html = '<div class="page-title">MI PERFIL</div>';
+  html += '<div class="g2">';
+  html += '<div class="card"><div class="card-title">👤 Datos personales</div>';
+  html += '<div style="display:flex;align-items:center;gap:14px;margin-bottom:14px"><div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#0c2a3e,var(--cyan));display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;border:3px solid rgba(119,0,105,0.4)">'+ini(u.name)+'</div><div><div style="font-weight:600;font-size:15px">'+u.name+'</div><div style="font-size:12px;color:var(--gris)">'+(u.email||'')+'</div></div></div>';
+  [['Teléfono',u.tel],['Objetivo',u.objetivo],['Peso inicial',(u.peso?u.peso+' kg':null)],['Talla',(u.talla?u.talla+' cm':null)]].forEach(function(row){
+    if (!row[1]) return;
+    html += '<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--brd)"><span style="font-size:11px;color:var(--gris);font-weight:600;text-transform:uppercase;letter-spacing:0.5px">'+row[0]+'</span><span style="font-size:12px">'+row[1]+'</span></div>';
+  });
+  html += '</div>';
+  // Metodología
+  html += '<div class="card"><div class="card-title">📖 Metodología</div>';
+  ['Seguir los videos de ejecución. Dudas → video corto al coach.',
+   'Preguntas al WhatsApp. Respuesta en 24 horas.',
+   'Registro fotográfico semanal: misma ropa, luz y posición.',
+   'Pesarte diariamente en ayunas, después del baño.',
+   'Cumplir los 3 días de entrenamiento.',
+   'Actividad extra: caminar, bailar, nadar...',
+   'Alimentación balanceada: 3 comidas mínimo.',
+   'Hidratación: mínimo 8 vasos de agua al día.'
+  ].forEach(function(m, i) {
+    html += '<div class="met-item"><div class="met-num">'+(i+1)+'</div><div style="color:var(--gris)">'+m+'</div></div>';
+  });
+  html += '</div></div>';
+  if (diag.firma) {
+    html += '<div class="card"><div class="card-title">🩺 Mi diagnóstico inicial</div>';
+    var qs = [['enf_card','Enfermedad cardiaca'],['dolor_pecho','Dolor en pecho'],['mareos','Mareos'],['prob_oseo','Problema óseo'],['medicacion','Medicación corazón'],['otra_razon','Otra razón']];
+    qs.forEach(function(q) {
+      var val = diag[q[0]] === 'si';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--brd)"><span style="font-size:12px;color:var(--gris)">'+q[1]+'</span><span class="badge '+(val?'bw':'bk')+'">'+(val?'Sí':'No')+'</span></div>';
+    });
+    html += '<div style="margin-top:10px;font-size:11px;color:var(--gris)">Firma: <strong style="color:var(--blanco)">'+diag.firma+'</strong> · '+(diag.fecha||'')+'</div>';
+    html += '</div>';
+  }
+  setMain(html);
+}
+
+function showVideoModal(url, nombre) {
+  document.getElementById('m_video_title').textContent = nombre ? nombre.toUpperCase() : 'VIDEO GUÍA';
+  var wrap = document.getElementById('m_video_wrap');
+  // Build YouTube URL - ensure it's embed format
+  var embedUrl = url;
+  var ytId = '';
+  var m1 = url.match(/youtube\.com\/embed\/([^?&]+)/);
+  var m2 = url.match(/youtu\.be\/([^?&]+)/);
+  var m3 = url.match(/youtube\.com\/watch\?v=([^&]+)/);
+  if (m1) ytId = m1[1];
+  else if (m2) ytId = m2[1];
+  else if (m3) ytId = m3[1];
+  if (ytId) {
+    embedUrl = 'https://www.youtube.com/embed/' + ytId + '?autoplay=1&rel=0&modestbranding=1';
+    var extLink = document.getElementById('m_video_ext');
+    if (extLink) extLink.href = 'https://www.youtube.com/watch?v=' + ytId;
+  }
+  wrap.innerHTML = '<iframe src="'+embedUrl+'" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none" allow="autoplay;fullscreen;picture-in-picture" allowfullscreen></iframe>';
+  openModal('m_video');
+}
+
+function stopVideo() {
+  var wrap = document.getElementById('m_video_wrap');
+  if (wrap) wrap.innerHTML = '';
+}
+
+function stopVideo() {
+  var wrap = document.getElementById('m_video_wrap');
+  if (wrap) wrap.innerHTML = '';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════
+db(); // Initialize / ensure coach exists
+
+// Global click handlers
+document.addEventListener('click', function(ev) {
+  // Video buttons
+  var vBtn = ev.target.closest('.vid-play-btn');
+  if (vBtn) {
+    ev.stopPropagation();
+    var url = vBtn.getAttribute('data-url');
+    var nom = vBtn.getAttribute('data-nom') || 'Video';
+    if (url) showVideoModal(url, nom);
+    return;
+  }
+  // Edit log buttons
+  var eBtn = ev.target.closest('.edit-log-btn');
+  if (eBtn) {
+    ev.stopPropagation();
+    var lid = eBtn.getAttribute('data-lid');
+    if (lid) openEditLog(lid);
+    return;
+  }
+  // Edit free activity buttons
+  var fBtn = ev.target.closest('.edit-free-btn');
+  if (fBtn) {
+    ev.stopPropagation();
+    var flid = fBtn.getAttribute('data-lid');
+    if (flid) openFreeLog(flid);
+    return;
+  }
+});
+
+// ── Save button lock helper ──
+var _saving = {};
+function lockBtn(id, label) {
+  var el = document.getElementById(id) || document.querySelector(id);
+  if (!el) return;
+  el.disabled = true;
+  el._origText = el.textContent;
+  el.textContent = label || '⏳ Guardando...';
+}
+function unlockBtn(id) {
+  var el = document.getElementById(id) || document.querySelector(id);
+  if (!el) return;
+  el.disabled = false;
+  if (el._origText) el.textContent = el._origText;
+}
+
+function openEditLog(logId) {
+  var d=db(); var l=null;
+  for(var i=0;i<d.logs.length;i++){if(d.logs[i].id===logId){l=d.logs[i];break;}}
+  if(!l){toast('Sesión no encontrada');return;}
+  document.getElementById('edit_log_id').value=logId;
+  document.getElementById('edit_log_fecha').value=l.fecha||'';
+  document.getElementById('edit_log_dur').value=l.duracion||'';
+  document.getElementById('edit_log_peso').value=l.peso||'';
+  document.getElementById('edit_log_esf').value=l.esfuerzo||'';
+  document.getElementById('edit_log_dolor').value=l.dolor||'no';
+  document.getElementById('edit_log_comment').value=l.comentario||'';
+  openModal('m_edit_log');
+}
+function updateLog() {
+  if (_saving['edit_log']) return;
+  var logId = document.getElementById('edit_log_id').value;
+  if (!logId) { toast('Error: ID no encontrado'); return; }
+  var d = db();
+  var idx = -1;
+  for (var i = 0; i < d.logs.length; i++) {
+    if (d.logs[i].id === logId) { idx = i; break; }
+  }
+  if (idx < 0) { toast('Sesion no encontrada'); return; }
+  var fechaEl = document.getElementById('edit_log_fecha');
+  var durEl   = document.getElementById('edit_log_dur');
+  var pesoEl  = document.getElementById('edit_log_peso');
+  var esfEl   = document.getElementById('edit_log_esf');
+  var dolorEl = document.getElementById('edit_log_dolor');
+  var comEl   = document.getElementById('edit_log_comment');
+  if (fechaEl && fechaEl.value) d.logs[idx].fecha = fechaEl.value;
+  if (durEl)   d.logs[idx].duracion   = parseInt(durEl.value) || null;
+  if (pesoEl)  d.logs[idx].peso       = parseFloat(pesoEl.value) || null;
+  if (esfEl)   d.logs[idx].esfuerzo   = esfEl.value;
+  if (dolorEl) d.logs[idx].dolor      = dolorEl.value;
+  if (comEl)   d.logs[idx].comentario = comEl.value.trim();
+  save(d);
+  _saving['edit_log'] = true;
+  var btn = document.getElementById('edit_log_save_btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
+  saveAndSync('saveLog', d.logs[idx], function(res) {
+    _saving['edit_log'] = false;
+    if (btn) { btn.disabled = false; btn.textContent = 'Guardar cambios'; }
+    closeModal('m_edit_log');
+    toast(res && res.ok ? 'Sesion actualizada en Drive' : 'Sesion actualizada');
+    pgMiHistorial();
+  });
+}
+function deleteLog() {
+  var logId = document.getElementById('edit_log_id').value;
+  if (!logId) { toast('Error: no se encontro la sesion'); return; }
+  if (!confirm('Eliminar esta sesion? No se puede deshacer.')) return;
+  var d = db();
+  var found = false;
+  for (var i = 0; i < d.logs.length; i++) {
+    if (d.logs[i].id === logId) { found = true; break; }
+  }
+  if (!found) { toast('Sesion no encontrada'); return; }
+  d.logs = d.logs.filter(function(x) { return x.id !== logId; });
+  save(d);
+  saveAndSync('deleteLog', { id: logId }, function() {});
+  closeModal('m_edit_log');
+  toast('Sesion eliminada');
+  pgMiHistorial();
+}
+
+// ─────────────────────────────────────────
+// SESIONES LIBRES (actividad extra usuaria)
+// ─────────────────────────────────────────
+function openFreeLog(existingId) {
+  if (existingId) {
+    // Edit existing
+    var d = db();
+    var l = null;
+    for (var i = 0; i < d.logs.length; i++) {
+      if (d.logs[i].id === existingId && d.logs[i].tipo === 'libre') { l = d.logs[i]; break; }
+    }
+    if (!l) return;
+    document.getElementById('m_free_log_title').textContent = 'EDITAR ACTIVIDAD';
+    document.getElementById('free_log_id').value = existingId;
+    document.getElementById('free_act_tipo').value = l.actTipo || '';
+    document.getElementById('free_act_nombre').value = l.actNombre || '';
+    document.getElementById('free_act_fecha').value = l.fecha || '';
+    document.getElementById('free_act_dur').value = l.duracion || '';
+    document.getElementById('free_act_comment').value = l.comentario || '';
+    document.getElementById('free_act_esf').value = l.esfuerzo || '';
+  } else {
+    document.getElementById('m_free_log_title').textContent = 'REGISTRAR ACTIVIDAD';
+    document.getElementById('free_log_id').value = '';
+    document.getElementById('free_act_tipo').value = '';
+    document.getElementById('free_act_nombre').value = '';
+    document.getElementById('free_act_fecha').value = new Date().toISOString().split('T')[0];
+    document.getElementById('free_act_dur').value = '';
+    document.getElementById('free_act_comment').value = '';
+    document.getElementById('free_act_esf').value = '';
+  }
+  openModal('m_free_log');
+}
+
+function saveFreeLog() {
+  if (_saving['free_log']) return;
+  var editId  = document.getElementById('free_log_id').value;
+  var tipo    = document.getElementById('free_act_tipo').value;
+  var nombre  = document.getElementById('free_act_nombre').value.trim();
+  var fecha   = document.getElementById('free_act_fecha').value;
+  var dur     = parseInt(document.getElementById('free_act_dur').value) || null;
+  var comment = document.getElementById('free_act_comment').value.trim();
+  var esf     = document.getElementById('free_act_esf').value;
+  if (!nombre && !tipo) { toast('Ingresa el nombre o tipo de actividad'); return; }
+  if (!fecha) { toast('Selecciona la fecha'); return; }
+  var actNombre = nombre || tipo;
+  var log = {
+    id: editId || ('fl' + Date.now()),
+    userId: CU.id,
+    tipo: 'libre',
+    actTipo: tipo,
+    actNombre: actNombre,
+    fecha: fecha,
+    duracion: dur,
+    comentario: comment,
+    esfuerzo: esf,
+    semana: 0, dia: '', rutId: ''
+  };
+  _saving['free_log'] = true;
+  var btn = document.getElementById('free_log_save_btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
+  saveAndSync('saveLog', log, function(res) {
+    _saving['free_log'] = false;
+    if (btn) { btn.disabled = false; btn.textContent = 'Guardar actividad'; }
+    closeModal('m_free_log');
+    toast(res && res.ok ? 'Actividad guardada en Drive' : 'Actividad guardada');
+    pgMiHistorial();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ADMIN: GESTIÓN DE CUENTAS
+// ═══════════════════════════════════════════════════════════
+function pgAdminPanel() {
+  if (CU.role !== 'admin') { toast('Acceso denegado'); return; }
+  var d = db();
+  var coaches = d.users.filter(function(u){return u.role==='coach';});
+  var admins = d.users.filter(function(u){return u.role==='admin';});
+  var html = '<div class="page-title">GESTIÓN DE CUENTAS</div>';
+  html += '<div class="page-sub">Administración de coaches y administradores</div>';
+  // Admins
+  html += '<div class="card"><div class="card-title">🔐 Administradores</div>';
+  admins.forEach(function(u) {
+    html += '<div class="u-row"><div class="u-av" style="background:linear-gradient(135deg,#1e2340,var(--cyan))">'+ini(u.name)+'</div>';
+    html += '<div class="u-info"><div class="u-name">'+u.name+'</div><div class="u-meta">'+u.username+' · '+( u.email||'')+'</div></div>';
+    if (u.id !== CU.id) {
+      html += '<div class="u-btns"><button class="btn btn-g btn-sm" onclick="editPrivUser(''+u.id+'')">✏️ Editar</button><button class="btn btn-d btn-sm" onclick="delPrivUser(''+u.id+'')">🗑️</button></div>';
+    } else {
+      html += '<div class="u-btns"><span class="badge bk">Tú</span></div>';
+    }
+    html += '</div>';
+  });
+  html += '<div style="padding:12px"><button class="btn btn-p btn-sm" onclick="openNewPrivUser('admin')">+ Nuevo admin</button></div></div>';
+  // Coaches
+  html += '<div class="card"><div class="card-title">💪 Coaches</div>';
+  coaches.forEach(function(u) {
+    var userCount = d.users.filter(function(x){return x.role==='user';}).length;
+    html += '<div class="u-row"><div class="u-av" style="background:linear-gradient(135deg,#0c2a3e,var(--cyan))">'+ini(u.name)+'</div>';
+    html += '<div class="u-info"><div class="u-name">'+u.name+'</div><div class="u-meta">'+u.username+' · '+(u.email||'')+'</div></div>';
+    html += '<div class="u-btns"><button class="btn btn-g btn-sm" onclick="editPrivUser(''+u.id+'')">✏️ Editar</button><button class="btn btn-d btn-sm" onclick="delPrivUser(''+u.id+'')">🗑️</button></div>';
+    html += '</div>';
+  });
+  html += '<div style="padding:12px"><button class="btn btn-p btn-sm" onclick="openNewPrivUser('coach')">+ Nuevo coach</button></div></div>';
+  setMain(html);
+}
+
+function openNewPrivUser(role) {
+  document.getElementById('m_usuaria_title').textContent = role==='admin'?'NUEVO ADMIN':'NUEVO COACH';
+  document.getElementById('u_edit_id').value = '__priv__'+role;
+  ['u_nombre','u_username','u_email','u_tel','u_obj','u_obs','u_mem_start','u_mem_end'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('u_pass').value = '';
+  openModal('m_usuaria');
+}
+
+function editPrivUser(uid) {
+  var d = db();
+  var u = null;
+  for (var i=0;i<d.users.length;i++){if(d.users[i].id===uid){u=d.users[i];break;}}
+  if(!u) return;
+  document.getElementById('m_usuaria_title').textContent = u.role==='admin'?'EDITAR ADMIN':'EDITAR COACH';
+  document.getElementById('u_edit_id').value = uid;
+  document.getElementById('u_nombre').value = u.name||'';
+  document.getElementById('u_username').value = u.username||'';
+  document.getElementById('u_pass').value = '';
+  document.getElementById('u_email').value = u.email||'';
+  document.getElementById('u_tel').value = '';
+  document.getElementById('u_obj').value = '';
+  document.getElementById('u_obs').value = '';
+  document.getElementById('u_mem_start').value = '';
+  document.getElementById('u_mem_end').value = '';
+  openModal('m_usuaria');
+}
+
+function delPrivUser(uid) {
+  var d = db();
+  var u = null;
+  for(var i=0;i<d.users.length;i++){if(d.users[i].id===uid){u=d.users[i];break;}}
+  if(!u) return;
+  if (u.id===CU.id){toast('No puedes eliminar tu propia cuenta');return;}
+  if (!confirm('¿Eliminar la cuenta de '+u.name+'?')) return;
+  d.users = d.users.filter(function(x){return x.id!==uid;});
+  save(d);
+  toast('✅ Cuenta eliminada');
+  pgAdminPanel();
+}
+</script>
+</body>
+</html>
