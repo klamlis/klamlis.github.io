@@ -594,8 +594,8 @@ tr:hover td{background:var(--s1)}
 //  STORAGE — Simple, directa, confiable
 // ═══════════════════════════════════════════════════════════
 var DB_KEY = 'evolx_db_v1';
-var GAS_URL = 'https://script.google.com/macros/s/AKfycbyX4bnv1_sBpvl5CaQt7e7dA5uznDS4boY-Cn2qEHDGP1oXs4pk9YIbI391Y-rHoDhMUQ/exec';
-var GAS_SECRET = (function(){var _k=['E','v','o','l','X','@','G','m','2','0','2','5','!','k','Z','9'];return _k.join('');})();
+var GAS_URL = 'https://script.google.com/macros/s/AKfycbwMNh5Ei0e0g78ZCpwPtTQen0ryILa-OEpzZKIIZHKkYYvKb2Bki31BvjSEBXiCFp62Sw/exec';
+var GAS_SECRET = (function(){var _k=['E','v','o','l','X','G','y','m','2','0','2','5','k','Z','9'];return _k.join('');})();
 
 function db() {
   try {
@@ -635,28 +635,8 @@ function save(d) {
 // Así podemos confirmar que los datos se guardaron
 // ═══════════════════════════════════════════════════
 
-// ── POST para escrituras (doPost en GAS puede escribir en Sheets) ──
-function gasPost(action, payload, cb, timeout) {
-  var done = false;
-  var t = setTimeout(function() {
-    if (!done) { done = true; if (cb) cb(null); }
-  }, timeout || 15000);
-  fetch(GAS_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ key: GAS_SECRET, action: action, payload: payload })
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(data) {
-    if (!done) { done = true; clearTimeout(t); if (cb) cb(data); }
-  })
-  .catch(function() {
-    if (!done) { done = true; clearTimeout(t); if (cb) cb(null); }
-  });
-}
-
-// ── JSONP GET solo para leer (getAll no escribe nada) ──
-function gasGet(cb, timeout) {
+// ── JSONP: funciona para lectura Y escritura en GAS doGet ──
+function sheetsCall(action, payload, cb, timeout) {
   var cbName = '_sc_' + Date.now();
   var s = document.createElement('script');
   var t = setTimeout(function() {
@@ -670,8 +650,12 @@ function gasGet(cb, timeout) {
     if (s && s.parentNode) s.parentNode.removeChild(s);
     if (cb) cb(data);
   };
-  var qs = 'action=getAll&key=' + encodeURIComponent(GAS_SECRET) +
-           '&cb=' + encodeURIComponent(cbName) + '&_=' + Date.now();
+  // IMPORTANTE: key sin encodeURIComponent para evitar doble codificación
+  var qs = 'cb=' + encodeURIComponent(cbName) +
+           '&key=' + GAS_SECRET +
+           '&action=' + encodeURIComponent(action) +
+           '&_=' + Date.now();
+  if (payload) qs += '&payload=' + encodeURIComponent(JSON.stringify(payload));
   s.src = GAS_URL + '?' + qs;
   s.onerror = function() {
     clearTimeout(t);
@@ -681,16 +665,16 @@ function gasGet(cb, timeout) {
   document.head.appendChild(s);
 }
 
-// ── sync: escribe via POST ──
+// ── sync: escribe via JSONP doGet ──
 function sync(action, payload, cb) {
-  gasPost(action, payload, function(res) {
+  sheetsCall(action, payload, function(res) {
     if (cb) cb(res);
   }, 12000);
 }
 
-// ── loadFromSheets: lee via JSONP GET ──
+// ── loadFromSheets: lee via JSONP doGet ──
 function loadFromSheets(cb) {
-  gasGet(cb, 15000);
+  sheetsCall('getAll', null, cb, 15000);
 }
 
 // Save to local + Sheets, then optionally refresh
@@ -2342,7 +2326,7 @@ function getGasCode() {
     '// EVOL-X GYM - Apps Script',
     '// Reemplaza SS_ID con el ID de tu Spreadsheet',
     "var SS_ID = 'AQUI_TU_ID_DE_SPREADSHEET';",
-    "var CLAVE = 'EvolX@Gm2025!kZ9'",
+    "var CLAVE = 'EvolXGym2025kZ9'",
     '',
     'function doPost(e) {',
     '  try {',
