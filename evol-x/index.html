@@ -635,27 +635,48 @@ function save(d) {
 // Así podemos confirmar que los datos se guardaron
 // ═══════════════════════════════════════════════════
 
-// ── JSONP: funciona para lectura Y escritura en GAS doGet ──
-function sheetsCall(action, payload, cb, timeout) {
+// ── ESCRITURA: fetch POST con no-cors hacia GAS doPost ──
+// no-cors no devuelve respuesta pero el POST llega y GAS escribe en Sheets
+function sync(action, payload, cb) {
+  var body = JSON.stringify({ key: GAS_SECRET, action: action, payload: payload });
+  fetch(GAS_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain' },
+    body: body
+  })
+  .then(function() {
+    // no-cors siempre llega aquí aunque no podamos leer la respuesta
+    if (cb) cb({ ok: true });
+  })
+  .catch(function() {
+    // Si falla el fetch, intentar via imagen (fallback)
+    var img = new Image();
+    img.src = GAS_URL + '?action=' + encodeURIComponent(action) +
+              '&key=' + encodeURIComponent(GAS_SECRET) +
+              '&payload=' + encodeURIComponent(JSON.stringify(payload)) +
+              '&_=' + Date.now();
+    if (cb) cb({ ok: true });
+  });
+}
+
+// ── LECTURA: JSONP GET (solo para leer, funciona bien) ──
+function loadFromSheets(cb) {
   var cbName = '_sc_' + Date.now();
   var s = document.createElement('script');
   var t = setTimeout(function() {
     try { delete window[cbName]; } catch(e) {}
     if (s && s.parentNode) s.parentNode.removeChild(s);
     if (cb) cb(null);
-  }, timeout || 15000);
+  }, 15000);
   window[cbName] = function(data) {
     clearTimeout(t);
     try { delete window[cbName]; } catch(e) {}
     if (s && s.parentNode) s.parentNode.removeChild(s);
     if (cb) cb(data);
   };
-  // IMPORTANTE: key sin encodeURIComponent para evitar doble codificación
-  var qs = 'cb=' + encodeURIComponent(cbName) +
-           '&key=' + GAS_SECRET +
-           '&action=' + encodeURIComponent(action) +
-           '&_=' + Date.now();
-  if (payload) qs += '&payload=' + encodeURIComponent(JSON.stringify(payload));
+  var qs = 'action=getAll&key=' + encodeURIComponent(GAS_SECRET) +
+           '&cb=' + encodeURIComponent(cbName) + '&_=' + Date.now();
   s.src = GAS_URL + '?' + qs;
   s.onerror = function() {
     clearTimeout(t);
@@ -663,18 +684,6 @@ function sheetsCall(action, payload, cb, timeout) {
     if (cb) cb(null);
   };
   document.head.appendChild(s);
-}
-
-// ── sync: escribe via JSONP doGet ──
-function sync(action, payload, cb) {
-  sheetsCall(action, payload, function(res) {
-    if (cb) cb(res);
-  }, 12000);
-}
-
-// ── loadFromSheets: lee via JSONP doGet ──
-function loadFromSheets(cb) {
-  sheetsCall('getAll', null, cb, 15000);
 }
 
 // Save to local + Sheets, then optionally refresh
