@@ -253,7 +253,7 @@ tr:hover td{background:var(--s1)}
 <div class="ob-wrap">
   <div class="ob-card">
     <div style="text-align:center;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--brd)">
-      <div style="font-family:'Sora',sans-serif;font-weight:800;letter-spacing:1px;font-size:24px;letter-spacing:3px;margin-bottom:6px">🦋 BIENVENIDA A TU TRANSFORMACIÓN</div>
+      <div style="font-family:'Sora',sans-serif;font-weight:800;letter-spacing:1px;font-size:24px;letter-spacing:3px;margin-bottom:6px">⚡ BIENVENIDO/A A TU TRANSFORMACIÓN</div>
       <div style="font-size:12px;color:var(--gris)">Completa tu diagnóstico inicial para que tu coach diseñe tu plan</div>
     </div>
     <div class="ob-steps" id="ob_dots"></div>
@@ -292,10 +292,10 @@ tr:hover td{background:var(--s1)}
 <div class="toast" id="toast"></div>
 
 <!-- ===== MODALS ===== -->
-<!-- Nueva/Editar Usuaria -->
-<div class="overlay" id="m_usuaria">
+<!-- Nueva/Editar Usuario -->
+<div class="overlay" id="m_usuario">
 <div class="modal">
-  <div class="modal-title"><span id="m_usuaria_title">NUEVA USUARIA</span><button class="close-btn" onclick="closeModal('m_usuaria')">×</button></div>
+  <div class="modal-title"><span id="m_usuario_title">NUEVO USUARIO</span><button class="close-btn" onclick="closeModal('m_usuario')">×</button></div>
   <input type="hidden" id="u_edit_id"/>
   <div class="fr">
     <div class="fg"><label>Nombre completo</label><input type="text" id="u_nombre"/></div>
@@ -303,12 +303,21 @@ tr:hover td{background:var(--s1)}
   </div>
   <div class="fr">
     <div class="fg"><label>Contraseña</label><input type="password" id="u_pass"/></div>
-    <div class="fg"><label>Email</label><input type="email" id="u_email"/></div>
+    <div class="fg" style="display:flex;align-items:flex-end"><span style="font-size:11px;color:var(--gris);padding-bottom:8px">El username se usará como ID de acceso</span></div>
   </div>
   <div class="fr">
+    <div class="fg"><label>Cédula / Documento</label><input type="text" id="u_cedula"/></div>
+    <div class="fg"><label>Fecha de nacimiento</label><input type="date" id="u_fnac"/></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Género</label><select id="u_genero" style="width:100%"><option value="">Seleccionar...</option><option>Masculino</option><option>Femenino</option><option>No binario</option><option>Prefiero no decir</option></select></div>
     <div class="fg"><label>Teléfono</label><input type="text" id="u_tel"/></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Email</label><input type="email" id="u_email"/></div>
     <div class="fg"><label>Objetivo</label><input type="text" id="u_obj" placeholder="Ej: Ganar masa muscular"/></div>
   </div>
+  <div class="fg"><label>Asignar Coach</label><select id="u_coach" style="width:100%"><option value="">Sin asignar</option></select></div>
   <div class="fg"><label>Observaciones / Lesiones</label><textarea id="u_obs" placeholder="Condiciones médicas, lesiones..."></textarea></div>
   <div class="hr"></div>
   <div style="font-size:11px;font-weight:700;color:var(--oro);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">💳 Membresía</div>
@@ -316,7 +325,7 @@ tr:hover td{background:var(--s1)}
     <div class="fg"><label>Fecha inicio</label><input type="date" id="u_mem_start"/></div>
     <div class="fg"><label>Fecha fin</label><input type="date" id="u_mem_end"/></div>
   </div>
-  <button class="btn btn-p btn-full" id="u_save_btn" onclick="saveUsuaria()">✅ Guardar</button>
+  <button class="btn btn-p btn-full" id="u_save_btn" onclick="saveUsuario()">✅ Guardar</button>
 </div>
 </div>
 
@@ -325,7 +334,7 @@ tr:hover td{background:var(--s1)}
 <div class="modal">
   <div class="modal-title">📏 REGISTRAR MEDIDAS<button class="close-btn" onclick="closeModal('m_medidas')">×</button></div>
   <div class="fr">
-    <div class="fg"><label>Usuaria</label><select id="med_uid"></select></div>
+    <div class="fg"><label>Usuario</label><select id="med_uid"></select></div>
     <div class="fg"><label>Fecha</label><input type="date" id="med_fecha"/></div>
   </div>
   <div class="fr">
@@ -391,7 +400,7 @@ tr:hover td{background:var(--s1)}
   <div class="modal-title"><span id="m_rut_title">CARGAR RUTINA</span><button class="close-btn" onclick="closeModal('m_rutina')">×</button></div>
   <input type="hidden" id="rut_edit_id"/>
   <div class="fr">
-    <div class="fg"><label>Usuaria</label><select id="rut_uid"></select></div>
+    <div class="fg"><label>Usuario</label><select id="rut_uid"></select></div>
     <div class="fg"><label>Nombre del plan</label><input type="text" id="rut_nombre" placeholder="Ej: Abril — Mes 1"/></div>
   </div>
   <div class="fr">
@@ -626,31 +635,62 @@ function save(d) {
 // Así podemos confirmar que los datos se guardaron
 // ═══════════════════════════════════════════════════
 
-function sheetsCall(params, cb, timeout) {
+// ── POST para escrituras (doPost en GAS puede escribir en Sheets) ──
+function gasPost(action, payload, cb, timeout) {
+  var done = false;
+  var t = setTimeout(function() {
+    if (!done) { done = true; if (cb) cb(null); }
+  }, timeout || 15000);
+  fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ key: GAS_SECRET, action: action, payload: payload })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (!done) { done = true; clearTimeout(t); if (cb) cb(data); }
+  })
+  .catch(function() {
+    if (!done) { done = true; clearTimeout(t); if (cb) cb(null); }
+  });
+}
+
+// ── JSONP GET solo para leer (getAll no escribe nada) ──
+function gasGet(cb, timeout) {
   var cbName = '_sc_' + Date.now();
   var s = document.createElement('script');
-  var t = setTimeout(function() { cleanup(); if(cb) cb(null); }, timeout||12000);
-  function cleanup() { delete window[cbName]; if(s.parentNode) s.parentNode.removeChild(s); clearTimeout(t); }
-  window[cbName] = function(data) { cleanup(); if(cb) cb(data); };
-  params.cb = cbName;
-  params.key = GAS_SECRET;
-  params._ = Date.now();
-  var qs = Object.keys(params).map(function(k){ return k+'='+encodeURIComponent(typeof params[k]==='object'?JSON.stringify(params[k]):params[k]); }).join('&');
+  var t = setTimeout(function() {
+    try { delete window[cbName]; } catch(e) {}
+    if (s && s.parentNode) s.parentNode.removeChild(s);
+    if (cb) cb(null);
+  }, timeout || 15000);
+  window[cbName] = function(data) {
+    clearTimeout(t);
+    try { delete window[cbName]; } catch(e) {}
+    if (s && s.parentNode) s.parentNode.removeChild(s);
+    if (cb) cb(data);
+  };
+  var qs = 'action=getAll&key=' + encodeURIComponent(GAS_SECRET) +
+           '&cb=' + encodeURIComponent(cbName) + '&_=' + Date.now();
   s.src = GAS_URL + '?' + qs;
-  s.onerror = function() { cleanup(); if(cb) cb(null); };
+  s.onerror = function() {
+    clearTimeout(t);
+    try { delete window[cbName]; } catch(e) {}
+    if (cb) cb(null);
+  };
   document.head.appendChild(s);
 }
 
-// Sync a single record to Sheets via JSONP GET (readable, confirmable)
+// ── sync: escribe via POST ──
 function sync(action, payload, cb) {
-  sheetsCall({ action: action, payload: payload }, function(res) {
+  gasPost(action, payload, function(res) {
     if (cb) cb(res);
-  }, 10000);
+  }, 12000);
 }
 
-// Load ALL data from Sheets
+// ── loadFromSheets: lee via JSONP GET ──
 function loadFromSheets(cb) {
-  sheetsCall({ action: 'getAll' }, cb, 12000);
+  gasGet(cb, 15000);
 }
 
 // Save to local + Sheets, then optionally refresh
@@ -803,9 +843,15 @@ function renderOb() {
 
 function obStep0() {
   var isNew = !CU.id;
-  return (isNew ? '<div class="fr"><div class="fg"><label>Nombre completo</label><input type="text" id="ob_nombre" placeholder="Tu nombre"/></div><div class="fg"><label>Username</label><input type="text" id="ob_user" placeholder="Sin espacios"/></div></div><div class="fr"><div class="fg"><label>Contraseña</label><input type="password" id="ob_pass"/></div><div class="fg"><label>Confirmar contraseña</label><input type="password" id="ob_pass2"/></div></div>' : '') +
-  '<div class="fr"><div class="fg"><label>Email</label><input type="email" id="ob_email" value="'+(CU.email||'')+'"/></div><div class="fg"><label>Teléfono</label><input type="text" id="ob_tel" value="'+(CU.tel||'')+'"/></div></div>' +
-  '<div class="fr"><div class="fg"><label>Peso (kg)</label><input type="number" id="ob_peso" step="0.1" value="'+(CU.peso||'')+'"/></div><div class="fg"><label>Talla (cm)</label><input type="number" id="ob_talla" step="0.1" value="'+(CU.talla||'')+'"/></div></div>' +
+  var genOpts = ['Masculino','Femenino','No binario','Prefiero no decir'];
+  var genSel = CU.genero || '';
+  var genHtml = '<select id="ob_genero" style="width:100%"><option value="">Seleccionar...</option>';
+  genOpts.forEach(function(g){ genHtml += '<option value="'+g+'"'+(genSel===g?' selected':'')+'>'+g+'</option>'; });
+  genHtml += '</select>';
+  return (isNew ? '<div class="fr"><div class="fg"><label>Nombre completo *</label><input type="text" id="ob_nombre" placeholder="Tu nombre completo"/></div><div class="fg"><label>Username *</label><input type="text" id="ob_user" placeholder="Sin espacios, sin tildes"/></div></div><div class="fr"><div class="fg"><label>Contraseña *</label><input type="password" id="ob_pass"/></div><div class="fg"><label>Confirmar contraseña *</label><input type="password" id="ob_pass2"/></div></div>' : '') +
+  '<div class="fr"><div class="fg"><label>Cédula / Documento *</label><input type="text" id="ob_cedula" value="'+(CU.cedula||'')+'" placeholder="Número de documento"/></div><div class="fg"><label>Fecha de nacimiento</label><input type="date" id="ob_fnac" value="'+(CU.fechaNac||'')+'"/></div></div>' +
+  '<div class="fr"><div class="fg"><label>Género</label>'+genHtml+'</div><div class="fg"><label>Teléfono</label><input type="text" id="ob_tel" value="'+(CU.tel||'')+'"/></div></div>' +
+  '<div class="fg"><label>Email</label><input type="email" id="ob_email" value="'+(CU.email||'')+'"/></div>' +
   '<div class="fg"><label>Objetivo principal</label><input type="text" id="ob_obj" value="'+(CU.objetivo||'')+'" placeholder="¿Qué quieres lograr?"/></div>' +
   '<div style="display:flex;justify-content:flex-end;margin-top:16px"><button class="btn btn-p" onclick="obNext()">Siguiente →</button></div>';
 }
@@ -890,17 +936,20 @@ function obNext() {
       if (!nombre.trim() || !uname.trim()) { toast('Ingresa nombre y username'); return; }
       if (!pass) { toast('Ingresa una contraseña'); return; }
       if (pass !== pass2) { toast('Las contraseñas no coinciden'); return; }
+      var cedVal = (document.getElementById('ob_cedula')||{value:''}).value||'';
+      if (!cedVal.trim()) { toast('La cédula/documento es obligatorio'); return; }
       for (var i = 0; i < d.users.length; i++) {
         if (d.users[i].username === uname.trim()) { toast('Ese username ya existe'); return; }
       }
       CU = { id: uname.trim(), username: uname.trim(), password: pass, name: nombre.trim(), role: 'user' };
       d.users.push(CU);
     }
-    CU.email = (document.getElementById('ob_email') || {}).value || '';
-    CU.tel = (document.getElementById('ob_tel') || {}).value || '';
-    CU.peso = (document.getElementById('ob_peso') || {}).value || '';
-    CU.talla = (document.getElementById('ob_talla') || {}).value || '';
-    CU.objetivo = (document.getElementById('ob_obj') || {}).value || '';
+    CU.email    = (document.getElementById('ob_email')  || {}).value || '';
+    CU.tel      = (document.getElementById('ob_tel')    || {}).value || '';
+    CU.cedula   = (document.getElementById('ob_cedula') || {}).value || '';
+    CU.fechaNac = (document.getElementById('ob_fnac')   || {}).value || '';
+    CU.genero   = (document.getElementById('ob_genero') || {}).value || '';
+    CU.objetivo = (document.getElementById('ob_obj')    || {}).value || '';
     var idx = -1;
     for (var i = 0; i < d.users.length; i++) { if (d.users[i].id === CU.id) { idx = i; break; } }
     if (idx >= 0) d.users[idx] = CU; else d.users.push(CU);
@@ -943,9 +992,11 @@ function finishOb() {
   for (var i = 0; i < d.users.length; i++) { if (d.users[i].id === CU.id) { idx = i; break; } }
   if (idx >= 0) d.users[idx] = CU;
   save(d);
-  saveAndSync('saveUser', CU);
+  saveAndSync('saveUser', CU, function(res) {
+    toast(res ? '✅ Perfil guardado en Drive' : '✅ Perfil guardado localmente');
+  });
   document.getElementById('obScreen').classList.add('hidden');
-  toast('🎉 ¡Bienvenida! Tu perfil está listo.');
+  toast('⚡ ¡Bienvenido/a! Tu perfil está listo.');
   showApp();
 }
 
@@ -971,7 +1022,7 @@ function showApp() {
 
 var COACH_MENU = [
   {s:'Panel'}, {id:'dashboard',l:'Resumen',ic:'📊'},
-  {s:'Usuarios'}, {id:'usuarias',l:'Usuarios',ic:'👥'}, {id:'medidas',l:'Medidas',ic:'📏'},
+  {s:'Usuarios'}, {id:'usuarios',l:'Usuarios',ic:'👥'}, {id:'medidas',l:'Medidas',ic:'📏'},
   {s:'Entrenamiento'}, {id:'rutinas',l:'Rutinas',ic:'🏋️'}, {id:'ejercicios',l:'Biblioteca',ic:'📚'}, {id:'logs',l:'Registro global',ic:'📋'},
   {s:'Sistema'}, {id:'ajustes',l:'Configuración',ic:'⚙️'}, {id:'admPanel',l:'Gestión Cuentas',ic:'🔐',adminOnly:true}
 ];
@@ -998,7 +1049,7 @@ function buildSidebar() {
   });
 }
 
-var COACH_MOB = [{id:'dashboard',l:'Inicio',ic:'📊'},{id:'usuarias',l:'Usuarias',ic:'👥'},{id:'rutinas',l:'Rutinas',ic:'🏋️'},{id:'medidas',l:'Medidas',ic:'📏'},{id:'__more',l:'Más',ic:'☰'}];
+var COACH_MOB = [{id:'dashboard',l:'Inicio',ic:'📊'},{id:'usuarios',l:'Usuarios',ic:'👥'},{id:'rutinas',l:'Rutinas',ic:'🏋️'},{id:'medidas',l:'Medidas',ic:'📏'},{id:'__more',l:'Más',ic:'☰'}];
 var USER_MOB = [{id:'miRutina',l:'Rutina',ic:'🏋️'},{id:'miHistorial',l:'Historial',ic:'📋'},{id:'registrar',l:'Sesion',ic:'✅'},{id:'__free',l:'Extra',ic:'🏃'},{id:'__more',l:'Mas',ic:'☰'}];
 var COACH_MORE = [{id:'ejercicios',l:'Biblioteca',ic:'📚'},{id:'logs',l:'Registro',ic:'📋'},{id:'ajustes',l:'Ajustes',ic:'⚙️'}];
 var USER_MORE = [{id:'miPerfil',l:'Mi Perfil',ic:'👤'}];
@@ -1044,7 +1095,7 @@ function nav(page) {
   var mb = document.getElementById('mb_' + page);
   if (mb) mb.classList.add('active');
   var pages = {
-    dashboard: pgDashboard, usuarias: pgUsuarias, medidas: pgMedidas,
+    dashboard: pgDashboard, usuarios: pgUsuarios, medidas: pgMedidas,
     rutinas: pgRutinas, ejercicios: pgEjercicios, logs: pgLogs, ajustes: pgAjustes,
     admPanel: pgAdminPanel,
     miRutina: pgMiRutina, registrar: function() { pgMiRutina(); setTimeout(openLogModal, 200); },
@@ -1156,31 +1207,31 @@ function pgDashboard() {
   }
   setMain('<div class="page-title">PANEL</div><div class="page-sub">Bienvenido/a, ' + CU.name.split(' ')[0] + ' — ' + new Date().toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long'}) + '</div>' +
     alertHtml +
-    '<div class="stats"><div class="stat"><div class="stat-l">Usuarias</div><div class="stat-v">' + usr.length + '</div></div>' +
+    '<div class="stats"><div class="stat"><div class="stat-l">Usuarios</div><div class="stat-v">' + usr.length + '</div></div>' +
     '<div class="stat"><div class="stat-l">Sesiones totales</div><div class="stat-v">' + d.logs.length + '</div></div>' +
     '<div class="stat"><div class="stat-l">Esta semana</div><div class="stat-v">' + logsW + '</div></div>' +
     '<div class="stat"><div class="stat-l">Rutinas</div><div class="stat-v">' + d.rutinas.length + '</div></div></div>' +
     '<div class="g2">' +
-    '<div class="card"><div class="card-title">👥 Usuarias</div>' + (usr.length === 0 ? '<div class="empty"><div class="empty-icon">👥</div><div class="empty-t">SIN USUARIAS</div></div>' : usr.map(function(u) {
+    '<div class="card"><div class="card-title">👥 Usuarios</div>' + (usr.length === 0 ? '<div class="empty"><div class="empty-icon">👥</div><div class="empty-t">SIN USUARIOS</div></div>' : usr.map(function(u) {
       var ul = null; d.logs.forEach(function(l){if(l.userId===u.id&&(!ul||l.fecha>ul.fecha))ul=l;});
       var st = memStatus(u);
-      return '<div class="u-row" style="cursor:pointer" onclick="nav(\'usuarias\')"><div class="u-av">' + ini(u.name) + '</div><div class="u-info"><div class="u-name">' + u.name + '</div><div class="u-meta">' + (ul ? fDate(ul.fecha) : 'Sin sesiones') + ' · <span style="color:' + st.color + '">' + st.label + '</span></div></div></div>';
-    }).join('')) + '<div style="padding:12px"><button class="btn btn-g btn-sm" onclick="openNuevaUsuaria()">+ Nueva usuaria</button></div></div>' +
+      return '<div class="u-row" style="cursor:pointer" onclick="nav(\'usuarios\')"><div class="u-av">' + ini(u.name) + '</div><div class="u-info"><div class="u-name">' + u.name + '</div><div class="u-meta">' + (ul ? fDate(ul.fecha) : 'Sin sesiones') + ' · <span style="color:' + st.color + '">' + st.label + '</span></div></div></div>';
+    }).join('')) + '<div style="padding:12px"><button class="btn btn-g btn-sm" onclick="openNuevaUsuario()">+ Nuevo usuario</button></div></div>' +
     '<div class="card"><div class="card-title">📋 Últimas sesiones</div>' + recentLogs + '</div>' +
     '</div>');
 }
 
 // ═══════════════════════════════════════════════════════════
-//  COACH: USUARIAS
+//  COACH: USUARIOS
 // ═══════════════════════════════════════════════════════════
-function pgUsuarias() {
+function pgUsuarios() {
   var d = db();
   var usr = d.users.filter(function(u) { return u.role === 'user'; });
-  var html = '<div class="page-title">MIS USUARIAS</div><div class="page-sub">' + usr.length + ' usuarias registradas</div>';
-  html += '<div style="margin-bottom:14px"><button class="btn btn-p" onclick="openNuevaUsuaria()">+ Nueva usuaria</button></div>';
+  var html = '<div class="page-title">MIS USUARIOS</div><div class="page-sub">' + usr.length + ' usuarios registradas</div>';
+  html += '<div style="margin-bottom:14px"><button class="btn btn-p" onclick="openNuevaUsuario()">+ Nuevo usuario</button></div>';
   html += '<div class="card" style="padding:0">';
   if (usr.length === 0) {
-    html += '<div class="empty"><div class="empty-icon">👥</div><div class="empty-t">SIN USUARIAS</div><div class="empty-s">Añade tu primera clienta</div></div>';
+    html += '<div class="empty"><div class="empty-icon">👥</div><div class="empty-t">SIN USUARIOS</div><div class="empty-s">Añade tu primera clienta</div></div>';
   } else {
     usr.forEach(function(u) {
       var ruts = 0; d.rutinas.forEach(function(r){if(r.userId===u.id)ruts++;});
@@ -1227,26 +1278,26 @@ function pgUsuarias() {
       else if (action === 'membresia') openMembresiaFor(uid);
       else if (action === 'diag') showDiag(uid);
       else if (action === 'pass') showPass(uid);
-      else if (action === 'editar') editUsuaria(uid);
-      else if (action === 'eliminar') delUsuaria(uid);
+      else if (action === 'editar') editUsuario(uid);
+      else if (action === 'eliminar') delUsuario(uid);
     });
   }
 }
 
-function openNuevaUsuaria() {
-  document.getElementById('m_usuaria_title').textContent = 'NUEVO USUARIO';
+function openNuevaUsuario() {
+  document.getElementById('m_usuario_title').textContent = 'NUEVO USUARIO';
   document.getElementById('u_edit_id').value = '';
   ['u_nombre','u_username','u_email','u_tel','u_obj','u_obs','u_mem_start','u_mem_end'].forEach(function(id){ var el=document.getElementById(id); if(el)el.value=''; });
   document.getElementById('u_pass').value = '';
-  openModal('m_usuaria');
+  openModal('m_usuario');
 }
 
-function editUsuaria(uid) {
+function editUsuario(uid) {
   var d = db();
   var u = null;
   for (var i = 0; i < d.users.length; i++) { if (d.users[i].id === uid) { u = d.users[i]; break; } }
   if (!u) return;
-  document.getElementById('m_usuaria_title').textContent = 'EDITAR USUARIO';
+  document.getElementById('m_usuario_title').textContent = 'EDITAR USUARIO';
   document.getElementById('u_edit_id').value = uid;
   document.getElementById('u_nombre').value = u.name || '';
   document.getElementById('u_username').value = u.username || '';
@@ -1257,11 +1308,11 @@ function editUsuaria(uid) {
   document.getElementById('u_obs').value = u.obs || '';
   document.getElementById('u_mem_start').value = u.mem_start || '';
   document.getElementById('u_mem_end').value = u.mem_end || '';
-  openModal('m_usuaria');
+  openModal('m_usuario');
 }
 
-function saveUsuaria() {
-  if (_saving['usuaria']) return;
+function saveUsuario() {
+  if (_saving['usuario']) return;
   var editId   = document.getElementById('u_edit_id').value;
   var nombre   = document.getElementById('u_nombre').value.trim();
   var username = document.getElementById('u_username').value.trim();
@@ -1275,26 +1326,30 @@ function saveUsuaria() {
     }
     var privRole = editId && editId.startsWith('__priv__') ? editId.replace('__priv__','') : 'user';
     var nu = {id:username,username:username,password:pass,name:nombre,role:privRole,
-      email:document.getElementById('u_email').value,
-      tel:document.getElementById('u_tel').value,
-      objetivo:document.getElementById('u_obj').value,
-      obs:document.getElementById('u_obs').value,
-      mem_start:document.getElementById('u_mem_start').value||null,
-      mem_end:document.getElementById('u_mem_end').value||null};
-    _saving['usuaria'] = true;
-    var btn = document.querySelector('#m_usuaria .btn-p');
+      email:(document.getElementById('u_email')||{value:''}).value||'',
+      tel:(document.getElementById('u_tel')||{value:''}).value||'',
+      cedula:(document.getElementById('u_cedula')||{value:''}).value||'',
+      fechaNac:(document.getElementById('u_fnac')||{value:''}).value||'',
+      genero:(document.getElementById('u_genero')||{value:''}).value||'',
+      coachId:(document.getElementById('u_coach')||{value:''}).value||'',
+      objetivo:(document.getElementById('u_obj')||{value:''}).value||'',
+      obs:(document.getElementById('u_obs')||{value:''}).value||'',
+      mem_start:(document.getElementById('u_mem_start')||{value:''}).value||null,
+      mem_end:(document.getElementById('u_mem_end')||{value:''}).value||null};
+    _saving['usuario'] = true;
+    var btn = document.querySelector('#m_usuario .btn-p');
     if(btn){btn.disabled=true;btn.textContent='⏳ Guardando...';}
     saveAndSync('saveUser', nu, function(res) {
-      _saving['usuaria'] = false;
+      _saving['usuario'] = false;
       if(btn){btn.disabled=false;btn.textContent='✅ Guardar';}
-      closeModal('m_usuaria');
-      toast(res&&res.ok?'✅ Usuaria creada en Drive: '+nombre:'✅ Usuaria creada: '+nombre);
-      pgUsuarias();
+      closeModal('m_usuario');
+      toast(res&&res.ok?'✅ Usuario creada en Drive: '+nombre:'✅ Usuario creada: '+nombre);
+      pgUsuarios();
     });
   } else {
     var idx=-1;
     for(var i=0;i<d.users.length;i++){if(d.users[i].id===editId){idx=i;break;}}
-    if(idx<0){toast('Usuaria no encontrada');return;}
+    if(idx<0){toast('Usuario no encontrada');return;}
     d.users[idx].name=nombre; d.users[idx].username=username;
     if(pass) d.users[idx].password=pass;
     d.users[idx].email=document.getElementById('u_email').value;
@@ -1303,24 +1358,24 @@ function saveUsuaria() {
     d.users[idx].obs=document.getElementById('u_obs').value;
     d.users[idx].mem_start=document.getElementById('u_mem_start').value||null;
     d.users[idx].mem_end=document.getElementById('u_mem_end').value||null;
-    _saving['usuaria'] = true;
-    var btn2 = document.querySelector('#m_usuaria .btn-p');
+    _saving['usuario'] = true;
+    var btn2 = document.querySelector('#m_usuario .btn-p');
     if(btn2){btn2.disabled=true;btn2.textContent='⏳ Guardando...';}
     saveAndSync('saveUser', d.users[idx], function(res) {
-      _saving['usuaria'] = false;
+      _saving['usuario'] = false;
       if(btn2){btn2.disabled=false;btn2.textContent='✅ Guardar';}
-      closeModal('m_usuaria');
-      toast(res&&res.ok?'✅ Usuaria actualizada en Drive':'✅ Usuaria actualizada');
-      pgUsuarias();
+      closeModal('m_usuario');
+      toast(res&&res.ok?'✅ Usuario actualizada en Drive':'✅ Usuario actualizada');
+      pgUsuarios();
     });
   }
 }
 
-function delUsuaria(uid) {
+function delUsuario(uid) {
   var d = db();
   var u = null;
   for (var i = 0; i < d.users.length; i++) { if (d.users[i].id === uid) { u = d.users[i]; break; } }
-  if (!u) { toast('Usuaria no encontrada'); return; }
+  if (!u) { toast('Usuario no encontrada'); return; }
   if (!confirm('¿Eliminar a ' + u.name + '?\nSe borran sus medidas, rutinas y sesiones.\nEsta acción no se puede deshacer.')) return;
   // Remove from all collections
   var newU = [], newM = [], newR = [], newL = [];
@@ -1333,7 +1388,7 @@ function delUsuaria(uid) {
   d.deleted.push(uid);
   saveAndSync('deleteUser', {id: uid}, function(){
     toast('✅ ' + u.name + ' eliminada');
-    pgUsuarias();
+    pgUsuarios();
   });
 }
 
@@ -1343,12 +1398,12 @@ function showPass(uid) {
   for (var i = 0; i < d.users.length; i++) { if (d.users[i].id === uid) { u = d.users[i]; break; } }
   if (!u) return;
   document.getElementById('m_pass_content').innerHTML =
-    '<div style="background:var(--s2);border:1px solid var(--brd);border-radius:10px;padding:14px;margin-bottom:14px"><div style="font-size:12px;color:var(--gris);margin-bottom:4px">Usuaria</div><div style="font-size:16px;font-weight:600">' + u.name + '</div></div>' +
+    '<div style="background:var(--s2);border:1px solid var(--brd);border-radius:10px;padding:14px;margin-bottom:14px"><div style="font-size:12px;color:var(--gris);margin-bottom:4px">Usuario</div><div style="font-size:16px;font-weight:600">' + u.name + '</div></div>' +
     '<div class="fr">' +
     '<div style="background:var(--s2);border:1px solid var(--brd);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--gris);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Usuario</div><div style="font-size:20px;font-weight:700;font-family:monospace">' + u.username + '</div></div>' +
     '<div style="background:var(--s2);border:1px solid var(--brd);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--gris);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Contraseña</div><div style="font-size:20px;font-weight:700;font-family:monospace;color:var(--oro)">' + u.password + '</div></div>' +
     '</div>' +
-    '<button class="btn btn-p btn-full" style="margin-top:14px" onclick="editUsuaria(\'' + uid + '\');closeModal(\'m_pass\')">✏️ Cambiar contraseña</button>';
+    '<button class="btn btn-p btn-full" style="margin-top:14px" onclick="editUsuario(\'' + uid + '\');closeModal(\'m_pass\')">✏️ Cambiar contraseña</button>';
   openModal('m_pass');
 }
 
@@ -1371,7 +1426,7 @@ function showDiag(uid) {
 }
 
 function openMembresiaFor(uid) {
-  editUsuaria(uid);
+  editUsuario(uid);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1422,7 +1477,7 @@ function saveMedidas() {
   if (_saving['medidas']) return;
   var uid = document.getElementById('med_uid').value;
   var fecha = document.getElementById('med_fecha').value;
-  if (!uid || !fecha) { toast('Selecciona usuaria y fecha'); return; }
+  if (!uid || !fecha) { toast('Selecciona usuario y fecha'); return; }
   var med = { id: 'm'+Date.now(), userId: uid, fecha: fecha,
     peso: numF(document.getElementById('med_peso').value),
     talla: numF(document.getElementById('med_talla').value),
@@ -1620,7 +1675,7 @@ function pgRutinas() {
   var d = db();
   var usr = d.users.filter(function(u){return u.role==='user';});
   var hoy = new Date(); hoy.setHours(0,0,0,0);
-  var html = '<div class="page-title">RUTINAS</div><div class="page-sub">Planes de entrenamiento por usuaria</div>';
+  var html = '<div class="page-title">RUTINAS</div><div class="page-sub">Planes de entrenamiento por usuario</div>';
   html += '<div style="margin-bottom:16px"><button class="btn btn-p" onclick="openNuevaRutina(\'\')">+ Nueva rutina</button></div>';
   // Rutina expiry alerts
   var alertas = [];
@@ -1823,7 +1878,7 @@ function saveRutina() {
   var nombre   = document.getElementById('rut_nombre').value||'Semana '+semana;
   var fechaIni = document.getElementById('rut_fecha_ini').value||new Date().toISOString().split('T')[0];
   var fechaFin = document.getElementById('rut_fecha_fin').value||'';
-  if(!userId||!semana){toast('Selecciona usuaria y número de semana');return;}
+  if(!userId||!semana){toast('Selecciona usuario y número de semana');return;}
   var dias={
     dia1:{dia:'dia1',nombre:'Día 1',tipo:'',ejercicios:[]},
     dia2:{dia:'dia2',nombre:'Día 2',tipo:'',ejercicios:[]},
@@ -1877,7 +1932,7 @@ function saveRutina() {
     // Check duplicate semana
     var exists=d.rutinas.filter(function(r){return r.userId===userId&&r.semana===semana;});
     if(exists.length>0){
-      if(!confirm('Ya existe una rutina para Semana '+semana+' de esta usuaria.\n¿Reemplazarla?')){
+      if(!confirm('Ya existe una rutina para Semana '+semana+' de esta usuario.\n¿Reemplazarla?')){
         _saving['rutina']=false; if(btn){btn.disabled=false;btn.textContent='💾 Guardar rutina';} return;
       }
     }
@@ -1914,7 +1969,7 @@ function pgLogs() {
   var html = '<div class="page-title">REGISTRO GLOBAL</div>';
   html += '<div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">';
   html += '<select id="log_filter_u" onchange="pgLogs()" style="padding:7px 12px;background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);color:var(--blanco);font-family:\'Sora\',sans-serif;font-size:12px">';
-  html += '<option value="">Todas las usuarias</option>';
+  html += '<option value="">Todas los usuarios</option>';
   d.users.filter(function(u){return u.role==='user';}).forEach(function(u){
     html += '<option value="'+u.id+'">'+u.name+'</option>';
   });
@@ -2082,7 +2137,7 @@ function showLogDetail(logId) {
   // Comment from user
   if (l.comentario) {
     html += '<div style="margin-bottom:14px">';
-    html += '<div style="font-size:11px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">💬 COMENTARIO DE LA USUARIA</div>';
+    html += '<div style="font-size:11px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">💬 COMENTARIO DE LA USUARIO</div>';
     html += '<div style="background:rgba(0,0,0,0.2);padding:12px;border-radius:8px;font-size:13px;border-left:3px solid var(--mag);line-height:1.7">'+l.comentario+'</div>';
     html += '</div>';
   }
@@ -2099,7 +2154,7 @@ function showLogDetail(logId) {
   // Feedback form (coach only)
   if (isCoach) {
     html += '<div style="font-size:11px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">'+(l.feedback?'✏️ EDITAR RETROALIMENTACIÓN':'💬 DEJAR RETROALIMENTACIÓN')+'</div>';
-    html += '<textarea id="feedback_text" placeholder="Escribe tu retroalimentación para la usuaria..." style="width:100%;padding:10px 13px;background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);color:var(--blanco);font-family:\'Sora\',sans-serif;font-size:13px;min-height:100px;resize:vertical;margin-bottom:10px">'+( l.feedback||'')+'</textarea>';
+    html += '<textarea id="feedback_text" placeholder="Escribe tu retroalimentación para el usuario..." style="width:100%;padding:10px 13px;background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);color:var(--blanco);font-family:\'Sora\',sans-serif;font-size:13px;min-height:100px;resize:vertical;margin-bottom:10px">'+( l.feedback||'')+'</textarea>';
     html += '<button class="btn btn-p btn-full" onclick="saveFeedback(\''+logId+'\')">💬 Enviar retroalimentación</button>';
   } else {
     // User view: show feedback
@@ -2218,7 +2273,7 @@ function testSheets() {
     if (!st) return;
     if (data && data.users) {
       var nu = data.users.filter(function(u){return u.role==='user';}).length;
-      st.innerHTML = '<div style="font-size:12px;color:#80d4a0;background:rgba(80,200,120,0.1);padding:10px;border-radius:8px">✅ Conectado — ' + nu + ' usuarias · ' + (data.logs||[]).length + ' sesiones · ' + (data.ejercicios||[]).length + ' ejercicios</div>';
+      st.innerHTML = '<div style="font-size:12px;color:#80d4a0;background:rgba(80,200,120,0.1);padding:10px;border-radius:8px">✅ Conectado — ' + nu + ' usuarios · ' + (data.logs||[]).length + ' sesiones · ' + (data.ejercicios||[]).length + ' ejercicios</div>';
     } else {
       st.innerHTML = '<div style="font-size:12px;color:#ff8080;background:rgba(200,50,50,0.1);padding:10px;border-radius:8px">❌ Sin conexión. Verifica el Apps Script.</div>';
     }
@@ -2880,7 +2935,7 @@ function deleteLog() {
 }
 
 // ─────────────────────────────────────────
-// SESIONES LIBRES (actividad extra usuaria)
+// SESIONES LIBRES (actividad extra usuario)
 // ─────────────────────────────────────────
 function openFreeLog(existingId) {
   if (existingId) {
@@ -3002,11 +3057,11 @@ function pgAdminPanel() {
 }
 
 function openNewPrivUser(role) {
-  document.getElementById('m_usuaria_title').textContent = role==='admin'?'NUEVO ADMIN':'NUEVO COACH';
+  document.getElementById('m_usuario_title').textContent = role==='admin'?'NUEVO ADMIN':'NUEVO COACH';
   document.getElementById('u_edit_id').value = '__priv__'+role;
   ['u_nombre','u_username','u_email','u_tel','u_obj','u_obs','u_mem_start','u_mem_end'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('u_pass').value = '';
-  openModal('m_usuaria');
+  openModal('m_usuario');
 }
 
 function editPrivUser(uid) {
@@ -3014,7 +3069,7 @@ function editPrivUser(uid) {
   var u = null;
   for (var i=0;i<d.users.length;i++){if(d.users[i].id===uid){u=d.users[i];break;}}
   if(!u) return;
-  document.getElementById('m_usuaria_title').textContent = u.role==='admin'?'EDITAR ADMIN':'EDITAR COACH';
+  document.getElementById('m_usuario_title').textContent = u.role==='admin'?'EDITAR ADMIN':'EDITAR COACH';
   document.getElementById('u_edit_id').value = uid;
   document.getElementById('u_nombre').value = u.name||'';
   document.getElementById('u_username').value = u.username||'';
@@ -3025,7 +3080,7 @@ function editPrivUser(uid) {
   document.getElementById('u_obs').value = '';
   document.getElementById('u_mem_start').value = '';
   document.getElementById('u_mem_end').value = '';
-  openModal('m_usuaria');
+  openModal('m_usuario');
 }
 
 function delPrivUser(uid) {
