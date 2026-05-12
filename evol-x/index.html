@@ -1277,11 +1277,30 @@ function pgUsuarios() {
   }
 }
 
+
+function fillCoachDropdown(selectId, selectedId) {
+  var sel = document.getElementById(selectId);
+  if (!sel) return;
+  var d = db();
+  var coaches = d.users.filter(function(u){ return u.role==='coach' || u.role==='admin'; });
+  sel.innerHTML = '<option value="">Sin asignar</option>';
+  coaches.forEach(function(c){
+    var opt = document.createElement('option');
+    opt.value = c.id;
+    opt.textContent = c.name + ' (' + c.role + ')';
+    if (c.id === selectedId) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
 function openNuevaUsuario() {
   document.getElementById('m_usuario_title').textContent = 'NUEVO USUARIO';
   document.getElementById('u_edit_id').value = '';
   ['u_nombre','u_username','u_email','u_tel','u_obj','u_obs','u_mem_start','u_mem_end'].forEach(function(id){ var el=document.getElementById(id); if(el)el.value=''; });
   document.getElementById('u_pass').value = '';
+  var cedEl=document.getElementById('u_cedula'); if(cedEl) cedEl.value='';
+  var fnacEl=document.getElementById('u_fnac'); if(fnacEl) fnacEl.value='';
+  var genEl=document.getElementById('u_genero'); if(genEl) genEl.value='';
+  fillCoachDropdown('u_coach', '');
   openModal('m_usuario');
 }
 
@@ -1301,6 +1320,10 @@ function editUsuario(uid) {
   document.getElementById('u_obs').value = u.obs || '';
   document.getElementById('u_mem_start').value = u.mem_start || '';
   document.getElementById('u_mem_end').value = u.mem_end || '';
+  var cedEl2=document.getElementById('u_cedula'); if(cedEl2) cedEl2.value=u.cedula||'';
+  var fnacEl2=document.getElementById('u_fnac'); if(fnacEl2) fnacEl2.value=u.fechaNac||'';
+  var genEl2=document.getElementById('u_genero'); if(genEl2) genEl2.value=u.genero||'';
+  fillCoachDropdown('u_coach', u.coachId||'');
   openModal('m_usuario');
 }
 
