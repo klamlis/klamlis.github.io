@@ -222,12 +222,18 @@ tr:hover td{background:var(--s1)}
 .evol-dash-sm { display:inline-block; width:18px; height:7px; background:var(--cyan); border-radius:99px; margin:0 3px 2px 3px; flex-shrink:0; }
 .evol-x-sm { color:var(--cyan); }
 .pill-admin { background:linear-gradient(90deg,#1e2340,var(--cyan)); color:#fff; }
+.pill-recep { background:linear-gradient(90deg,#1a2e1a,#00e676); color:#fff; }
 /* ── TOPBAR ── */
 .topbar { border-bottom:1px solid rgba(0,212,245,0.2); }
 /* ── CARD top accent ── */
 .card::before { background:linear-gradient(90deg,var(--deep),var(--cyan),#00b4d8); }
 /* ── LOGIN TAG ── */
 .login-tag { font-size:11px; letter-spacing:6px; color:var(--cyan); text-align:center; margin-bottom:28px; font-weight:500; }
+
+.pass-wrap { position:relative; display:flex; align-items:center; }
+.pass-wrap input { flex:1; width:100% !important; padding-right:42px !important; }
+.eye-btn { position:absolute; right:8px; background:none; border:none; cursor:pointer; color:var(--gris); font-size:18px; padding:4px; line-height:1; z-index:2; user-select:none; }
+.eye-btn:hover { color:var(--cyan); }
 </style>
 </head>
 <body>
@@ -298,11 +304,11 @@ tr:hover td{background:var(--s1)}
   <div class="modal-title"><span id="m_usuario_title">NUEVO USUARIO</span><button class="close-btn" onclick="closeModal('m_usuario')">×</button></div>
   <input type="hidden" id="u_edit_id"/>
   <div class="fr">
-    <div class="fg"><label>Nombre completo</label><input type="text" id="u_nombre"/></div>
+    <div class="fg"><label>Nombre completo</label><input type="text" id="u_nombre" style="text-transform:uppercase"/></div>
     <div class="fg"><label>Username</label><input type="text" id="u_username"/></div>
   </div>
   <div class="fr">
-    <div class="fg"><label>Contraseña</label><input type="password" id="u_pass"/></div>
+    <div class="fg"><label>Contraseña</label><div class="pass-wrap"><input type="password" id="u_pass"/><button type="button" class="eye-btn" data-target="u_pass">👁</button></div></div>
     <div class="fg" style="display:flex;align-items:flex-end"><span style="font-size:11px;color:var(--gris);padding-bottom:8px">El username se usará como ID de acceso</span></div>
   </div>
   <div class="fr">
@@ -311,13 +317,14 @@ tr:hover td{background:var(--s1)}
   </div>
   <div class="fr">
     <div class="fg"><label>Género</label><select id="u_genero" style="width:100%"><option value="">Seleccionar...</option><option>Masculino</option><option>Femenino</option><option>No binario</option><option>Prefiero no decir</option></select></div>
-    <div class="fg"><label>Teléfono</label><input type="text" id="u_tel"/></div>
+    <div class="fg"><label>Celular</label><input type="text" id="u_tel"/></div>
   </div>
   <div class="fr">
     <div class="fg"><label>Email</label><input type="email" id="u_email"/></div>
     <div class="fg"><label>Objetivo</label><input type="text" id="u_obj" placeholder="Ej: Ganar masa muscular"/></div>
   </div>
   <div class="fg"><label>Asignar Coach</label><select id="u_coach" style="width:100%"><option value="">Sin asignar</option></select></div>
+  <div class="fr"><div class="fg"><label>Contacto emergencia</label><input type="text" id="u_emerg_nom"/></div><div class="fg"><label>Tel. emergencia</label><input type="text" id="u_emerg_tel"/></div></div>
   <div class="fg"><label>Observaciones / Lesiones</label><textarea id="u_obs" placeholder="Condiciones médicas, lesiones..."></textarea></div>
   <div class="hr"></div>
   <div style="font-size:11px;font-weight:700;color:var(--oro);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">💳 Membresía</div>
@@ -338,8 +345,8 @@ tr:hover td{background:var(--s1)}
     <div class="fg"><label>Fecha</label><input type="date" id="med_fecha"/></div>
   </div>
   <div class="fr">
-    <div class="fg"><label>Peso (kg)</label><input type="number" id="med_peso" step="0.1"/></div>
-    <div class="fg"><label>Talla (cm)</label><input type="number" id="med_talla" step="0.1"/></div>
+    <div class="fg"><label>Peso (kg)</label><input type="number" id="med_peso" step="0.1" oninput="calcMedidas()"/></div>
+    <div class="fg"><label>Talla (cm)</label><input type="number" id="med_talla" step="0.1" oninput="calcMedidas()"/></div>
   </div>
   <div class="fr">
     <div class="fg"><label>Cuello (cm)</label><input type="number" id="med_cuello" step="0.1"/></div>
@@ -354,16 +361,33 @@ tr:hover td{background:var(--s1)}
     <div class="fg"><label>Cadera (cm)</label><input type="number" id="med_cad" step="0.1"/></div>
   </div>
   <div class="fr">
-    <div class="fg"><label>Brazo D (cm)</label><input type="number" id="med_bD" step="0.1"/></div>
-    <div class="fg"><label>Brazo I (cm)</label><input type="number" id="med_bI" step="0.1"/></div>
+    <div class="fg"><label>Espalda (cm)</label><input type="number" id="med_esp" step="0.1"/></div>
+    <div class="fg"><label>% Masa muscular</label><input type="number" id="med_masa_mus" step="0.1"/></div>
   </div>
   <div class="fr">
-    <div class="fg"><label>Muslo (cm)</label><input type="number" id="med_mus" step="0.1"/></div>
-    <div class="fg"><label>Muslo medio (cm)</label><input type="number" id="med_musm" step="0.1"/></div>
+    <div class="fg"><label>% Masa grasa</label><input type="number" id="med_masa_gra" step="0.1" oninput="calcMedidas()"/></div>
+    <div class="fg"><label>Antebrazo D (cm)</label><input type="number" id="med_ant" step="0.1"/></div>
   </div>
   <div class="fr">
-    <div class="fg"><label>Pantorrilla (cm)</label><input type="number" id="med_pant" step="0.1"/></div>
-    <div class="fg"><label>Antebrazo (cm)</label><input type="number" id="med_ant" step="0.1"/></div>
+    <div class="fg"><label>Brazo Der (cm)</label><input type="number" id="med_bD" step="0.1"/></div>
+    <div class="fg"><label>Brazo Izq (cm)</label><input type="number" id="med_bI" step="0.1"/></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Muslo Der (cm)</label><input type="number" id="med_musD" step="0.1"/></div>
+    <div class="fg"><label>Muslo Izq (cm)</label><input type="number" id="med_musI" step="0.1"/></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Muslo Medio Der (cm)</label><input type="number" id="med_musmD" step="0.1"/></div>
+    <div class="fg"><label>Muslo Medio Izq (cm)</label><input type="number" id="med_musmI" step="0.1"/></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Pantorrilla D (cm)</label><input type="number" id="med_pantD" step="0.1"/></div>
+    <div class="fg"><label>Pantorrilla I (cm)</label><input type="number" id="med_pantI" step="0.1"/></div>
+  </div>
+  <div id="med_calcs" style="background:rgba(0,212,245,0.07);border-radius:8px;padding:12px;margin-top:8px;font-size:12px;display:none">
+    <div style="font-weight:700;color:var(--cyan);margin-bottom:6px">📊 CÁLCULOS AUTOMÁTICOS</div>
+    <div id="med_imc_val"></div>
+    <div id="med_grasa_val"></div>
   </div>
   <div class="fg"><label>Observaciones</label><textarea id="med_obs"></textarea></div>
   <button class="btn btn-p btn-full" onclick="saveMedidas()">💾 Guardar medidas</button>
@@ -376,7 +400,7 @@ tr:hover td{background:var(--s1)}
   <div class="modal-title"><span id="m_ej_title">NUEVO EJERCICIO</span><button class="close-btn" onclick="closeModal('m_ejercicio')">×</button></div>
   <input type="hidden" id="ej_edit_id"/>
   <div class="fr">
-    <div class="fg"><label>Nombre</label><input type="text" id="ej_nombre" placeholder="Ej: Sentadilla con barra"/></div>
+    <div class="fg"><label>Nombre</label><input type="text" id="ej_nombre" style="text-transform:uppercase" placeholder="Ej: Sentadilla con barra"/></div>
     <div class="fg"><label>Grupo muscular</label>
       <select id="ej_grupo">
         <option>Pierna</option><option>Glúteo</option><option>Espalda</option>
@@ -620,6 +644,12 @@ function db() {
       d.users.push({ id:'admin1', username:'admin', password:'EvolX2024!', name:'Administrador', role:'admin', email:'admin@evol-x.com' });
       save(d);
     }
+    var hasRecep = false;
+    for (var k = 0; k < d.users.length; k++) { if (d.users[k].role === 'recepcion') { hasRecep = true; break; } }
+    if (!hasRecep) {
+      d.users.push({ id:'recep1', username:'recepcion', password:'Recep2024!', name:'Recepción', role:'recepcion', email:'recepcion@evol-x.com' });
+      save(d);
+    }
     return d;
   } catch(e) {
     return { users:[], medidas:[], rutinas:[], logs:[], ejercicios:[], deleted:[] };
@@ -758,13 +788,13 @@ function login() {
       // Keep admin+coach from local
       var localPriv = [];
       for (var i = 0; i < d.users.length; i++) {
-        if (d.users[i].role === 'admin' || d.users[i].role === 'coach') localPriv.push(d.users[i]);
+        if (['admin','coach','recepcion'].indexOf(d.users[i].role) >= 0) localPriv.push(d.users[i]);
       }
       // Merge users (skip deleted, skip admin/coach from remote)
       var remoteUsers = [];
       for (var i = 0; i < (remote.users || []).length; i++) {
         var ru = remote.users[i];
-        if (ru.role !== 'admin' && ru.role !== 'coach' && deletedIds.indexOf(ru.id) < 0) remoteUsers.push(ru);
+        if (['admin','coach','recepcion'].indexOf(ru.role) < 0 && deletedIds.indexOf(ru.id) < 0) remoteUsers.push(ru);
       }
       d.users = localPriv.concat(remoteUsers);
       // Merge other collections (skip deleted user IDs)
@@ -841,9 +871,9 @@ function obStep0() {
   var genHtml = '<select id="ob_genero" style="width:100%"><option value="">Seleccionar...</option>';
   genOpts.forEach(function(g){ genHtml += '<option value="'+g+'"'+(genSel===g?' selected':'')+'>'+g+'</option>'; });
   genHtml += '</select>';
-  return (isNew ? '<div class="fr"><div class="fg"><label>Nombre completo *</label><input type="text" id="ob_nombre" placeholder="Tu nombre completo"/></div><div class="fg"><label>Username *</label><input type="text" id="ob_user" placeholder="Sin espacios, sin tildes"/></div></div><div class="fr"><div class="fg"><label>Contraseña *</label><input type="password" id="ob_pass"/></div><div class="fg"><label>Confirmar contraseña *</label><input type="password" id="ob_pass2"/></div></div>' : '') +
+  return (isNew ? '<div class="fr"><div class="fg"><label>Nombre completo *</label><input type="text" id="ob_nombre" style="text-transform:uppercase" placeholder="Tu nombre completo"/></div><div class="fg"><label>Username *</label><input type="text" id="ob_user" placeholder="Sin espacios, sin tildes"/></div></div><div class="fr"><div class="fg"><label>Contraseña *</label><div class="pass-wrap"><input type="password" id="ob_pass"/><button type="button" class="eye-btn" data-target="ob_pass">👁</button></div></div><div class="fg"><label>Confirmar contraseña *</label><div class="pass-wrap"><input type="password" id="ob_pass2"/><button type="button" class="eye-btn" data-target="ob_pass2">👁</button></div></div></div>' : '') +
   '<div class="fr"><div class="fg"><label>Cédula / Documento *</label><input type="text" id="ob_cedula" value="'+(CU.cedula||'')+'" placeholder="Número de documento"/></div><div class="fg"><label>Fecha de nacimiento</label><input type="date" id="ob_fnac" value="'+(CU.fechaNac||'')+'"/></div></div>' +
-  '<div class="fr"><div class="fg"><label>Género</label>'+genHtml+'</div><div class="fg"><label>Teléfono</label><input type="text" id="ob_tel" value="'+(CU.tel||'')+'"/></div></div>' +
+  '<div class="fr"><div class="fg"><label>Género</label>'+genHtml+'</div><div class="fg"><label>Celular</label><input type="text" id="ob_tel" value="'+(CU.tel||'')+'"/></div></div>' +
   '<div class="fg"><label>Email</label><input type="email" id="ob_email" value="'+(CU.email||'')+'"/></div>' +
   '<div class="fg"><label>Objetivo principal</label><input type="text" id="ob_obj" value="'+(CU.objetivo||'')+'" placeholder="¿Qué quieres lograr?"/></div>' +
   '<div style="display:flex;justify-content:flex-end;margin-top:16px"><button class="btn btn-p" onclick="obNext()">Siguiente →</button></div>';
@@ -851,12 +881,13 @@ function obStep0() {
 
 function obStep1() {
   var qs = [
-    ['enf_card', '1. ¿Te han diagnosticado enfermedad cardiaca y recomendado tipo de actividad física?'],
-    ['dolor_pecho', '2. ¿Sientes dolor en el pecho al realizar actividad física?'],
-    ['mareos', '3. ¿Pierdes el equilibrio por mareos o has perdido la conciencia?'],
-    ['prob_oseo', '4. ¿Tienes algún problema óseo o articular que pueda agravarse?'],
-    ['medicacion', '5. ¿Te han prescrito medicación para la presión o problemas cardiacos?'],
-    ['otra_razon', '6. ¿Hay otra razón por la que no puedas hacer ejercicio?'],
+    ['enf_card',    '1. ¿Te han diagnosticado algún problema en el corazón?'],
+    ['dolor_pecho', '2. ¿Sientes dolor en el pecho al hacer ejercicio?'],
+    ['dolor_mes',   '3. ¿Has tenido dolor en el pecho en el último mes?'],
+    ['mareos',      '4. ¿Te mareas con frecuencia o has perdido el conocimiento?'],
+    ['medicacion',  '5. ¿Tomas medicamentos para la presión arterial o algún problema circulatorio?'],
+    ['articular',   '6. ¿Tienes problemas en las articulaciones o algún dolor que se agrave al hacer ejercicio?'],
+    ['otra_razon',  '7. ¿Tienes alguna otra recomendación médica que te impida hacer deporte con mucha intensidad?'],
   ];
   var diag = CU.diagnostico || {};
   var html = '';
@@ -922,7 +953,7 @@ function obNext() {
   if (obStep === 0) {
     var isNew = !CU.id;
     if (isNew) {
-      var nombre = (document.getElementById('ob_nombre') || {}).value || '';
+      var nombre = ((document.getElementById('ob_nombre') || {}).value || '').toUpperCase();
       var uname = (document.getElementById('ob_user') || {}).value || '';
       var pass = (document.getElementById('ob_pass') || {}).value || '';
       var pass2 = (document.getElementById('ob_pass2') || {}).value || '';
@@ -1006,11 +1037,11 @@ function showApp() {
   document.getElementById('tp_name').textContent = CU.name.split(' ')[0];
   document.getElementById('tp_av').textContent = CU.name.split(' ').map(function(n){return n[0];}).join('').slice(0,2).toUpperCase();
   var rp = document.getElementById('tp_role');
-  rp.textContent = CU.role==='admin'?'ADMIN':CU.role==='coach'?'COACH':'USUARIO';
-  rp.className='role-pill '+(CU.role==='admin'?'pill-admin':CU.role==='coach'?'pill-coach':'pill-user');
+  rp.textContent = CU.role==='admin'?'ADMIN':CU.role==='recepcion'?'RECEPCIÓN':CU.role==='coach'?'COACH':'USUARIO';
+  rp.className='role-pill '+(CU.role==='admin'?'pill-admin':CU.role==='recepcion'?'pill-recep':CU.role==='coach'?'pill-coach':'pill-user');
   buildSidebar();
   buildMobNav();
-  nav(CU.role==='admin'||CU.role==='coach' ? 'dashboard' : 'miRutina');
+  nav(CU.role==='admin'||CU.role==='coach'||CU.role==='recepcion' ? 'dashboard' : 'miRutina');
 }
 
 var COACH_MENU = [
@@ -1025,7 +1056,7 @@ var USER_MENU = [
 ];
 
 function buildSidebar() {
-  var menu = (CU.role==='admin'||CU.role==='coach') ? COACH_MENU : USER_MENU;
+  var menu = (CU.role==='admin'||CU.role==='coach'||CU.role==='recepcion') ? COACH_MENU : USER_MENU;
   var sb = document.getElementById('sidebar');
   sb.innerHTML = '';
   menu.forEach(function(item) {
@@ -1048,8 +1079,8 @@ var COACH_MORE = [{id:'ejercicios',l:'Biblioteca',ic:'📚'},{id:'logs',l:'Regis
 var USER_MORE = [{id:'miPerfil',l:'Mi Perfil',ic:'👤'}];
 
 function buildMobNav() {
-  var items = (CU.role==='admin'||CU.role==='coach') ? COACH_MOB : USER_MOB;
-  var moreItems = (CU.role==='admin'||CU.role==='coach') ? COACH_MORE : USER_MORE;
+  var items = (CU.role==='admin'||CU.role==='coach'||CU.role==='recepcion') ? COACH_MOB : USER_MOB;
+  var moreItems = (CU.role==='admin'||CU.role==='coach'||CU.role==='recepcion') ? COACH_MORE : USER_MORE;
   var ni = document.getElementById('mobItems');
   var more = document.getElementById('mobMore');
   ni.innerHTML = ''; more.innerHTML = '';
@@ -1278,6 +1309,19 @@ function pgUsuarios() {
 }
 
 
+
+function togglePass(id, btn) {
+  var inp = document.getElementById(id);
+  if (!inp) return;
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+  else { inp.type = 'password'; btn.textContent = '👁'; }
+}
+// Event delegation for eye buttons using data-target
+document.addEventListener('click', function(e) {
+  if (e.target && e.target.classList.contains('eye-btn') && e.target.getAttribute('data-target')) {
+    togglePass(e.target.getAttribute('data-target'), e.target);
+  }
+});
 function fillCoachDropdown(selectId, selectedId) {
   var sel = document.getElementById(selectId);
   if (!sel) return;
@@ -1330,7 +1374,7 @@ function editUsuario(uid) {
 function saveUsuario() {
   if (_saving['usuario']) return;
   var editId   = document.getElementById('u_edit_id').value;
-  var nombre   = document.getElementById('u_nombre').value.trim();
+  var nombre   = document.getElementById('u_nombre').value.trim().toUpperCase();
   var username = document.getElementById('u_username').value.trim();
   var pass     = document.getElementById('u_pass').value;
   if (!nombre||!username) { toast('Nombre y username son obligatorios'); return; }
@@ -1489,26 +1533,65 @@ function openMedidasFor(uid) {
   openModal('m_medidas');
 }
 
+function calcMedidas() {
+  var peso = numF(document.getElementById('med_peso').value);
+  var talla = numF(document.getElementById('med_talla').value);
+  var div = document.getElementById('med_calcs');
+  if (peso && talla) {
+    var tallaM = talla / 100;
+    var imc = (peso / (tallaM * tallaM)).toFixed(1);
+    var cat = imc < 18.5 ? 'Bajo peso' : imc < 25 ? 'Normal' : imc < 30 ? 'Sobrepeso' : 'Obesidad';
+    document.getElementById('med_imc_val').innerHTML = '<strong>IMC:</strong> ' + imc + ' kg/m² — ' + cat;
+    div.style.display = 'block';
+  }
+  var masaGra = numF((document.getElementById('med_masa_gra')||{value:''}).value);
+  if (masaGra && peso) {
+    var kgGrasa = ((masaGra/100)*peso).toFixed(1);
+    var kgMagra = (peso - kgGrasa).toFixed(1);
+    document.getElementById('med_grasa_val').innerHTML = '<strong>Masa grasa:</strong> ' + kgGrasa + ' kg &nbsp;|&nbsp; <strong>Masa magra:</strong> ' + kgMagra + ' kg';
+    div.style.display = 'block';
+  }
+}
+
 function saveMedidas() {
   if (_saving['medidas']) return;
   var uid = document.getElementById('med_uid').value;
   var fecha = document.getElementById('med_fecha').value;
   if (!uid || !fecha) { toast('Selecciona usuario y fecha'); return; }
+  // Validar que todos los campos obligatorios estén llenos
+  var required = ['med_peso','med_talla','med_cuello','med_hombro','med_pect','med_cin',
+    'med_abd','med_cad','med_bD','med_bI','med_ant','med_musD','med_musI',
+    'med_musmD','med_musmI','med_pantD','med_pantI'];
+  for (var ri=0; ri<required.length; ri++) {
+    var el = document.getElementById(required[ri]);
+    if (!el || !el.value) { toast('Completa todas las medidas antes de guardar'); el && el.focus(); return; }
+  }
+  var peso = numF(document.getElementById('med_peso').value);
+  var talla = numF(document.getElementById('med_talla').value);
+  var tallaM = talla / 100;
+  var imc = tallaM > 0 ? parseFloat((peso / (tallaM * tallaM)).toFixed(1)) : 0;
   var med = { id: 'm'+Date.now(), userId: uid, fecha: fecha,
-    peso: numF(document.getElementById('med_peso').value),
-    talla: numF(document.getElementById('med_talla').value),
+    peso: peso,
+    talla: talla,
+    imc: imc,
+    masaMuscular: numF((document.getElementById('med_masa_mus')||{value:''}).value),
+    masaGrasa: numF((document.getElementById('med_masa_gra')||{value:''}).value),
     cuello: numF(document.getElementById('med_cuello').value),
     hombro: numF(document.getElementById('med_hombro').value),
+    espalda: numF((document.getElementById('med_esp')||{value:''}).value),
     pectoral: numF(document.getElementById('med_pect').value),
     cintura: numF(document.getElementById('med_cin').value),
     abdomen: numF(document.getElementById('med_abd').value),
     cadera: numF(document.getElementById('med_cad').value),
     brazoD: numF(document.getElementById('med_bD').value),
     brazoI: numF(document.getElementById('med_bI').value),
-    muslo: numF(document.getElementById('med_mus').value),
-    musloMedio: numF(document.getElementById('med_musm').value),
-    pantorrilla: numF(document.getElementById('med_pant').value),
     antebrazo: numF(document.getElementById('med_ant').value),
+    musloD: numF(document.getElementById('med_musD').value),
+    musloI: numF(document.getElementById('med_musI').value),
+    musloMedioD: numF(document.getElementById('med_musmD').value),
+    musloMedioI: numF(document.getElementById('med_musmI').value),
+    pantorrillaD: numF(document.getElementById('med_pantD').value),
+    pantorrillaI: numF(document.getElementById('med_pantI').value),
     obs: document.getElementById('med_obs').value
   };
   _saving['medidas'] = true;
@@ -2095,7 +2178,7 @@ function showLogDetail(logId) {
   var diaData = null;
   if (r){for(var i=0;i<r.dias.length;i++){if(r.dias[i].dia===l.dia){diaData=r.dias[i];break;}}}
   var dt = new Date(l.fecha);
-  var isCoach = CU.role==='coach' || CU.role==='admin';
+  var isCoach = CU.role==='coach' || CU.role==='admin' || CU.role==='recepcion';
   var esfColor = l.esfuerzo >= 8 ? '#ff8080' : l.esfuerzo >= 6 ? '#ffaa44' : '#80d4a0';
 
   var html = '';
@@ -2316,7 +2399,7 @@ function pullAll() {
     var del = d.deleted || [];
     if (data.users) {
       var coach = null;
-      var privUsers2 = d.users.filter(function(u){return u.role==='admin'||u.role==='coach';});
+      var privUsers2 = d.users.filter(function(u){return u.role==='admin'||u.role==='coach'||u.role==='recepcion';});
       d.users = privUsers2.concat((data.users||[]).filter(function(u){return u.role!=='admin'&&u.role!=='coach'&&del.indexOf(u.id)<0;}));
     }
     if (data.medidas) d.medidas = data.medidas.filter(function(m){return del.indexOf(m.userId)<0;});
