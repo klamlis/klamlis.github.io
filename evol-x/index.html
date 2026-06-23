@@ -878,8 +878,8 @@ function obStep1() {
     var s = '<div class="q-block">';
     s += '<div class="q-text">'+label+'</div>';
     s += '<div class="radio-g">';
-    s += '<label class="r-opt'+(val==='si'?' sel':'')+'" id="ro_'+key+'_si" onclick="selRadDet(\''+key+'\',\'si\')">Sí</label>';
-    s += '<label class="r-opt'+(val!=='si'?' sel':'')+'" id="ro_'+key+'_no" onclick="selRadDet(\''+key+'\',\'no\')">No</label>';
+    s += '<label class="r-opt sino-btn'+(val==='si'?' sel':'')+'" id="ro_'+key+'_si" data-key="'+key+'" data-val="si">Sí</label>';
+    s += '<label class="r-opt sino-btn'+(val!=='si'?' sel':'')+'" id="ro_'+key+'_no" data-key="'+key+'" data-val="no">No</label>';
     s += '</div>';
     if (placeholder) {
       s += '<div id="det_'+key+'" style="margin-top:6px;'+showDet+'">';
@@ -967,11 +967,36 @@ function obStep3() {
 }
 
 function selRad(field, val) {
+  if (!CU.diagnostico) CU.diagnostico = {};
+  CU.diagnostico[field] = val;
   var si = document.getElementById('ro_'+field+'_si');
   var no = document.getElementById('ro_'+field+'_no');
-  if (si) si.className = 'r-opt' + (val === 'si' ? ' sel' : '');
-  if (no) no.className = 'r-opt' + (val === 'no' ? ' sel' : '');
+  if (si) si.className = 'r-opt sino-btn' + (val === 'si' ? ' sel' : '');
+  if (no) no.className = 'r-opt sino-btn' + (val === 'no' ? ' sel' : '');
+  var det = document.getElementById('det_'+field);
+  if (det) det.style.display = val === 'si' ? '' : 'none';
+  if (val === 'no') { var inp = document.getElementById('ob_det_'+field); if (inp) inp.value = ''; }
 }
+
+// Event delegation for SI/NO buttons
+document.addEventListener('click', function(e) {
+  var el = e.target;
+  if (el && el.classList && el.classList.contains('sino-btn')) {
+    var key = el.getAttribute('data-key');
+    var val = el.getAttribute('data-val');
+    if (key && val) selRad(key, val);
+  }
+});
+
+// Event delegation for SI/NO buttons
+document.addEventListener('click', function(e) {
+  var el = e.target;
+  if (el && el.classList && el.classList.contains('sino-btn')) {
+    var key = el.getAttribute('data-key');
+    var val = el.getAttribute('data-val');
+    if (key && val) selRad(key, val);
+  }
+});
 
 function getRad(field) {
   var si = document.getElementById('ro_'+field+'_si');
@@ -3209,6 +3234,23 @@ function pgAdminPanel() {
     html += '</div>';
   });
   html += '<div style="padding:12px"><button class="btn btn-p btn-sm" id="btn_new_coach">+ Nuevo coach</button></div></div>';
+
+  // Recepción section
+  var receps = d.users.filter(function(u){return u.role==='recepcion';});
+  html += '<div class="card"><div class="card-title">🗂️ Recepción</div>';
+  receps.forEach(function(u) {
+    html += '<div class="u-row">';
+    html += '<div class="u-av" style="background:linear-gradient(135deg,#1a2e1a,#00e676)">'+ini(u.name)+'</div>';
+    html += '<div class="u-info"><div class="u-name">'+u.name+'</div>';
+    html += '<div class="u-meta">'+u.username+' - '+(u.email||'')+'</div></div>';
+    html += '<div class="u-btns">';
+    html += '<button class="btn btn-g btn-sm priv-edit-btn" data-uid="'+u.id+'">Editar</button>';
+    html += '<button class="btn btn-d btn-sm priv-del-btn" data-uid="'+u.id+'">Eliminar</button>';
+    html += '</div>';
+    html += '</div>';
+  });
+  html += '<div style="padding:12px"><button class="btn btn-p btn-sm" id="btn_new_recep">+ Nueva recepción</button></div></div>';
+
   setMain(html);
   document.querySelectorAll('.priv-edit-btn').forEach(function(btn){
     btn.addEventListener('click', function(){ editPrivUser(this.getAttribute('data-uid')); });
@@ -3220,10 +3262,13 @@ function pgAdminPanel() {
   if (ba) ba.addEventListener('click', function(){ openNewPrivUser('admin'); });
   var bc = document.getElementById('btn_new_coach');
   if (bc) bc.addEventListener('click', function(){ openNewPrivUser('coach'); });
+  var br = document.getElementById('btn_new_recep');
+  if (br) br.addEventListener('click', function(){ openNewPrivUser('recepcion'); });
 }
 
 function openNewPrivUser(role) {
-  document.getElementById('m_usuario_title').textContent = role==='admin'?'NUEVO ADMIN':'NUEVO COACH';
+  var titles = {admin:'NUEVO ADMIN', coach:'NUEVO COACH', recepcion:'NUEVA RECEPCIÓN'};
+  document.getElementById('m_usuario_title').textContent = titles[role]||'NUEVO USUARIO';
   document.getElementById('u_edit_id').value = '__priv__'+role;
   ['u_nombre','u_username','u_email','u_tel','u_obj','u_obs','u_mem_start','u_mem_end'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('u_pass').value = '';
@@ -3235,7 +3280,8 @@ function editPrivUser(uid) {
   var u = null;
   for (var i=0;i<d.users.length;i++){if(d.users[i].id===uid){u=d.users[i];break;}}
   if(!u) return;
-  document.getElementById('m_usuario_title').textContent = u.role==='admin'?'EDITAR ADMIN':'EDITAR COACH';
+  var etitles = {admin:'EDITAR ADMIN', coach:'EDITAR COACH', recepcion:'EDITAR RECEPCIÓN'};
+  document.getElementById('m_usuario_title').textContent = etitles[u.role]||'EDITAR USUARIO';
   document.getElementById('u_edit_id').value = uid;
   document.getElementById('u_nombre').value = u.name||'';
   document.getElementById('u_username').value = u.username||'';
