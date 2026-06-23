@@ -361,12 +361,8 @@ tr:hover td{background:var(--s1)}
     <div class="fg"><label>Cadera (cm)</label><input type="number" id="med_cad" step="0.1"/></div>
   </div>
   <div class="fr">
-    <div class="fg"><label>Espalda (cm)</label><input type="number" id="med_esp" step="0.1"/></div>
-    <div class="fg"><label>% Masa muscular</label><input type="number" id="med_masa_mus" step="0.1"/></div>
-  </div>
-  <div class="fr">
-    <div class="fg"><label>% Masa grasa</label><input type="number" id="med_masa_gra" step="0.1" oninput="calcMedidas()"/></div>
-    <div class="fg"><label>Antebrazo D (cm)</label><input type="number" id="med_ant" step="0.1"/></div>
+    <div class="fg"><label>Espalda (cm)</label><input type="number" id="med_esp" step="0.1" oninput="calcMedidas()"/></div>
+    <div class="fg"><label>Antebrazo (cm)</label><input type="number" id="med_ant" step="0.1"/></div>
   </div>
   <div class="fr">
     <div class="fg"><label>Brazo Der (cm)</label><input type="number" id="med_bD" step="0.1"/></div>
@@ -375,14 +371,6 @@ tr:hover td{background:var(--s1)}
   <div class="fr">
     <div class="fg"><label>Muslo Der (cm)</label><input type="number" id="med_musD" step="0.1"/></div>
     <div class="fg"><label>Muslo Izq (cm)</label><input type="number" id="med_musI" step="0.1"/></div>
-  </div>
-  <div class="fr">
-    <div class="fg"><label>Muslo Medio Der (cm)</label><input type="number" id="med_musmD" step="0.1"/></div>
-    <div class="fg"><label>Muslo Medio Izq (cm)</label><input type="number" id="med_musmI" step="0.1"/></div>
-  </div>
-  <div class="fr">
-    <div class="fg"><label>Pantorrilla D (cm)</label><input type="number" id="med_pantD" step="0.1"/></div>
-    <div class="fg"><label>Pantorrilla I (cm)</label><input type="number" id="med_pantI" step="0.1"/></div>
   </div>
   <div id="med_calcs" style="background:rgba(0,212,245,0.07);border-radius:8px;padding:12px;margin-top:8px;font-size:12px;display:none">
     <div style="font-weight:700;color:var(--cyan);margin-bottom:6px">📊 CÁLCULOS AUTOMÁTICOS</div>
@@ -880,25 +868,67 @@ function obStep0() {
 }
 
 function obStep1() {
-  var qs = [
-    ['enf_card',    '1. ¿Te han diagnosticado algún problema en el corazón?'],
-    ['dolor_pecho', '2. ¿Sientes dolor en el pecho al hacer ejercicio?'],
-    ['dolor_mes',   '3. ¿Has tenido dolor en el pecho en el último mes?'],
-    ['mareos',      '4. ¿Te mareas con frecuencia o has perdido el conocimiento?'],
-    ['medicacion',  '5. ¿Tomas medicamentos para la presión arterial o algún problema circulatorio?'],
-    ['articular',   '6. ¿Tienes problemas en las articulaciones o algún dolor que se agrave al hacer ejercicio?'],
-    ['otra_razon',  '7. ¿Tienes alguna otra recomendación médica que te impida hacer deporte con mucha intensidad?'],
-  ];
   var diag = CU.diagnostico || {};
-  var html = '';
-  qs.forEach(function(q) {
-    var val = diag[q[0]] || 'no';
-    html += '<div class="q-block"><div class="q-text">'+q[1]+'</div><div class="radio-g">';
-    html += '<label class="r-opt'+(val==='si'?' sel':'')+'" id="ro_'+q[0]+'_si" onclick="selRad(\''+q[0]+'\',\'si\')">Sí</label>';
-    html += '<label class="r-opt'+(val!=='si'?' sel':'')+'" id="ro_'+q[0]+'_no" onclick="selRad(\''+q[0]+'\',\'no\')">No</label>';
-    html += '</div></div>';
-  });
-  html += '<div class="fg" style="margin-top:12px"><label>Observaciones adicionales</label><textarea id="ob_salud_obs" placeholder="Lesiones, cirugías...">'+(diag.obs||'')+'</textarea></div>';
+
+  // Helper: SI/NO row with optional text input when SI
+  function sinoRow(key, label, placeholder) {
+    var val = diag[key] || 'no';
+    var txt = diag[key+'_det'] || '';
+    var showDet = val === 'si' ? '' : 'display:none';
+    var s = '<div class="q-block">';
+    s += '<div class="q-text">'+label+'</div>';
+    s += '<div class="radio-g">';
+    s += '<label class="r-opt'+(val==='si'?' sel':'')+'" id="ro_'+key+'_si" onclick="selRadDet(\''+key+'\',\'si\')">Sí</label>';
+    s += '<label class="r-opt'+(val!=='si'?' sel':'')+'" id="ro_'+key+'_no" onclick="selRadDet(\''+key+'\',\'no\')">No</label>';
+    s += '</div>';
+    if (placeholder) {
+      s += '<div id="det_'+key+'" style="margin-top:6px;'+showDet+'">';
+      s += '<input type="text" id="ob_det_'+key+'" placeholder="'+placeholder+'" value="'+txt+'" style="width:100%"/>';
+      s += '</div>';
+    }
+    s += '</div>';
+    return s;
+  }
+
+  var html = '<div class="card" style="padding:14px;margin-bottom:14px">';
+  html += '<div style="font-weight:700;color:var(--cyan);font-size:13px;margin-bottom:12px">CUESTIONARIO DE SALUD</div>';
+  html += sinoRow('enf_card',    '1. ¿Te han diagnosticado algún problema en el corazón?', 'Especifica el diagnóstico...');
+  html += sinoRow('dolor_pecho', '2. ¿Sientes dolor en el pecho al hacer ejercicio?', 'Describe el dolor...');
+  html += sinoRow('dolor_mes',   '3. ¿Has tenido dolor en el pecho en el último mes?', 'Indica cuándo y cómo...');
+  html += sinoRow('mareos',      '4. ¿Te mareas con frecuencia o has perdido el conocimiento?', 'Describe la frecuencia...');
+  html += sinoRow('medicacion',  '5. ¿Tomas medicamentos para la presión arterial o algún problema circulatorio?', 'Nombra los medicamentos...');
+  html += sinoRow('articular',   '6. ¿Tienes problemas en las articulaciones o algún dolor que se agrave al hacer ejercicio?', 'Indica cuál articulación...');
+  html += sinoRow('otra_razon',  '7. ¿Tienes alguna otra recomendación médica que te impida hacer deporte con mucha intensidad?', 'Describe la recomendación...');
+  html += '</div>';
+
+  // Alergias
+  html += '<div class="card" style="padding:14px;margin-bottom:14px">';
+  html += '<div style="font-weight:700;color:var(--cyan);font-size:13px;margin-bottom:12px">ALERGIAS</div>';
+  html += sinoRow('alergia_med',   'Alergias a medicamentos', 'Indica cuáles medicamentos...');
+  html += sinoRow('alergia_otros', 'Otras alergias (alimentos, ambiente, etc.)', 'Indica cuáles...');
+  html += '</div>';
+
+  // Enfermedades padecidas
+  html += '<div class="card" style="padding:14px;margin-bottom:14px">';
+  html += '<div style="font-weight:700;color:var(--cyan);font-size:13px;margin-bottom:12px">ENFERMEDADES PADECIDAS</div>';
+  html += sinoRow('enf_cardiaca',  'Cardíacas', 'Especifica...');
+  html += sinoRow('enf_hepatica',  'Hepáticas', 'Especifica...');
+  html += sinoRow('enf_renal',     'Renales', 'Especifica...');
+  html += sinoRow('enf_endocrina', 'Endocrinas', 'Especifica...');
+  html += sinoRow('enf_musculo',   'Músculo esqueléticas', 'Especifica...');
+  html += sinoRow('enf_trauma',    'Traumatismos', 'Especifica...');
+  html += sinoRow('enf_cirugia',   'Cirugías', 'Especifica cuál y fecha...');
+  html += sinoRow('enf_otras',     'Otras enfermedades', 'Especifica...');
+  html += '<div class="fg" style="margin-top:8px"><label>Medicación actual</label><input type="text" id="ob_med_actual" value="'+(diag.medActual||'')+'" placeholder="Medicamentos que tomas actualmente..." style="width:100%"/></div>';
+  html += '</div>';
+
+  // Contacto emergencia
+  html += '<div class="card" style="padding:14px;margin-bottom:14px">';
+  html += '<div style="font-weight:700;color:var(--cyan);font-size:13px;margin-bottom:12px">CONTACTO DE EMERGENCIA</div>';
+  html += '<div class="fr"><div class="fg"><label>Nombre</label><input type="text" id="ob_emerg_nom" value="'+(CU.emergNom||'')+'" style="width:100%"/></div>';
+  html += '<div class="fg"><label>Teléfono</label><input type="text" id="ob_emerg_tel" value="'+(CU.emergTel||'')+'" style="width:100%"/></div></div>';
+  html += '</div>';
+
   html += '<div style="display:flex;justify-content:space-between;margin-top:16px"><button class="btn btn-g" onclick="obPrev()">← Atrás</button><button class="btn btn-p" onclick="obNext()">Siguiente →</button></div>';
   return html;
 }
@@ -980,11 +1010,19 @@ function obNext() {
     save(d);
   }
   if (obStep === 1) {
-    var fields = ['enf_card','dolor_pecho','mareos','prob_oseo','medicacion','otra_razon'];
     if (!CU.diagnostico) CU.diagnostico = {};
-    fields.forEach(function(f) { CU.diagnostico[f] = getRad(f); });
-    var obsEl = document.getElementById('ob_salud_obs');
-    CU.diagnostico.obs = obsEl ? obsEl.value : '';
+    // Save all SI/NO answers + detail texts
+    var allKeys = ['enf_card','dolor_pecho','dolor_mes','mareos','medicacion','articular','otra_razon',
+      'alergia_med','alergia_otros','enf_cardiaca','enf_hepatica','enf_renal','enf_endocrina',
+      'enf_musculo','enf_trauma','enf_cirugia','enf_otras'];
+    allKeys.forEach(function(k) {
+      CU.diagnostico[k] = getRad(k);
+      var inp = document.getElementById('ob_det_'+k);
+      CU.diagnostico[k+'_det'] = inp ? (inp.value||'') : '';
+    });
+    CU.diagnostico.medActual = (document.getElementById('ob_med_actual')||{value:''}).value||'';
+    CU.emergNom = (document.getElementById('ob_emerg_nom')||{value:''}).value||'';
+    CU.emergTel = (document.getElementById('ob_emerg_tel')||{value:''}).value||'';
     var idx2 = -1;
     for (var i = 0; i < d.users.length; i++) { if (d.users[i].id === CU.id) { idx2 = i; break; } }
     if (idx2 >= 0) d.users[idx2] = CU;
@@ -1534,21 +1572,56 @@ function openMedidasFor(uid) {
 }
 
 function calcMedidas() {
-  var peso = numF(document.getElementById('med_peso').value);
-  var talla = numF(document.getElementById('med_talla').value);
-  var div = document.getElementById('med_calcs');
+  var peso   = numF(document.getElementById('med_peso').value);
+  var talla  = numF(document.getElementById('med_talla').value);
+  var cuello = numF(document.getElementById('med_cuello').value);
+  var abd    = numF(document.getElementById('med_abd').value);
+  var cad    = numF(document.getElementById('med_cad').value);
+  var div    = document.getElementById('med_calcs');
+  var html   = '';
+
+  // ── IMC ──────────────────────────────────────────────────
   if (peso && talla) {
     var tallaM = talla / 100;
     var imc = (peso / (tallaM * tallaM)).toFixed(1);
     var cat = imc < 18.5 ? 'Bajo peso' : imc < 25 ? 'Normal' : imc < 30 ? 'Sobrepeso' : 'Obesidad';
-    document.getElementById('med_imc_val').innerHTML = '<strong>IMC:</strong> ' + imc + ' kg/m² — ' + cat;
-    div.style.display = 'block';
+    html += '<div><strong>IMC:</strong> ' + imc + ' kg/m² — <span style="color:var(--cyan)">' + cat + '</span></div>';
   }
-  var masaGra = numF((document.getElementById('med_masa_gra')||{value:''}).value);
-  if (masaGra && peso) {
-    var kgGrasa = ((masaGra/100)*peso).toFixed(1);
-    var kgMagra = (peso - kgGrasa).toFixed(1);
-    document.getElementById('med_grasa_val').innerHTML = '<strong>Masa grasa:</strong> ' + kgGrasa + ' kg &nbsp;|&nbsp; <strong>Masa magra:</strong> ' + kgMagra + ' kg';
+
+  // ── % GRASA (Fórmula Marina EE.UU.) ──────────────────────
+  // Hombre: %G = 495 / (1.0324 - 0.19077*log10(abd-cuello) + 0.15456*log10(talla)) - 450
+  // Mujer:  %G = 495 / (1.29579 - 0.35004*log10(abd+cad-cuello) + 0.22100*log10(talla)) - 450
+  var genEl = null;
+  // Try to get gender from user being measured
+  var uid = document.getElementById('med_uid').value;
+  var d = db();
+  var uObj = null;
+  for (var i=0;i<d.users.length;i++){if(d.users[i].id===uid){uObj=d.users[i];break;}}
+  var genero = uObj ? (uObj.genero||'') : '';
+
+  if (cuello && abd && talla && cuello < abd) {
+    var pctGrasa = 0;
+    if (genero === 'Femenino' && cad) {
+      // Mujer
+      var logVal = Math.log10(abd + cad - cuello);
+      var logTalla = Math.log10(talla);
+      pctGrasa = 495 / (1.29579 - 0.35004*logVal + 0.22100*logTalla) - 450;
+    } else {
+      // Hombre o no especificado
+      var logVal2 = Math.log10(abd - cuello);
+      var logTalla2 = Math.log10(talla);
+      pctGrasa = 495 / (1.0324 - 0.19077*logVal2 + 0.15456*logTalla2) - 450;
+    }
+    if (pctGrasa > 0 && pctGrasa < 70) {
+      pctGrasa = pctGrasa.toFixed(1);
+      var kgGrasa = ((pctGrasa/100)*peso).toFixed(1);
+      var kgMagra = (peso - kgGrasa).toFixed(1);
+      html += '<div style="margin-top:4px"><strong>% Grasa:</strong> ' + pctGrasa + '% — <strong>Masa grasa:</strong> ' + kgGrasa + ' kg — <strong>Masa magra:</strong> ' + kgMagra + ' kg</div>';
+    }
+  }
+
+  if (html) {
+    document.getElementById('med_calcs').innerHTML = '<div style="font-weight:700;color:var(--cyan);margin-bottom:6px">📊 CÁLCULOS</div>' + html;
     div.style.display = 'block';
   }
 }
@@ -1560,8 +1633,7 @@ function saveMedidas() {
   if (!uid || !fecha) { toast('Selecciona usuario y fecha'); return; }
   // Validar que todos los campos obligatorios estén llenos
   var required = ['med_peso','med_talla','med_cuello','med_hombro','med_pect','med_cin',
-    'med_abd','med_cad','med_bD','med_bI','med_ant','med_musD','med_musI',
-    'med_musmD','med_musmI','med_pantD','med_pantI'];
+    'med_abd','med_cad','med_esp','med_bD','med_bI','med_ant','med_musD','med_musI'];
   for (var ri=0; ri<required.length; ri++) {
     var el = document.getElementById(required[ri]);
     if (!el || !el.value) { toast('Completa todas las medidas antes de guardar'); el && el.focus(); return; }
@@ -1574,8 +1646,6 @@ function saveMedidas() {
     peso: peso,
     talla: talla,
     imc: imc,
-    masaMuscular: numF((document.getElementById('med_masa_mus')||{value:''}).value),
-    masaGrasa: numF((document.getElementById('med_masa_gra')||{value:''}).value),
     cuello: numF(document.getElementById('med_cuello').value),
     hombro: numF(document.getElementById('med_hombro').value),
     espalda: numF((document.getElementById('med_esp')||{value:''}).value),
@@ -1583,15 +1653,12 @@ function saveMedidas() {
     cintura: numF(document.getElementById('med_cin').value),
     abdomen: numF(document.getElementById('med_abd').value),
     cadera: numF(document.getElementById('med_cad').value),
+    espalda: numF(document.getElementById('med_esp').value),
     brazoD: numF(document.getElementById('med_bD').value),
     brazoI: numF(document.getElementById('med_bI').value),
     antebrazo: numF(document.getElementById('med_ant').value),
     musloD: numF(document.getElementById('med_musD').value),
     musloI: numF(document.getElementById('med_musI').value),
-    musloMedioD: numF(document.getElementById('med_musmD').value),
-    musloMedioI: numF(document.getElementById('med_musmI').value),
-    pantorrillaD: numF(document.getElementById('med_pantD').value),
-    pantorrillaI: numF(document.getElementById('med_pantI').value),
     obs: document.getElementById('med_obs').value
   };
   _saving['medidas'] = true;
