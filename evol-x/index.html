@@ -809,6 +809,7 @@ function loginSuggest(val) {
   var forgetBtn = document.getElementById('li_forget');
   if (!box) return;
   if (keys.length === 0) { box.style.display='none'; return; }
+  if (forgetBtn) forgetBtn.style.display = '';
   if (forgetBtn) forgetBtn.style.display = keys.length > 0 ? '' : 'none';
   // Filter by typed value
   var matches = keys.filter(function(k) {
@@ -899,12 +900,23 @@ function login() {
     // Find user
     var d2 = db();
     var user = null;
+    var uLower = u.toLowerCase();
+    var uUpper = u.toUpperCase();
     for (var i = 0; i < d2.users.length; i++) {
       var usr = d2.users[i];
-      if ((usr.username === u || usr.email === u) && usr.password === p) { user = usr; break; }
+      var usrName = (usr.username || '').toUpperCase();
+      var usrEmail = (usr.email || '').toLowerCase();
+      if ((usrName === uUpper || usrEmail === uLower) && usr.password === p) {
+        user = usr; break;
+      }
     }
     if (!user) { toast('❌ Usuario o contraseña incorrectos'); return; }
     CU = user;
+    // Save credentials if remember-me is checked
+    var remEl = document.getElementById('li_remember');
+    if (remEl && remEl.checked) {
+      saveUserCred(u, p);
+    }
     if (user.role === 'user' && !user.diagnostico) { showOb(); return; }
     showApp();
   });
@@ -962,7 +974,7 @@ function obStep0() {
   var genHtml = '<select id="ob_genero" style="width:100%"><option value="">Seleccionar...</option>';
   genOpts.forEach(function(g){ genHtml += '<option value="'+g+'"'+(genSel===g?' selected':'')+'>'+g+'</option>'; });
   genHtml += '</select>';
-  return (isNew ? '<div class="fr"><div class="fg"><label>Nombre completo *</label><input type="text" id="ob_nombre" style="text-transform:uppercase" placeholder="Tu nombre completo"/></div><div class="fg"><label>Username *</label><input type="text" id="ob_user" placeholder="Sin espacios, sin tildes"/></div></div><div class="fr"><div class="fg"><label>Contraseña *</label><div class="pass-wrap"><input type="password" id="ob_pass"/><button type="button" class="eye-btn" data-target="ob_pass">👁</button></div></div><div class="fg"><label>Confirmar contraseña *</label><div class="pass-wrap"><input type="password" id="ob_pass2"/><button type="button" class="eye-btn" data-target="ob_pass2">👁</button></div></div></div>' : '') +
+  return (isNew ? '<div class="fr"><div class="fg"><label>Nombre completo *</label><input type="text" id="ob_nombre" style="text-transform:uppercase" placeholder="Tu nombre completo"/></div><div class="fg"><label>Username *</label><input type="text" id="ob_user" placeholder="SIN ESPACIOS, SIN TILDES" style="text-transform:uppercase"/></div></div><div class="fr"><div class="fg"><label>Contraseña *</label><div class="pass-wrap"><input type="password" id="ob_pass"/><button type="button" class="eye-btn" data-target="ob_pass">👁</button></div></div><div class="fg"><label>Confirmar contraseña *</label><div class="pass-wrap"><input type="password" id="ob_pass2"/><button type="button" class="eye-btn" data-target="ob_pass2">👁</button></div></div></div>' : '') +
   '<div class="fr"><div class="fg"><label>Cédula / Documento *</label><input type="text" id="ob_cedula" value="'+(CU.cedula||'')+'" placeholder="Número de documento"/></div><div class="fg"><label>Fecha de nacimiento</label><input type="date" id="ob_fnac" value="'+(CU.fechaNac||'')+'"/></div></div>' +
   '<div class="fr"><div class="fg"><label>Género</label>'+genHtml+'</div><div class="fg"><label>Celular</label><input type="text" id="ob_tel" value="'+(CU.tel||'')+'"/></div></div>' +
   '<div class="fg"><label>Email</label><input type="email" id="ob_email" value="'+(CU.email||'')+'"/></div>' +
@@ -1112,7 +1124,7 @@ function obNext() {
     var isNew = !CU.id;
     if (isNew) {
       var nombre = ((document.getElementById('ob_nombre') || {}).value || '').toUpperCase();
-      var uname = (document.getElementById('ob_user') || {}).value || '';
+      var uname = ((document.getElementById('ob_user') || {}).value || '').toUpperCase();
       var pass = (document.getElementById('ob_pass') || {}).value || '';
       var pass2 = (document.getElementById('ob_pass2') || {}).value || '';
       if (!nombre.trim() || !uname.trim()) { toast('Ingresa nombre y username'); return; }
@@ -1566,7 +1578,7 @@ function saveUsuario() {
   if (isNew) {
     if (!pass) { toast('La contraseña es obligatoria'); return; }
     for(var i=0;i<d.users.length;i++){
-      if(d.users[i].username===username){toast('Ese username ya existe');return;}
+      if((d.users[i].username||'').toLowerCase()===username.toLowerCase()){toast('Ese username ya existe');return;}
     }
     var nu = {id:username,username:username,password:pass,name:nombre,role:privRole,
       email:(document.getElementById('u_email')||{value:''}).value||'',
@@ -1582,11 +1594,17 @@ function saveUsuario() {
     _saving['usuario'] = true;
     var btn = document.querySelector('#m_usuario .btn-p');
     if(btn){btn.disabled=true;btn.textContent='⏳ Guardando...';}
-    saveAndSync('saveUser', nu, function(res) {
+    _saving['usuario'] = true;
+    if(btn){btn.disabled=true;btn.textContent='⏳ Guardando...';}
+    // Save local immediately
+    d.users.push(nu);
+    save(d);
+    // Send to Drive via POST
+    sync('saveUser', nu, function(res) {
       _saving['usuario'] = false;
       if(btn){btn.disabled=false;btn.textContent='✅ Guardar';}
+      toast(res&&res.ok?'✅ '+nombre+' guardado en Drive':'✅ '+nombre+' guardado localmente');
       closeModal('m_usuario');
-      toast(res&&res.ok?'✅ Usuario guardado en Drive: '+nombre:'✅ Usuario guardado: '+nombre);
       if (privRole === 'coach' || privRole === 'admin' || privRole === 'recepcion') {
         pgAdminPanel();
       } else {
@@ -1613,13 +1631,15 @@ function saveUsuario() {
     _saving['usuario'] = true;
     var btn2 = document.querySelector('#m_usuario .btn-p');
     if(btn2){btn2.disabled=true;btn2.textContent='⏳ Guardando...';}
-    saveAndSync('saveUser', d.users[idx], function(res) {
+    var savedUser2 = d.users[idx];
+    var savedRole2 = savedUser2 ? savedUser2.role : '';
+    save(d);
+    sync('saveUser', savedUser2, function(res) {
       _saving['usuario'] = false;
       if(btn2){btn2.disabled=false;btn2.textContent='✅ Guardar';}
+      toast(res&&res.ok?'✅ Actualizado en Drive':'✅ Actualizado localmente');
       closeModal('m_usuario');
-      toast(res&&res.ok?'✅ Usuario actualizado en Drive':'✅ Usuario actualizado');
-      var savedRole = d.users[idx] ? d.users[idx].role : '';
-      if (savedRole==='coach'||savedRole==='admin'||savedRole==='recepcion') {
+      if (savedRole2==='coach'||savedRole2==='admin'||savedRole2==='recepcion') {
         pgAdminPanel();
       } else {
         pgUsuarios();
