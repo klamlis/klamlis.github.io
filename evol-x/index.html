@@ -244,11 +244,28 @@ tr:hover td{background:var(--s1)}
   <div class="login-card">
     <div class="evol-logo-big"><span class="evol-text">evol</span><span class="evol-dash"></span><span class="evol-x">x</span></div>
     <div class="evol-gym">G Y M</div>
-    <div class="fg"><label>Usuario o correo</label><input type="text" id="li_user" placeholder="Tu usuario o email" onkeypress="if(event.key==='Enter')login()"/></div>
-    <div class="fg"><label>Contraseña</label><div class="pass-wrap"><input type="password" id="li_pass" placeholder="••••••••" onkeypress="if(event.key==='Enter')login()"/><button type="button" class="eye-btn" data-target="li_pass">👁</button></div></div>
-    <div style="display:flex;align-items:center;gap:8px;margin:4px 0 8px">
-      <input type="checkbox" id="li_remember" style="accent-color:var(--cyan);width:16px;height:16px;cursor:pointer"/>
-      <label for="li_remember" style="font-size:12px;color:var(--gris);cursor:pointer;margin:0">Recordar mis datos</label>
+    <div class="fg" style="position:relative">
+      <label>Usuario o correo</label>
+      <input type="text" id="li_user" placeholder="Tu usuario o email" autocomplete="off"
+        oninput="loginSuggest(this.value)"
+        onkeypress="if(event.key==='Enter')login()"
+        onfocus="loginSuggest(this.value)"/>
+      <div id="li_suggest" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:999;
+        background:#0c1a2e;border:1px solid var(--cyan);border-radius:0 0 10px 10px;
+        max-height:180px;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,0.5)"></div>
+    </div>
+    <div class="fg"><label>Contraseña</label>
+      <div class="pass-wrap">
+        <input type="password" id="li_pass" placeholder="••••••••" onkeypress="if(event.key==='Enter')login()"/>
+        <button type="button" class="eye-btn" data-target="li_pass">👁</button>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0 8px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="li_remember" style="accent-color:var(--cyan);width:16px;height:16px;cursor:pointer"/>
+        <label for="li_remember" style="font-size:12px;color:var(--gris);cursor:pointer;margin:0">Recordar en este dispositivo</label>
+      </div>
+      <span id="li_forget" onclick="forgetSavedUsers()" style="font-size:11px;color:var(--gris);cursor:pointer;display:none">Limpiar guardados</span>
     </div>
     <button class="btn btn-p btn-full" onclick="login()">Ingresar →</button>
     <div id="li_status" style="font-size:11px;color:var(--gris);text-align:center;margin-top:10px;min-height:16px"></div>
@@ -768,29 +785,82 @@ function applyChange(d, action, payload) {
 var CU = null;
 var obStep = 0;
 
-function setCookie(name, value, days) {
-  var d = new Date(); d.setTime(d.getTime() + days*24*60*60*1000);
-  document.cookie = name+'='+encodeURIComponent(value)+';expires='+d.toUTCString()+';path=/;SameSite=Lax';
+// ── MULTI-USER REMEMBER SYSTEM ──────────────────────────────
+function getSavedUsers() {
+  try { return JSON.parse(localStorage.getItem('evx_saved_users') || '{}'); } catch(e) { return {}; }
 }
-function getCookie(name) {
-  var ca = document.cookie.split(';');
-  for(var i=0;i<ca.length;i++){
-    var c=ca[i].trim();
-    if(c.indexOf(name+'=')===0) return decodeURIComponent(c.substring(name.length+1));
-  }
-  return '';
+function saveUserCred(username, password) {
+  var saved = getSavedUsers();
+  saved[username.toLowerCase()] = { username: username, password: password, ts: Date.now() };
+  try { localStorage.setItem('evx_saved_users', JSON.stringify(saved)); } catch(e) {}
 }
-function deleteCookie(name) { setCookie(name,'',-1); }
+function forgetSavedUsers() {
+  if (!confirm('¿Limpiar todos los usuarios guardados?')) return;
+  try { localStorage.removeItem('evx_saved_users'); } catch(e) {}
+  document.getElementById('li_suggest').style.display = 'none';
+  document.getElementById('li_forget').style.display = 'none';
+  toast('Usuarios guardados eliminados');
+}
+
+function loginSuggest(val) {
+  var saved = getSavedUsers();
+  var keys = Object.keys(saved);
+  var box = document.getElementById('li_suggest');
+  var forgetBtn = document.getElementById('li_forget');
+  if (!box) return;
+  if (keys.length === 0) { box.style.display='none'; return; }
+  if (forgetBtn) forgetBtn.style.display = keys.length > 0 ? '' : 'none';
+  // Filter by typed value
+  var matches = keys.filter(function(k) {
+    return !val || k.indexOf(val.toLowerCase()) >= 0 || saved[k].username.toLowerCase().indexOf(val.toLowerCase()) >= 0;
+  });
+  if (matches.length === 0) { box.style.display='none'; return; }
+  box.innerHTML = '';
+  matches.forEach(function(k) {
+    var u = saved[k];
+    var item = document.createElement('div');
+    item.style.cssText = 'padding:10px 14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(0,212,245,0.1);font-size:13px;color:var(--blanco)';
+    item.innerHTML = '<span>👤 ' + u.username + '</span><span style="font-size:10px;color:var(--gris)">●●●●●●</span>';
+    item.onmousedown = function(e) {
+      e.preventDefault();
+      document.getElementById('li_user').value = u.username;
+      document.getElementById('li_pass').value = u.password;
+      document.getElementById('li_remember').checked = true;
+      box.style.display = 'none';
+    };
+    item.onmouseover = function() { this.style.background='rgba(0,212,245,0.1)'; };
+    item.onmouseout  = function() { this.style.background=''; };
+    box.appendChild(item);
+  });
+  box.style.display = 'block';
+}
 
 function autoFillLogin() {
-  var u = getCookie('evx_user');
-  var p = getCookie('evx_pass');
-  if (u && p) {
-    document.getElementById('li_user').value = u;
-    document.getElementById('li_pass').value = p;
+  var saved = getSavedUsers();
+  var keys = Object.keys(saved);
+  var forgetBtn = document.getElementById('li_forget');
+  // If only one saved user, auto-fill
+  if (keys.length === 1) {
+    var u = saved[keys[0]];
+    document.getElementById('li_user').value = u.username;
+    document.getElementById('li_pass').value = u.password;
     document.getElementById('li_remember').checked = true;
   }
+  if (forgetBtn && keys.length > 0) forgetBtn.style.display = '';
+  // Close suggest on click outside
+  document.addEventListener('click', function(e) {
+    var box = document.getElementById('li_suggest');
+    var inp = document.getElementById('li_user');
+    if (box && inp && !box.contains(e.target) && e.target !== inp) {
+      box.style.display = 'none';
+    }
+  });
 }
+
+// Legacy compat
+function setCookie(name, value) { try { localStorage.setItem(name, value); } catch(e) {} }
+function getCookie(name) { try { return localStorage.getItem(name)||''; } catch(e) { return ''; } }
+function deleteCookie(name) { try { localStorage.removeItem(name); } catch(e) {} }
 
 function login() {
   var u = document.getElementById('li_user').value.trim();
