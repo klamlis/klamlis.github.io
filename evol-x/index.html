@@ -245,7 +245,11 @@ tr:hover td{background:var(--s1)}
     <div class="evol-logo-big"><span class="evol-text">evol</span><span class="evol-dash"></span><span class="evol-x">x</span></div>
     <div class="evol-gym">G Y M</div>
     <div class="fg"><label>Usuario o correo</label><input type="text" id="li_user" placeholder="Tu usuario o email" onkeypress="if(event.key==='Enter')login()"/></div>
-    <div class="fg"><label>Contraseña</label><input type="password" id="li_pass" placeholder="••••••••" onkeypress="if(event.key==='Enter')login()"/></div>
+    <div class="fg"><label>Contraseña</label><div class="pass-wrap"><input type="password" id="li_pass" placeholder="••••••••" onkeypress="if(event.key==='Enter')login()"/><button type="button" class="eye-btn" data-target="li_pass">👁</button></div></div>
+    <div style="display:flex;align-items:center;gap:8px;margin:4px 0 8px">
+      <input type="checkbox" id="li_remember" style="accent-color:var(--cyan);width:16px;height:16px;cursor:pointer"/>
+      <label for="li_remember" style="font-size:12px;color:var(--gris);cursor:pointer;margin:0">Recordar mis datos</label>
+    </div>
     <button class="btn btn-p btn-full" onclick="login()">Ingresar →</button>
     <div id="li_status" style="font-size:11px;color:var(--gris);text-align:center;margin-top:10px;min-height:16px"></div>
     <div class="hr"></div>
@@ -413,7 +417,7 @@ tr:hover td{background:var(--s1)}
   <input type="hidden" id="rut_edit_id"/>
   <div class="fr">
     <div class="fg"><label>Usuario</label><select id="rut_uid"></select></div>
-    <div class="fg"><label>Nombre del plan</label><input type="text" id="rut_nombre" placeholder="Ej: Abril — Mes 1"/></div>
+    <div class="fg"><label>Nombre del plan</label><input type="text" id="rut_nombre" placeholder="Ej: ABRIL — MES 1" style="text-transform:uppercase"/></div>
   </div>
   <div class="fr">
     <div class="fg"><label>Semana #</label><input type="number" id="rut_semana" min="1" max="52"/></div>
@@ -758,6 +762,30 @@ function applyChange(d, action, payload) {
 // ═══════════════════════════════════════════════════════════
 var CU = null;
 var obStep = 0;
+
+function setCookie(name, value, days) {
+  var d = new Date(); d.setTime(d.getTime() + days*24*60*60*1000);
+  document.cookie = name+'='+encodeURIComponent(value)+';expires='+d.toUTCString()+';path=/;SameSite=Lax';
+}
+function getCookie(name) {
+  var ca = document.cookie.split(';');
+  for(var i=0;i<ca.length;i++){
+    var c=ca[i].trim();
+    if(c.indexOf(name+'=')===0) return decodeURIComponent(c.substring(name.length+1));
+  }
+  return '';
+}
+function deleteCookie(name) { setCookie(name,'',-1); }
+
+function autoFillLogin() {
+  var u = getCookie('evx_user');
+  var p = getCookie('evx_pass');
+  if (u && p) {
+    document.getElementById('li_user').value = u;
+    document.getElementById('li_pass').value = p;
+    document.getElementById('li_remember').checked = true;
+  }
+}
 
 function login() {
   var u = document.getElementById('li_user').value.trim();
@@ -1402,6 +1430,10 @@ function fillCoachDropdown(selectId, selectedId) {
 function openNuevaUsuario() {
   document.getElementById('m_usuario_title').textContent = 'NUEVO USUARIO';
   document.getElementById('u_edit_id').value = '';
+  var cw = document.getElementById('u_coach_wrap');
+  var ow = document.getElementById('u_obj_wrap');
+  if (cw) cw.style.display = '';
+  if (ow) ow.style.display = '';
   ['u_nombre','u_username','u_email','u_tel','u_obj','u_obs','u_mem_start','u_mem_end'].forEach(function(id){ var el=document.getElementById(id); if(el)el.value=''; });
   document.getElementById('u_pass').value = '';
   var cedEl=document.getElementById('u_cedula'); if(cedEl) cedEl.value='';
@@ -1442,12 +1474,14 @@ function saveUsuario() {
   var pass     = document.getElementById('u_pass').value;
   if (!nombre||!username) { toast('Nombre y username son obligatorios'); return; }
   var d = db();
-  if (!editId) {
+  // Determine if this is a new user (empty editId or __priv__ prefix)
+  var isNew = !editId || editId.startsWith('__priv__');
+  var privRole = editId.startsWith('__priv__') ? editId.replace('__priv__','') : 'user';
+  if (isNew) {
     if (!pass) { toast('La contraseña es obligatoria'); return; }
     for(var i=0;i<d.users.length;i++){
       if(d.users[i].username===username){toast('Ese username ya existe');return;}
     }
-    var privRole = editId && editId.startsWith('__priv__') ? editId.replace('__priv__','') : 'user';
     var nu = {id:username,username:username,password:pass,name:nombre,role:privRole,
       email:(document.getElementById('u_email')||{value:''}).value||'',
       tel:(document.getElementById('u_tel')||{value:''}).value||'',
@@ -1466,8 +1500,12 @@ function saveUsuario() {
       _saving['usuario'] = false;
       if(btn){btn.disabled=false;btn.textContent='✅ Guardar';}
       closeModal('m_usuario');
-      toast(res&&res.ok?'✅ Usuario creada en Drive: '+nombre:'✅ Usuario creada: '+nombre);
-      pgUsuarios();
+      toast(res&&res.ok?'✅ Usuario guardado en Drive: '+nombre:'✅ Usuario guardado: '+nombre);
+      if (privRole === 'coach' || privRole === 'admin' || privRole === 'recepcion') {
+        pgAdminPanel();
+      } else {
+        pgUsuarios();
+      }
     });
   } else {
     var idx=-1;
@@ -1475,12 +1513,17 @@ function saveUsuario() {
     if(idx<0){toast('Usuario no encontrada');return;}
     d.users[idx].name=nombre; d.users[idx].username=username;
     if(pass) d.users[idx].password=pass;
-    d.users[idx].email=document.getElementById('u_email').value;
-    d.users[idx].tel=document.getElementById('u_tel').value;
-    d.users[idx].objetivo=document.getElementById('u_obj').value;
-    d.users[idx].obs=document.getElementById('u_obs').value;
-    d.users[idx].mem_start=document.getElementById('u_mem_start').value||null;
-    d.users[idx].mem_end=document.getElementById('u_mem_end').value||null;
+    var _e=function(id){var el=document.getElementById(id);return el?el.value:'';};
+    d.users[idx].email   = _e('u_email');
+    d.users[idx].tel     = _e('u_tel');
+    d.users[idx].cedula  = _e('u_cedula');
+    d.users[idx].fechaNac= _e('u_fnac');
+    d.users[idx].genero  = _e('u_genero');
+    d.users[idx].coachId = _e('u_coach');
+    d.users[idx].objetivo= _e('u_obj');
+    d.users[idx].obs     = _e('u_obs');
+    d.users[idx].mem_start=_e('u_mem_start')||null;
+    d.users[idx].mem_end  =_e('u_mem_end')||null;
     _saving['usuario'] = true;
     var btn2 = document.querySelector('#m_usuario .btn-p');
     if(btn2){btn2.disabled=true;btn2.textContent='⏳ Guardando...';}
@@ -1488,8 +1531,13 @@ function saveUsuario() {
       _saving['usuario'] = false;
       if(btn2){btn2.disabled=false;btn2.textContent='✅ Guardar';}
       closeModal('m_usuario');
-      toast(res&&res.ok?'✅ Usuario actualizada en Drive':'✅ Usuario actualizada');
-      pgUsuarios();
+      toast(res&&res.ok?'✅ Usuario actualizado en Drive':'✅ Usuario actualizado');
+      var savedRole = d.users[idx] ? d.users[idx].role : '';
+      if (savedRole==='coach'||savedRole==='admin'||savedRole==='recepcion') {
+        pgAdminPanel();
+      } else {
+        pgUsuarios();
+      }
     });
   }
 }
@@ -1998,7 +2046,7 @@ function addExRow(diaVal, existing) {
   var i = exCount++;
   var div = document.createElement('div');
   div.style.cssText = 'background:rgba(0,0,0,0.2);border:1px solid var(--brd);border-radius:10px;padding:11px;margin-bottom:7px';
-  var diaOpts = ['dia1','dia2','dia3'].map(function(d,idx){return '<option value="'+d+'"'+(d===(diaVal||'dia1')?' selected':'')+'>Día '+(idx+1)+'</option>';}).join('');
+  var diaOpts = ['dia1','dia2','dia3','dia4','dia5','dia6'].map(function(d,idx){return '<option value="'+d+'"'+(d===(diaVal||'dia1')?' selected':'')+'>Día '+(idx+1)+'</option>';}).join('');
   var e = existing || {};
   div.innerHTML =
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px">' +
@@ -2012,7 +2060,7 @@ function addExRow(diaVal, existing) {
     +'<div id="rex_info_'+i+'" style="display:none;padding:6px 2px;margin-top:4px"></div></div>' +
     '<div class="fg"><label style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gris);display:block;margin-bottom:5px">Series × Reps</label><input type="text" id="rex_dos_'+i+'" value="'+(e.dosis||'')+'" placeholder="3x15" style="width:100%;padding:9px 13px;background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);color:var(--blanco);font-family:\'Sora\',sans-serif;font-size:13px"></div></div>' +
     '<div class="fr3">' +
-    '<div class="fg"><label style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gris);display:block;margin-bottom:5px">Carga</label><input type="text" id="rex_car_'+i+'" value="'+(e.carga||'')+'" placeholder="5kg" style="width:100%;padding:9px 13px;background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);color:var(--blanco);font-family:\'Sora\',sans-serif;font-size:13px"></div>' +
+    '<div class="fg"><label style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gris);display:block;margin-bottom:5px">Intensidad</label><input type="text" id="rex_car_'+i+'" value="'+(e.carga||'')+'" placeholder="5kg" style="width:100%;padding:9px 13px;background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);color:var(--blanco);font-family:\'Sora\',sans-serif;font-size:13px"></div>' +
     '<div class="fg"><label style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gris);display:block;margin-bottom:5px">Descanso</label><input type="text" id="rex_des_'+i+'" value="'+(e.descanso||'')+'" placeholder="1:30 min" style="width:100%;padding:9px 13px;background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);color:var(--blanco);font-family:\'Sora\',sans-serif;font-size:13px"></div>' +
     '<div class="fg"><label style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gris);display:block;margin-bottom:5px">Video URL</label><input type="text" id="rex_vid_'+i+'" value="'+(e.videoUrl||'')+'" placeholder="youtu.be/..." style="width:100%;padding:9px 13px;background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);color:var(--blanco);font-family:\'Sora\',sans-serif;font-size:13px"></div>' +
     '</div>';
@@ -2066,14 +2114,17 @@ function saveRutina() {
   var editId   = document.getElementById('rut_edit_id').value;
   var userId   = document.getElementById('rut_uid').value;
   var semana   = parseInt(document.getElementById('rut_semana').value)||0;
-  var nombre   = document.getElementById('rut_nombre').value||'Semana '+semana;
+  var nombre   = (document.getElementById('rut_nombre').value||'Semana '+semana).toUpperCase();
   var fechaIni = document.getElementById('rut_fecha_ini').value||new Date().toISOString().split('T')[0];
   var fechaFin = document.getElementById('rut_fecha_fin').value||'';
   if(!userId||!semana){toast('Selecciona usuario y número de semana');return;}
   var dias={
     dia1:{dia:'dia1',nombre:'Día 1',tipo:'',ejercicios:[]},
     dia2:{dia:'dia2',nombre:'Día 2',tipo:'',ejercicios:[]},
-    dia3:{dia:'dia3',nombre:'Día 3',tipo:'',ejercicios:[]}
+    dia3:{dia:'dia3',nombre:'Día 3',tipo:'',ejercicios:[]},
+    dia4:{dia:'dia4',nombre:'Día 4',tipo:'',ejercicios:[]},
+    dia5:{dia:'dia5',nombre:'Día 5',tipo:'',ejercicios:[]},
+    dia6:{dia:'dia6',nombre:'Día 6',tipo:'',ejercicios:[]}
   };
   var hasExs=false;
   for(var i=0;i<exCount;i++){
@@ -2085,9 +2136,9 @@ function saveRutina() {
     var ytM=vidRaw.match(/(?:youtu\.be\/|youtube\.com\/watch\?v=)([^&\s]+)/);
     if(ytM) vid='https://www.youtube.com/embed/'+ytM[1];
     dias[diaKey].ejercicios.push({
-      nombre:elN.value.trim(),
+      nombre:elN.value.trim().toUpperCase(),
       dosis:(document.getElementById('rex_dos_'+i)||{value:''}).value,
-      carga:(document.getElementById('rex_car_'+i)||{value:''}).value,
+      intensidad:(document.getElementById('rex_car_'+i)||{value:''}).value,
       descanso:(document.getElementById('rex_des_'+i)||{value:''}).value,
       videoUrl:vid
     });
@@ -2095,7 +2146,7 @@ function saveRutina() {
   }
   if(!hasExs){toast('Añade al menos un ejercicio');return;}
   var diasArr=[];
-  ['dia1','dia2','dia3'].forEach(function(k){if(dias[k].ejercicios.length>0)diasArr.push(dias[k]);});
+  ['dia1','dia2','dia3','dia4','dia5','dia6'].forEach(function(k){if(dias[k].ejercicios.length>0)diasArr.push(dias[k]);});
   var d=db();
   var btn=document.querySelector('#m_rutina .btn-p');
   _saving['rutina']=true;
@@ -3270,6 +3321,12 @@ function openNewPrivUser(role) {
   var titles = {admin:'NUEVO ADMIN', coach:'NUEVO COACH', recepcion:'NUEVA RECEPCIÓN'};
   document.getElementById('m_usuario_title').textContent = titles[role]||'NUEVO USUARIO';
   document.getElementById('u_edit_id').value = '__priv__'+role;
+  // Hide fields not relevant for priv accounts
+  var isPriv = ['admin','coach','recepcion'].indexOf(role) >= 0;
+  var cw = document.getElementById('u_coach_wrap');
+  var ow = document.getElementById('u_obj_wrap');
+  if (cw) cw.style.display = isPriv ? 'none' : '';
+  if (ow) ow.style.display = isPriv ? 'none' : '';
   ['u_nombre','u_username','u_email','u_tel','u_obj','u_obs','u_mem_start','u_mem_end'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('u_pass').value = '';
   openModal('m_usuario');
