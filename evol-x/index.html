@@ -309,33 +309,38 @@ tr:hover td{background:var(--s1)}
   <input type="hidden" id="u_edit_id"/>
   <div class="fr">
     <div class="fg"><label>Nombre completo</label><input type="text" id="u_nombre" style="text-transform:uppercase"/></div>
-    <div class="fg"><label>Username</label><input type="text" id="u_username"/></div>
+    <div class="fg"><label>Username</label><input type="text" id="u_username" style="text-transform:uppercase"/></div>
   </div>
   <div class="fr">
     <div class="fg"><label>Contraseña</label><div class="pass-wrap"><input type="password" id="u_pass"/><button type="button" class="eye-btn" data-target="u_pass">👁</button></div></div>
     <div class="fg" style="display:flex;align-items:flex-end"><span style="font-size:11px;color:var(--gris);padding-bottom:8px">El username se usará como ID de acceso</span></div>
   </div>
-  <div class="fr">
-    <div class="fg"><label>Cédula / Documento</label><input type="text" id="u_cedula"/></div>
-    <div class="fg"><label>Fecha de nacimiento</label><input type="date" id="u_fnac"/></div>
-  </div>
-  <div class="fr">
-    <div class="fg"><label>Género</label><select id="u_genero" style="width:100%"><option value="">Seleccionar...</option><option>Masculino</option><option>Femenino</option><option>No binario</option><option>Prefiero no decir</option></select></div>
-    <div class="fg"><label>Celular</label><input type="text" id="u_tel"/></div>
+  <div id="u_extra_wrap">
+    <div class="fr">
+      <div class="fg"><label>Cédula / Documento</label><input type="text" id="u_cedula"/></div>
+      <div class="fg"><label>Fecha de nacimiento</label><input type="date" id="u_fnac"/></div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Género</label><select id="u_genero" style="width:100%"><option value="">Seleccionar...</option><option>Masculino</option><option>Femenino</option><option>No binario</option><option>Prefiero no decir</option></select></div>
+      <div class="fg"><label>Celular</label><input type="text" id="u_tel"/></div>
+    </div>
   </div>
   <div class="fr">
     <div class="fg"><label>Email</label><input type="email" id="u_email"/></div>
-    <div class="fg"><label>Objetivo</label><input type="text" id="u_obj" placeholder="Ej: Ganar masa muscular"/></div>
+    <div class="fg" id="u_obj_wrap"><label>Objetivo</label><input type="text" id="u_obj" placeholder="EJ: GANAR MASA MUSCULAR" style="text-transform:uppercase"/></div>
   </div>
-  <div class="fg"><label>Asignar Coach</label><select id="u_coach" style="width:100%"><option value="">Sin asignar</option></select></div>
-  <div class="fr"><div class="fg"><label>Contacto emergencia</label><input type="text" id="u_emerg_nom"/></div><div class="fg"><label>Tel. emergencia</label><input type="text" id="u_emerg_tel"/></div></div>
-  <div class="fg"><label>Observaciones / Lesiones</label><textarea id="u_obs" placeholder="Condiciones médicas, lesiones..."></textarea></div>
-  <div class="hr"></div>
-  <div style="font-size:11px;font-weight:700;color:var(--oro);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">💳 Membresía</div>
-  <div class="fr">
-    <div class="fg"><label>Fecha inicio</label><input type="date" id="u_mem_start"/></div>
-    <div class="fg"><label>Fecha fin</label><input type="date" id="u_mem_end"/></div>
+  <div class="fg" id="u_coach_wrap"><label>Asignar Coach</label><select id="u_coach" style="width:100%"><option value="">Sin asignar</option></select></div>
+  <div id="u_user_only_wrap">
+    <div class="fr"><div class="fg"><label>Contacto emergencia</label><input type="text" id="u_emerg_nom"/></div><div class="fg"><label>Tel. emergencia</label><input type="text" id="u_emerg_tel"/></div></div>
+    <div class="fg"><label>Observaciones / Lesiones</label><textarea id="u_obs" placeholder="Condiciones médicas, lesiones..."></textarea></div>
+    <div class="hr"></div>
+    <div style="font-size:11px;font-weight:700;color:var(--oro);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">💳 Membresía</div>
+    <div class="fr">
+      <div class="fg"><label>Fecha inicio</label><input type="date" id="u_mem_start"/></div>
+      <div class="fg"><label>Fecha fin</label><input type="date" id="u_mem_end"/></div>
+    </div>
   </div>
+
   <button class="btn btn-p btn-full" id="u_save_btn" onclick="saveUsuario()">✅ Guardar</button>
 </div>
 </div>
@@ -394,7 +399,7 @@ tr:hover td{background:var(--s1)}
   <div class="fr">
     <div class="fg"><label>Nombre</label><input type="text" id="ej_nombre" style="text-transform:uppercase" placeholder="Ej: Sentadilla con barra"/></div>
     <div class="fg"><label>Grupo muscular</label>
-      <select id="ej_grupo">
+      <select id="ej_grupo" style="text-transform:uppercase">
         <option>Pierna</option><option>Glúteo</option><option>Espalda</option>
         <option>Pecho</option><option>Hombro</option><option>Bíceps</option>
         <option>Tríceps</option><option>Core</option><option>Full Body</option><option>Cardio</option>
@@ -1401,6 +1406,18 @@ function pgUsuarios() {
 
 
 
+function setModalMode(isPriv) {
+  // Fields only for regular users
+  var userOnly = document.getElementById('u_user_only_wrap');
+  var extraWrap = document.getElementById('u_extra_wrap');
+  var coachWrap = document.getElementById('u_coach_wrap');
+  var objWrap   = document.getElementById('u_obj_wrap');
+  if (userOnly)  userOnly.style.display  = isPriv ? 'none' : '';
+  if (extraWrap) extraWrap.style.display = isPriv ? 'none' : '';
+  if (coachWrap) coachWrap.style.display = isPriv ? 'none' : '';
+  if (objWrap)   objWrap.style.display   = isPriv ? 'none' : '';
+}
+
 function togglePass(id, btn) {
   var inp = document.getElementById(id);
   if (!inp) return;
@@ -1430,10 +1447,7 @@ function fillCoachDropdown(selectId, selectedId) {
 function openNuevaUsuario() {
   document.getElementById('m_usuario_title').textContent = 'NUEVO USUARIO';
   document.getElementById('u_edit_id').value = '';
-  var cw = document.getElementById('u_coach_wrap');
-  var ow = document.getElementById('u_obj_wrap');
-  if (cw) cw.style.display = '';
-  if (ow) ow.style.display = '';
+  setModalMode(false);
   ['u_nombre','u_username','u_email','u_tel','u_obj','u_obs','u_mem_start','u_mem_end'].forEach(function(id){ var el=document.getElementById(id); if(el)el.value=''; });
   document.getElementById('u_pass').value = '';
   var cedEl=document.getElementById('u_cedula'); if(cedEl) cedEl.value='';
@@ -1462,7 +1476,9 @@ function editUsuario(uid) {
   var cedEl2=document.getElementById('u_cedula'); if(cedEl2) cedEl2.value=u.cedula||'';
   var fnacEl2=document.getElementById('u_fnac'); if(fnacEl2) fnacEl2.value=u.fechaNac||'';
   var genEl2=document.getElementById('u_genero'); if(genEl2) genEl2.value=u.genero||'';
-  fillCoachDropdown('u_coach', u.coachId||'');
+  var isPrivRole = (u.role==='admin'||u.role==='coach'||u.role==='recepcion');
+  setModalMode(isPrivRole);
+  if (!isPrivRole) fillCoachDropdown('u_coach', u.coachId||'');
   openModal('m_usuario');
 }
 
@@ -1470,7 +1486,7 @@ function saveUsuario() {
   if (_saving['usuario']) return;
   var editId   = document.getElementById('u_edit_id').value;
   var nombre   = document.getElementById('u_nombre').value.trim().toUpperCase();
-  var username = document.getElementById('u_username').value.trim();
+  var username = document.getElementById('u_username').value.trim().toUpperCase();
   var pass     = document.getElementById('u_pass').value;
   if (!nombre||!username) { toast('Nombre y username son obligatorios'); return; }
   var d = db();
@@ -1489,8 +1505,8 @@ function saveUsuario() {
       fechaNac:(document.getElementById('u_fnac')||{value:''}).value||'',
       genero:(document.getElementById('u_genero')||{value:''}).value||'',
       coachId:(document.getElementById('u_coach')||{value:''}).value||'',
-      objetivo:(document.getElementById('u_obj')||{value:''}).value||'',
-      obs:(document.getElementById('u_obs')||{value:''}).value||'',
+      objetivo:((document.getElementById('u_obj')||{value:''}).value||'').toUpperCase(),
+      obs:((document.getElementById('u_obs')||{value:''}).value||'').toUpperCase(),
       mem_start:(document.getElementById('u_mem_start')||{value:''}).value||null,
       mem_end:(document.getElementById('u_mem_end')||{value:''}).value||null};
     _saving['usuario'] = true;
@@ -3321,12 +3337,7 @@ function openNewPrivUser(role) {
   var titles = {admin:'NUEVO ADMIN', coach:'NUEVO COACH', recepcion:'NUEVA RECEPCIÓN'};
   document.getElementById('m_usuario_title').textContent = titles[role]||'NUEVO USUARIO';
   document.getElementById('u_edit_id').value = '__priv__'+role;
-  // Hide fields not relevant for priv accounts
-  var isPriv = ['admin','coach','recepcion'].indexOf(role) >= 0;
-  var cw = document.getElementById('u_coach_wrap');
-  var ow = document.getElementById('u_obj_wrap');
-  if (cw) cw.style.display = isPriv ? 'none' : '';
-  if (ow) ow.style.display = isPriv ? 'none' : '';
+  setModalMode(true);
   ['u_nombre','u_username','u_email','u_tel','u_obj','u_obs','u_mem_start','u_mem_end'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('u_pass').value = '';
   openModal('m_usuario');
