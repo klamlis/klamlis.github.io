@@ -885,12 +885,14 @@ function login() {
       var d = db();
       var deletedIds = d.deleted || [];
       // Keep admin+coach from local
-      // Merge priv users: local + remote (both matter)
+      // Merge priv users: start with remote (source of truth), add local-only ones
       var privMap = {};
-      d.users.filter(function(u){ return ['admin','coach','recepcion'].indexOf(u.role)>=0; })
-        .forEach(function(u){ privMap[u.id]=u; });
+      // 1. Add remote priv users first (Drive is source of truth)
       (remote.users||[]).filter(function(u){ return ['admin','coach','recepcion'].indexOf(u.role)>=0; })
-        .forEach(function(u){ if(!privMap[u.id]) privMap[u.id]=u; }); // remote adds missing ones
+        .forEach(function(u){ privMap[u.id]=u; });
+      // 2. Add local priv users that are NOT in remote (newly created, not yet synced)
+      d.users.filter(function(u){ return ['admin','coach','recepcion'].indexOf(u.role)>=0; })
+        .forEach(function(u){ if(!privMap[u.id]) privMap[u.id]=u; });
       var mergedPriv2 = Object.keys(privMap).map(function(k){ return privMap[k]; });
       var remoteUsers = (remote.users||[]).filter(function(u){
         return ['admin','coach','recepcion'].indexOf(u.role)<0 && deletedIds.indexOf(u.id)<0;
@@ -2868,11 +2870,11 @@ function pullAll() {
     var d = db();
     var del = d.deleted || [];
     if (data.users) {
-      // Merge priv users from local AND remote
+      // Merge priv users: Drive wins, local adds newly created ones
       var privMap2 = {};
-      d.users.filter(function(u){ return ['admin','coach','recepcion'].indexOf(u.role)>=0; })
-        .forEach(function(u){ privMap2[u.id]=u; });
       (data.users||[]).filter(function(u){ return ['admin','coach','recepcion'].indexOf(u.role)>=0; })
+        .forEach(function(u){ privMap2[u.id]=u; });
+      d.users.filter(function(u){ return ['admin','coach','recepcion'].indexOf(u.role)>=0; })
         .forEach(function(u){ if(!privMap2[u.id]) privMap2[u.id]=u; });
       var mergedPriv3 = Object.keys(privMap2).map(function(k){ return privMap2[k]; });
       var normalUsers = (data.users||[]).filter(function(u){ return ['admin','coach','recepcion'].indexOf(u.role)<0 && del.indexOf(u.id)<0; });
