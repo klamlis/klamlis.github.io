@@ -681,26 +681,34 @@ function save(d) {
 // ── ESCRITURA: fetch POST con no-cors hacia GAS doPost ──
 // no-cors no devuelve respuesta pero el POST llega y GAS escribe en Sheets
 function sync(action, payload, cb) {
-  var body = JSON.stringify({ key: GAS_SECRET, action: action, payload: payload });
-  fetch(GAS_URL, {
-    method: 'POST',
-    mode: 'no-cors',
-    headers: { 'Content-Type': 'text/plain' },
-    body: body
-  })
-  .then(function() {
-    // no-cors siempre llega aquí aunque no podamos leer la respuesta
-    if (cb) cb({ ok: true });
-  })
-  .catch(function() {
-    // Si falla el fetch, intentar via imagen (fallback)
-    var img = new Image();
-    img.src = GAS_URL + '?action=' + encodeURIComponent(action) +
-              '&key=' + encodeURIComponent(GAS_SECRET) +
-              '&payload=' + encodeURIComponent(JSON.stringify(payload)) +
-              '&_=' + Date.now();
-    if (cb) cb({ ok: true });
-  });
+  // Use JSONP GET for confirmed writes (GAS doGet handles writes too)
+  var cbName = '_sync_' + Date.now() + '_' + Math.floor(Math.random()*9999);
+  var s = document.createElement('script');
+  var t = setTimeout(function() {
+    cleanup();
+    // Fallback to POST no-cors if JSONP times out
+    var body = JSON.stringify({ key: GAS_SECRET, action: action, payload: payload });
+    fetch(GAS_URL, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body:body })
+      .then(function(){ if(cb) cb({ok:true}); })
+      .catch(function(){ if(cb) cb(null); });
+  }, 8000);
+  function cleanup() {
+    clearTimeout(t);
+    try { delete window[cbName]; } catch(e) {}
+    if (s && s.parentNode) s.parentNode.removeChild(s);
+  }
+  window[cbName] = function(data) {
+    cleanup();
+    if (cb) cb(data);
+  };
+  var qs = 'cb=' + encodeURIComponent(cbName) +
+           '&key=' + encodeURIComponent(GAS_SECRET) +
+           '&action=' + encodeURIComponent(action) +
+           '&payload=' + encodeURIComponent(JSON.stringify(payload)) +
+           '&_=' + Date.now();
+  s.src = GAS_URL + '?' + qs;
+  s.onerror = function() { cleanup(); if(cb) cb(null); };
+  document.head.appendChild(s);
 }
 
 // ── LECTURA: JSONP GET (solo para leer, funciona bien) ──
