@@ -877,17 +877,17 @@ function login() {
       var d = db();
       var deletedIds = d.deleted || [];
       // Keep admin+coach from local
-      var localPriv = [];
-      for (var i = 0; i < d.users.length; i++) {
-        if (['admin','coach','recepcion'].indexOf(d.users[i].role) >= 0) localPriv.push(d.users[i]);
-      }
-      // Merge users (skip deleted, skip admin/coach from remote)
-      var remoteUsers = [];
-      for (var i = 0; i < (remote.users || []).length; i++) {
-        var ru = remote.users[i];
-        if (['admin','coach','recepcion'].indexOf(ru.role) < 0 && deletedIds.indexOf(ru.id) < 0) remoteUsers.push(ru);
-      }
-      d.users = localPriv.concat(remoteUsers);
+      // Merge priv users: local + remote (both matter)
+      var privMap = {};
+      d.users.filter(function(u){ return ['admin','coach','recepcion'].indexOf(u.role)>=0; })
+        .forEach(function(u){ privMap[u.id]=u; });
+      (remote.users||[]).filter(function(u){ return ['admin','coach','recepcion'].indexOf(u.role)>=0; })
+        .forEach(function(u){ if(!privMap[u.id]) privMap[u.id]=u; }); // remote adds missing ones
+      var mergedPriv2 = Object.keys(privMap).map(function(k){ return privMap[k]; });
+      var remoteUsers = (remote.users||[]).filter(function(u){
+        return ['admin','coach','recepcion'].indexOf(u.role)<0 && deletedIds.indexOf(u.id)<0;
+      });
+      d.users = mergedPriv2.concat(remoteUsers);
       // Merge other collections (skip deleted user IDs)
       d.medidas = (remote.medidas || []).filter(function(m) { return deletedIds.indexOf(m.userId) < 0; });
       d.rutinas = (remote.rutinas || []).filter(function(r) { return deletedIds.indexOf(r.userId) < 0; });
@@ -1606,11 +1606,14 @@ function saveUsuario() {
       if(btn){btn.disabled=false;btn.textContent='✅ Guardar';}
       toast('✅ '+nombre+' guardado'+(ok?' en Drive':''));
       closeModal('m_usuario');
-      if (privRole==='coach'||privRole==='admin'||privRole==='recepcion') {
-        pgAdminPanel();
-      } else {
-        pgUsuarios();
-      }
+      // Small delay to ensure db is written before reading
+      setTimeout(function(){
+        if (privRole==='coach'||privRole==='admin'||privRole==='recepcion') {
+          pgAdminPanel();
+        } else {
+          pgUsuarios();
+        }
+      }, 100);
     });
   } else {
     var idx=-1;
@@ -2857,9 +2860,15 @@ function pullAll() {
     var d = db();
     var del = d.deleted || [];
     if (data.users) {
-      var coach = null;
-      var privUsers2 = d.users.filter(function(u){return u.role==='admin'||u.role==='coach'||u.role==='recepcion';});
-      d.users = privUsers2.concat((data.users||[]).filter(function(u){return u.role!=='admin'&&u.role!=='coach'&&del.indexOf(u.id)<0;}));
+      // Merge priv users from local AND remote
+      var privMap2 = {};
+      d.users.filter(function(u){ return ['admin','coach','recepcion'].indexOf(u.role)>=0; })
+        .forEach(function(u){ privMap2[u.id]=u; });
+      (data.users||[]).filter(function(u){ return ['admin','coach','recepcion'].indexOf(u.role)>=0; })
+        .forEach(function(u){ if(!privMap2[u.id]) privMap2[u.id]=u; });
+      var mergedPriv3 = Object.keys(privMap2).map(function(k){ return privMap2[k]; });
+      var normalUsers = (data.users||[]).filter(function(u){ return ['admin','coach','recepcion'].indexOf(u.role)<0 && del.indexOf(u.id)<0; });
+      d.users = mergedPriv3.concat(normalUsers);
     }
     if (data.medidas) d.medidas = data.medidas.filter(function(m){return del.indexOf(m.userId)<0;});
     if (data.rutinas) d.rutinas = data.rutinas.filter(function(r){return del.indexOf(r.userId)<0;});
