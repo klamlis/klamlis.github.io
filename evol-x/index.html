@@ -456,12 +456,11 @@ tr:hover td{background:var(--s1)}
     <div class="fg"><label>Fecha fin vigencia (cambio estimado)</label><input type="date" id="rut_fecha_fin"/></div>
   </div>
   <div class="hr"></div>
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-    <div style="font-size:11px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:1px">Ejercicios</div>
-    <button class="btn btn-g btn-sm" onclick="addExRow()">+ Añadir ejercicio</button>
-  </div>
-  <div id="rut_exs"></div>
-  <button class="btn btn-p btn-full" onclick="saveRutina()">💾 Guardar rutina</button>
+  <!-- Day tabs -->
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="rut_day_tabs"></div>
+  <!-- Active day panel -->
+  <div id="rut_day_panel"></div>
+  <button class="btn btn-p btn-full" onclick="saveRutina()" style="margin-top:12px">💾 Guardar rutina</button>
 </div>
 </div>
 
@@ -1592,9 +1591,7 @@ function saveUsuario() {
       mem_start:(document.getElementById('u_mem_start')||{value:''}).value||null,
       mem_end:(document.getElementById('u_mem_end')||{value:''}).value||null};
     _saving['usuario'] = true;
-    var btn = document.querySelector('#m_usuario .btn-p');
-    if(btn){btn.disabled=true;btn.textContent='⏳ Guardando...';}
-    _saving['usuario'] = true;
+    var btn = document.getElementById('u_save_btn');
     if(btn){btn.disabled=true;btn.textContent='⏳ Guardando...';}
     // Save local immediately
     d.users.push(nu);
@@ -1629,7 +1626,7 @@ function saveUsuario() {
     d.users[idx].mem_start=_e('u_mem_start')||null;
     d.users[idx].mem_end  =_e('u_mem_end')||null;
     _saving['usuario'] = true;
-    var btn2 = document.querySelector('#m_usuario .btn-p');
+    var btn2 = document.getElementById('u_save_btn');
     if(btn2){btn2.disabled=true;btn2.textContent='⏳ Guardando...';}
     var savedUser2 = d.users[idx];
     var savedRole2 = savedUser2 ? savedUser2.role : '';
@@ -1970,12 +1967,12 @@ function openEditEj(ejid) {
 function saveEjercicio() {
   if (_saving['ejercicio']) return;
   var editId = document.getElementById('ej_edit_id').value;
-  var nombre = document.getElementById('ej_nombre').value.trim();
+  var nombre = (document.getElementById('ej_nombre').value||'').trim().toUpperCase();
   if (!nombre) { toast('Ingresa el nombre del ejercicio'); return; }
   var d = db();
   // Check duplicate name (only for new)
   if (!editId) {
-    var dup = (d.ejercicios||[]).filter(function(e){return e.nombre.toLowerCase()===nombre.toLowerCase();});
+    var dup = (d.ejercicios||[]).filter(function(e){return (e.nombre||'').toUpperCase()===nombre.toUpperCase();});
     if (dup.length > 0) {
       if (!confirm('"'+nombre+'" ya existe en la biblioteca.\n¿Guardar de todas formas?')) return;
     }
@@ -2104,28 +2101,205 @@ function renderRutinaContent(r) {
   return html;
 }
 
+// ── RUT DAY STATE ────────────────────────────────────────────
+var RUT_DAYS = {};
+var RUT_ACTIVE_DAY = 'dia1';
+var RUT_ACTIVE_DAYS = ['dia1'];
+
+function rutInitDays(existingDias) {
+  var keys = ['dia1','dia2','dia3','dia4','dia5','dia6'];
+  RUT_DAYS = {};
+  keys.forEach(function(k,i){ RUT_DAYS[k]={nombre:'Día '+(i+1),ejercicios:[]}; });
+  RUT_ACTIVE_DAY = 'dia1';
+  if (existingDias && existingDias.length>0) {
+    RUT_ACTIVE_DAYS = existingDias.map(function(d){return d.dia;});
+    existingDias.forEach(function(d){
+      if(RUT_DAYS[d.dia]) RUT_DAYS[d.dia].ejercicios = (d.ejercicios||[]).map(function(ex){
+        // Convert old flat format to new subs format
+        return {tipo:'simple',subs:[{nombre:ex.nombre||'',dosis:ex.dosis||'',intensidad:ex.intensidad||ex.carga||'',descanso:ex.descanso||'',videoUrl:ex.videoUrl||''}]};
+      });
+    });
+  } else {
+    RUT_ACTIVE_DAYS = ['dia1'];
+  }
+  rutRenderDayTabs();
+}
+
+function rutRenderDayTabs() {
+  var tabsEl = document.getElementById('rut_day_tabs');
+  if (!tabsEl) return;
+  var keys = ['dia1','dia2','dia3','dia4','dia5','dia6'];
+  var h = '';
+  keys.forEach(function(dk,idx){
+    var isActive = RUT_ACTIVE_DAYS.indexOf(dk)>=0;
+    var isCurrent = dk===RUT_ACTIVE_DAY;
+    var exCount = (RUT_DAYS[dk]&&RUT_DAYS[dk].ejercicios||[]).length;
+    var label = 'Día '+(idx+1);
+    var activeSt = isCurrent?'background:var(--cyan);color:#000;':'background:rgba(0,212,245,0.15);color:var(--cyan);';
+    var baseStyle = 'padding:7px 14px;border-radius:8px;border:none;cursor:pointer;font-family:Sora,sans-serif;font-size:12px;font-weight:700;transition:all .2s;';
+    var inactiveSt = 'padding:7px 14px;border-radius:8px;border:1px dashed rgba(0,212,245,0.25);background:none;cursor:pointer;font-family:Sora,sans-serif;font-size:12px;color:var(--gris);';
+    if(isActive){
+      h+='<button class="rut-day-tab" data-dk="'+dk+'" style="'+baseStyle+activeSt+'">'+label+(exCount>0?' ('+exCount+')':'')+'</button>';
+    } else {
+      h+='<button class="rut-day-add" data-dk="'+dk+'" style="'+inactiveSt+'">+ '+label+'</button>';
+    }
+  });
+  tabsEl.innerHTML = h;
+  // Event delegation for tab buttons
+  tabsEl.querySelectorAll('.rut-day-tab').forEach(function(btn){
+    btn.addEventListener('click', function(){ rutSelectDay(this.getAttribute('data-dk')); });
+  });
+  tabsEl.querySelectorAll('.rut-day-add').forEach(function(btn){
+    btn.addEventListener('click', function(){ rutAddDay(this.getAttribute('data-dk')); });
+  });
+  rutRenderDayPanel();
+}
+
+function rutAddDay(dk) {
+  if(RUT_ACTIVE_DAYS.indexOf(dk)<0) RUT_ACTIVE_DAYS.push(dk);
+  RUT_ACTIVE_DAY = dk;
+  rutRenderDayTabs();
+}
+
+function rutSelectDay(dk) {
+  RUT_ACTIVE_DAY = dk;
+  rutRenderDayTabs();
+}
+
+function rutRemoveDay(dk) {
+  if(RUT_ACTIVE_DAYS.length<=1){toast('Debe haber al menos un día');return;}
+  RUT_ACTIVE_DAYS = RUT_ACTIVE_DAYS.filter(function(d){return d!==dk;});
+  RUT_DAYS[dk].ejercicios = [];
+  RUT_ACTIVE_DAY = RUT_ACTIVE_DAYS[0];
+  rutRenderDayTabs();
+}
+
+function rutRenderDayPanel() {
+  var panel = document.getElementById('rut_day_panel');
+  if(!panel) return;
+  var dk = RUT_ACTIVE_DAY;
+  var exs = (RUT_DAYS[dk]&&RUT_DAYS[dk].ejercicios)||[];
+  var dbx = db();
+  var ejOpts = (dbx.ejercicios||[]).map(function(e){return '<option value="'+e.nombre+'">'+e.nombre+'</option>';}).join('');
+  var iStyle = 'width:100%;padding:8px;background:rgba(0,212,245,0.05);border:1px solid rgba(0,212,245,0.2);border-radius:8px;color:var(--blanco);font-family:Sora,sans-serif;font-size:12px;text-transform:uppercase;box-sizing:border-box';
+  var h = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">';
+  h += '<div style="font-weight:700;color:var(--cyan);font-size:13px">'+RUT_DAYS[dk].nombre+'</div>';
+  h += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
+  h += '<button class="btn btn-g btn-sm rut-add-ex" data-tipo="simple">+ Ejercicio</button>';
+  h += '<button class="btn btn-g btn-sm rut-add-ex" data-tipo="biserie">+ Biserie</button>';
+  h += '<button class="btn btn-g btn-sm rut-add-ex" data-tipo="triserie">+ Triserie</button>';
+  if(RUT_ACTIVE_DAYS.length>1) h+='<button class="btn btn-d btn-sm rut-day-rem" data-dk="'+dk+'">🗑 Día</button>';
+  h += '</div></div>';
+  h += '<div id="rut_ex_list" style="display:flex;flex-direction:column;gap:8px">';
+  exs.forEach(function(ex,i){
+    var tipo = ex.tipo||'simple';
+    var bc = tipo==='biserie'?'#00e676':tipo==='triserie'?'#ff9800':'rgba(0,212,245,0.3)';
+    var lbl = tipo==='biserie'?'BISERIE':tipo==='triserie'?'TRISERIE':'EJERCICIO';
+    var subCount = tipo==='triserie'?3:tipo==='biserie'?2:1;
+    h += '<div class="rut-ex-card" data-idx="'+i+'" draggable="true" style="background:rgba(0,0,0,0.2);border:1px solid '+bc+';border-radius:10px;padding:12px;">';
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+    h += '<span style="font-size:10px;font-weight:700;color:'+bc+'">⠿ '+lbl+' #'+(i+1)+'</span>';
+    h += '<button class="rut-ex-rem" data-idx="'+i+'" data-dk="'+dk+'" style="background:none;border:none;color:var(--gris);cursor:pointer;font-size:18px;line-height:1">×</button>';
+    h += '</div>';
+    for(var s=0;s<subCount;s++){
+      var sub=(ex.subs&&ex.subs[s])||{};
+      if(subCount>1) h+='<div style="font-size:11px;color:'+bc+';font-weight:700;margin-bottom:4px">'+(s===0?'A —':s===1?'B —':'C —')+'</div>';
+      h+='<div style="margin-bottom:6px"><input class="rut-inp" list="ejl_'+i+'_'+s+'" data-ei="'+i+'" data-si="'+s+'" data-field="nombre" data-dk="'+dk+'" placeholder="NOMBRE DEL EJERCICIO" value="'+(sub.nombre||'')+'" style="'+iStyle+'"><datalist id="ejl_'+i+'_'+s+'">'+ejOpts+'</datalist></div>';
+      h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr 2fr;gap:6px;margin-bottom:'+(s<subCount-1?'10':'2')+'px">';
+      h+='<div><div style="font-size:9px;color:var(--gris);margin-bottom:3px">SERIES×REPS</div><input class="rut-inp" data-ei="'+i+'" data-si="'+s+'" data-field="dosis" data-dk="'+dk+'" placeholder="3x12" value="'+(sub.dosis||'')+'" style="'+iStyle+'"></div>';
+      h+='<div><div style="font-size:9px;color:var(--gris);margin-bottom:3px">INTENSIDAD</div><input class="rut-inp" data-ei="'+i+'" data-si="'+s+'" data-field="intensidad" data-dk="'+dk+'" placeholder="Media" value="'+(sub.intensidad||'')+'" style="'+iStyle+'"></div>';
+      h+='<div><div style="font-size:9px;color:var(--gris);margin-bottom:3px">DESCANSO</div><input class="rut-inp" data-ei="'+i+'" data-si="'+s+'" data-field="descanso" data-dk="'+dk+'" placeholder="60s" value="'+(sub.descanso||'')+'" style="'+iStyle+'"></div>';
+      h+='<div><div style="font-size:9px;color:var(--gris);margin-bottom:3px">VIDEO</div><input class="rut-inp" data-ei="'+i+'" data-si="'+s+'" data-field="videoUrl" data-dk="'+dk+'" placeholder="youtu.be/..." value="'+(sub.videoUrl||'')+'" style="'+iStyle+'"></div>';
+      h+='</div>';
+      if(s<subCount-1) h+='<div style="border-top:1px solid rgba(255,255,255,0.06);margin:6px 0"></div>';
+    }
+    h+='</div>';
+  });
+  h+='</div>';
+  panel.innerHTML=h;
+  // Event delegation for remove buttons
+  var panelEl = document.getElementById('rut_day_panel');
+  if(panelEl){
+    panelEl.querySelectorAll('.rut-inp').forEach(function(inp){
+      inp.addEventListener('input', function(){
+        rutUpdateEx(parseInt(this.getAttribute('data-ei')), parseInt(this.getAttribute('data-si')), this.getAttribute('data-field'), this.value, this.getAttribute('data-dk'));
+      });
+      inp.addEventListener('change', function(){
+        rutUpdateEx(parseInt(this.getAttribute('data-ei')), parseInt(this.getAttribute('data-si')), this.getAttribute('data-field'), this.value, this.getAttribute('data-dk'));
+      });
+    });
+    panelEl.querySelectorAll('.rut-add-ex').forEach(function(btn){
+      btn.addEventListener('click', function(){ rutAddEx(this.getAttribute('data-tipo')); });
+    });
+    panelEl.querySelectorAll('.rut-ex-rem').forEach(function(btn){
+      btn.addEventListener('click', function(){ rutRemoveEx(parseInt(this.getAttribute('data-idx')), this.getAttribute('data-dk')); });
+    });
+    var remDay = panelEl.querySelector('.rut-day-rem');
+    if(remDay) remDay.addEventListener('click', function(){ rutRemoveDay(this.getAttribute('data-dk')); });
+  }
+  rutInitDrag();
+}
+
+function rutAddEx(tipo) {
+  var dk = RUT_ACTIVE_DAY;
+  var subCount = tipo==='triserie'?3:tipo==='biserie'?2:1;
+  var subs=[];
+  for(var s=0;s<subCount;s++) subs.push({nombre:'',dosis:'',intensidad:'',descanso:'',videoUrl:''});
+  RUT_DAYS[dk].ejercicios.push({tipo:tipo,subs:subs});
+  rutRenderDayPanel();
+}
+
+function rutRemoveEx(idx,dk) {
+  RUT_DAYS[dk].ejercicios.splice(idx,1);
+  rutRenderDayPanel();
+}
+
+function rutUpdateEx(exIdx,subIdx,field,value,dk) {
+  if(!RUT_DAYS[dk]||!RUT_DAYS[dk].ejercicios[exIdx]) return;
+  if(!RUT_DAYS[dk].ejercicios[exIdx].subs) RUT_DAYS[dk].ejercicios[exIdx].subs=[];
+  if(!RUT_DAYS[dk].ejercicios[exIdx].subs[subIdx]) RUT_DAYS[dk].ejercicios[exIdx].subs[subIdx]={};
+  RUT_DAYS[dk].ejercicios[exIdx].subs[subIdx][field] = field==='nombre'?value.toUpperCase():value;
+}
+
+function rutInitDrag() {
+  var list = document.getElementById('rut_ex_list');
+  if(!list) return;
+  var dragging=null, dragIdx=null;
+  list.querySelectorAll('.rut-ex-card').forEach(function(card){
+    card.addEventListener('dragstart',function(){dragging=this;dragIdx=parseInt(this.getAttribute('data-idx'));this.style.opacity='0.4';});
+    card.addEventListener('dragend',function(){this.style.opacity='';dragging=null;});
+    card.addEventListener('dragover',function(e){e.preventDefault();this.style.background='rgba(0,212,245,0.08)';});
+    card.addEventListener('dragleave',function(){this.style.background='rgba(0,0,0,0.2)';});
+    card.addEventListener('drop',function(){
+      this.style.background='rgba(0,0,0,0.2)';
+      if(dragging&&dragging!==this){
+        var toIdx=parseInt(this.getAttribute('data-idx'));
+        var dk=RUT_ACTIVE_DAY;
+        var exs=RUT_DAYS[dk].ejercicios;
+        var moved=exs.splice(dragIdx,1)[0];
+        exs.splice(toIdx,0,moved);
+        rutRenderDayPanel();
+      }
+    });
+  });
+}
+
 function openNuevaRutina(uid) {
   var d = db();
   var usr = d.users.filter(function(u){return u.role==='user';});
   document.getElementById('m_rut_title').textContent = 'NUEVA RUTINA';
   document.getElementById('rut_edit_id').value = '';
   var sel = document.getElementById('rut_uid');
-  sel.innerHTML = usr.map(function(u){return '<option value="'+u.id+'"'+(u.id===uid?' selected':'')+'>'+u.name+'</option>';}).join('');
+  sel.innerHTML = '<option value="">Seleccionar usuario...</option>'+usr.map(function(u){return '<option value="'+u.id+'"'+(u.id===uid?' selected':'')+'>'+u.name+'</option>';}).join('');
   document.getElementById('rut_nombre').value = '';
   document.getElementById('rut_obj').value = '';
   document.getElementById('rut_int').value = 'Media (7-8)';
-  // Fecha inicio = hoy
   var hoy = new Date().toISOString().split('T')[0];
   document.getElementById('rut_fecha_ini').value = hoy;
-  // Fecha fin = 4 semanas por defecto
-  var fin = new Date(); fin.setDate(fin.getDate() + 28);
+  var fin = new Date(); fin.setDate(fin.getDate()+28);
   document.getElementById('rut_fecha_fin').value = fin.toISOString().split('T')[0];
-  // Auto semana
-  var autoSem = 1;
-  d.rutinas.forEach(function(r){ if(r.userId===uid && r.semana>=autoSem) autoSem=r.semana+1; });
-  document.getElementById('rut_semana').value = autoSem;
-  exCount = 0;
-  document.getElementById('rut_exs').innerHTML = '';
+  document.getElementById('rut_semana').value = '1';
+  rutInitDays(null);
   openModal('m_rutina');
 }
 
@@ -2225,59 +2399,37 @@ function saveRutina() {
   var editId   = document.getElementById('rut_edit_id').value;
   var userId   = document.getElementById('rut_uid').value;
   var semana   = parseInt(document.getElementById('rut_semana').value) || Date.now();
-  var nombre   = (document.getElementById('rut_nombre').value||'Semana '+semana).toUpperCase();
+  var nombre   = (document.getElementById('rut_nombre').value||'RUTINA').toUpperCase();
+  var obj      = (document.getElementById('rut_obj').value||'').toUpperCase();
   var fechaIni = document.getElementById('rut_fecha_ini').value||new Date().toISOString().split('T')[0];
   var fechaFin = document.getElementById('rut_fecha_fin').value||'';
   if(!userId){toast('Selecciona un usuario');return;}
-  var dias={
-    dia1:{dia:'dia1',nombre:'Día 1',tipo:'',ejercicios:[]},
-    dia2:{dia:'dia2',nombre:'Día 2',tipo:'',ejercicios:[]},
-    dia3:{dia:'dia3',nombre:'Día 3',tipo:'',ejercicios:[]},
-    dia4:{dia:'dia4',nombre:'Día 4',tipo:'',ejercicios:[]},
-    dia5:{dia:'dia5',nombre:'Día 5',tipo:'',ejercicios:[]},
-    dia6:{dia:'dia6',nombre:'Día 6',tipo:'',ejercicios:[]}
-  };
-  var hasExs=false;
-  for(var i=0;i<exCount;i++){
-    var elN=document.getElementById('rex_nom_'+i);
-    if(!elN||!elN.value.trim()) continue;
-    var diaKey=(document.getElementById('rex_dia_'+i)||{value:'dia1'}).value;
-    var vidRaw=(document.getElementById('rex_vid_'+i)||{value:''}).value.trim();
-    var vid=vidRaw;
-    var ytM=vidRaw.match(/(?:youtu\.be\/|youtube\.com\/watch\?v=)([^&\s]+)/);
-    if(ytM) vid='https://www.youtube.com/embed/'+ytM[1];
-    var exNombre = elN.value.trim().toUpperCase();
-    // Check if exercise exists in biblioteca, if not create it
-    var exExists = false;
-    for(var ei=0;ei<d.ejercicios.length;ei++){
-      if((d.ejercicios[ei].nombre||'').toUpperCase()===exNombre){exExists=true;break;}
-    }
-    if(!exExists && exNombre){
-      var newEj = {
-        id:'ej_'+Date.now()+'_'+i,
-        nombre:exNombre,
-        grupo:'SIN CLASIFICAR',
-        descripcion:'',
-        videoUrl:vid||'',
-        incompleto:true
-      };
-      d.ejercicios.push(newEj);
-      sync('saveEjercicio', newEj, function(){});
-      toast('⚠️ "'+exNombre+'" creado en biblioteca. Completa su información.');
-    }
-    dias[diaKey].ejercicios.push({
-      nombre:exNombre,
-      dosis:(document.getElementById('rex_dos_'+i)||{value:''}).value,
-      intensidad:(document.getElementById('rex_car_'+i)||{value:''}).value,
-      descanso:(document.getElementById('rex_des_'+i)||{value:''}).value,
-      videoUrl:vid
+  // Build diasArr from RUT_DAYS
+  var diasArr = [];
+  var dbSave = db();
+  RUT_ACTIVE_DAYS.forEach(function(dk){
+    var dayExs = [];
+    (RUT_DAYS[dk].ejercicios||[]).forEach(function(ex){
+      var subCount = ex.tipo==='triserie'?3:ex.tipo==='biserie'?2:1;
+      (ex.subs||[]).slice(0,subCount).forEach(function(sub,si){
+        if(sub&&sub.nombre){
+          var exists=(dbSave.ejercicios||[]).some(function(e){return (e.nombre||'').toUpperCase()===sub.nombre.toUpperCase();});
+          if(!exists){
+            var nEj={id:'ej_'+(Date.now()+si),nombre:sub.nombre,grupo:'SIN CLASIFICAR',descripcion:'',videoUrl:sub.videoUrl||'',incompleto:true};
+            dbSave.ejercicios.push(nEj);
+            save(dbSave);
+            sync('saveEjercicio',nEj,function(){});
+            toast('⚠️ "'+sub.nombre+'" creado en biblioteca.');
+          }
+          dayExs.push({nombre:sub.nombre,dosis:sub.dosis||'',intensidad:sub.intensidad||'',descanso:sub.descanso||'',videoUrl:sub.videoUrl||'',tipo:ex.tipo||'simple'});
+        }
+      });
     });
-    hasExs=true;
-  }
-  if(!hasExs){toast('Añade al menos un ejercicio');return;}
-  var diasArr=[];
-  ['dia1','dia2','dia3','dia4','dia5','dia6'].forEach(function(k){if(dias[k].ejercicios.length>0)diasArr.push(dias[k]);});
-  var d=db();
+    if(dayExs.length>0) diasArr.push({dia:dk,nombre:RUT_DAYS[dk].nombre,tipo:'',ejercicios:dayExs});
+  });
+  var hasExs = diasArr.length>0;
+  if(!hasExs){toast('Añade al menos un ejercicio en los días activos');return;}
+    var d=db();
   var btn=document.querySelector('#m_rutina .btn-p');
   _saving['rutina']=true;
   if(btn){btn.disabled=true;btn.textContent='⏳ Guardando en Drive...';}
