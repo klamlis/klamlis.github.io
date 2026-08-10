@@ -892,7 +892,15 @@ function login() {
       d.medidas = (remote.medidas || []).filter(function(m) { return deletedIds.indexOf(m.userId) < 0; });
       d.rutinas = (remote.rutinas || []).filter(function(r) { return deletedIds.indexOf(r.userId) < 0; });
       d.logs = (remote.logs || []).filter(function(l) { return deletedIds.indexOf(l.userId) < 0; });
-      d.ejercicios = remote.ejercicios || d.ejercicios;
+      // Merge ejercicios: combine remote + local, remote wins on conflict
+      var localEjs = d.ejercicios || [];
+      var remoteEjs = remote.ejercicios || [];
+      if (remoteEjs.length > 0) {
+        var ejMap = {};
+        localEjs.forEach(function(e){ ejMap[e.id] = e; });
+        remoteEjs.forEach(function(e){ ejMap[e.id] = e; }); // remote overwrites local
+        d.ejercicios = Object.values ? Object.values(ejMap) : Object.keys(ejMap).map(function(k){ return ejMap[k]; });
+      }
       save(d);
     }
     document.getElementById('li_status').textContent = '';
@@ -1853,10 +1861,11 @@ function saveMedidas() {
 function pgEjercicios() {
   var d = db();
   var exs = d.ejercicios || [];
-  var html = '<div class="page-title">BIBLIOTECA</div><div class="page-sub">Ejercicios guardados para usar en rutinas</div>';
+  var html = '<div class="page-title">BIBLIOTECA</div><div class="page-sub">Ejercicios guardados · <span style="color:var(--cyan)">'+exs.length+'</span></div>';
   html += '<div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">';
-  html += '<input type="text" id="ej_search" placeholder="Buscar..." oninput="filterEjs()" style="flex:1;min-width:180px;padding:9px 13px;background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);color:var(--blanco);font-family:\'Sora\',sans-serif;font-size:13px">';
-  html += '<button class="btn btn-p" onclick="openNewEj()">+ Nuevo ejercicio</button></div>';
+  html += '<input type="text" id="ej_search" placeholder="Buscar ejercicio..." oninput="filterEjs()" style="flex:1;min-width:180px;padding:9px 13px;background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);color:var(--blanco);font-family:Sora,sans-serif;font-size:13px">';
+  html += '<button class="btn btn-p" onclick="openNewEj()">+ Nuevo ejercicio</button>';
+  html += '<button class="btn btn-g" onclick="syncEjercicios()">🔄 Sincronizar</button></div>';
   html += '<div id="ej_grid"></div>';
   setMain(html);
   renderEjGrid(exs);
@@ -1912,6 +1921,24 @@ function renderEjGrid(exs) {
     btn.addEventListener('click', function() {
       delEj(this.getAttribute('data-id'));
     });
+  });
+}
+
+function syncEjercicios() {
+  toast('⏳ Cargando ejercicios de Drive...');
+  loadFromSheets(function(remote) {
+    if (remote && remote.ejercicios && remote.ejercicios.length > 0) {
+      var d = db();
+      var ejMap = {};
+      (d.ejercicios||[]).forEach(function(e){ if(e.id) ejMap[e.id]=e; });
+      remote.ejercicios.forEach(function(e){ if(e.id) ejMap[e.id]=e; });
+      d.ejercicios = Object.keys(ejMap).map(function(k){ return ejMap[k]; });
+      save(d);
+      toast('✅ ' + d.ejercicios.length + ' ejercicios cargados');
+      pgEjercicios();
+    } else {
+      toast('No se encontraron ejercicios en Drive');
+    }
   });
 }
 
@@ -2116,7 +2143,7 @@ function rutInitDays(existingDias) {
     existingDias.forEach(function(d){
       if(RUT_DAYS[d.dia]) RUT_DAYS[d.dia].ejercicios = (d.ejercicios||[]).map(function(ex){
         // Convert old flat format to new subs format
-        return {tipo:'simple',subs:[{nombre:ex.nombre||'',dosis:ex.dosis||'',intensidad:ex.intensidad||ex.carga||'',descanso:ex.descanso||'',videoUrl:ex.videoUrl||''}]};
+        return {tipo:'simple',subs:[{nombre:ex.nombre||'',dosis:ex.dosis||'',intensidad:ex.intensidad||ex.intensidad||ex.carga||'',descanso:ex.descanso||'',videoUrl:ex.videoUrl||''}]};
       });
     });
   } else {
@@ -2299,8 +2326,8 @@ function openNuevaRutina(uid) {
   var fin = new Date(); fin.setDate(fin.getDate()+28);
   document.getElementById('rut_fecha_fin').value = fin.toISOString().split('T')[0];
   document.getElementById('rut_semana').value = '1';
-  rutInitDays(null);
   openModal('m_rutina');
+  setTimeout(function(){ rutInitDays(null); }, 50);
 }
 
 function openEditRutina(rid) {
@@ -2319,12 +2346,9 @@ function openEditRutina(rid) {
   document.getElementById('rut_int').value = r.intensidad || 'Media (7-8)';
   document.getElementById('rut_fecha_ini').value = r.fechaIni || r.fechaCarga || '';
   document.getElementById('rut_fecha_fin').value = r.fechaFin || '';
-  exCount = 0;
-  document.getElementById('rut_exs').innerHTML = '';
-  (r.dias || []).forEach(function(dia) {
-    (dia.ejercicios || []).forEach(function(e) { addExRow(dia.dia, e); });
-  });
   openModal('m_rutina');
+  // Init days AFTER modal is visible so DOM elements exist
+  setTimeout(function(){ rutInitDays(r.dias || []); }, 50);
 }
 
 function addExRow(diaVal, existing) {
@@ -2345,7 +2369,7 @@ function addExRow(diaVal, existing) {
     +'<div id="rex_info_'+i+'" style="display:none;padding:6px 2px;margin-top:4px"></div></div>' +
     '<div class="fg"><label style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gris);display:block;margin-bottom:5px">Series × Reps</label><input type="text" id="rex_dos_'+i+'" value="'+(e.dosis||'')+'" placeholder="3x15" style="width:100%;padding:9px 13px;background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);color:var(--blanco);font-family:\'Sora\',sans-serif;font-size:13px"></div></div>' +
     '<div class="fr3">' +
-    '<div class="fg"><label style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gris);display:block;margin-bottom:5px">Intensidad</label><input type="text" id="rex_car_'+i+'" value="'+(e.carga||'')+'" placeholder="5kg" style="width:100%;padding:9px 13px;background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);color:var(--blanco);font-family:\'Sora\',sans-serif;font-size:13px"></div>' +
+    '<div class="fg"><label style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gris);display:block;margin-bottom:5px">Intensidad</label><input type="text" id="rex_car_'+i+'" value="'+(e.carga||'')+'" placeholder="" style="width:100%;padding:9px 13px;background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);color:var(--blanco);font-family:\'Sora\',sans-serif;font-size:13px"></div>' +
     '<div class="fg"><label style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gris);display:block;margin-bottom:5px">Descanso</label><input type="text" id="rex_des_'+i+'" value="'+(e.descanso||'')+'" placeholder="1:30 min" style="width:100%;padding:9px 13px;background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);color:var(--blanco);font-family:\'Sora\',sans-serif;font-size:13px"></div>' +
     '<div class="fg"><label style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gris);display:block;margin-bottom:5px">Video URL</label><input type="text" id="rex_vid_'+i+'" value="'+(e.videoUrl||'')+'" placeholder="youtu.be/..." style="width:100%;padding:9px 13px;background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);color:var(--blanco);font-family:\'Sora\',sans-serif;font-size:13px"></div>' +
     '</div>';
@@ -2415,11 +2439,10 @@ function saveRutina() {
         if(sub&&sub.nombre){
           var exists=(dbSave.ejercicios||[]).some(function(e){return (e.nombre||'').toUpperCase()===sub.nombre.toUpperCase();});
           if(!exists){
-            var nEj={id:'ej_'+(Date.now()+si),nombre:sub.nombre,grupo:'SIN CLASIFICAR',descripcion:'',videoUrl:sub.videoUrl||'',incompleto:true};
+            var nEj={id:'ej_auto_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),nombre:sub.nombre,grupo:'SIN CLASIFICAR',descripcion:'',videoUrl:sub.videoUrl||'',incompleto:true};
             dbSave.ejercicios.push(nEj);
             save(dbSave);
-            sync('saveEjercicio',nEj,function(){});
-            toast('⚠️ "'+sub.nombre+'" creado en biblioteca.');
+            sync('saveEjercicio', nEj, function(){});
           }
           dayExs.push({nombre:sub.nombre,dosis:sub.dosis||'',intensidad:sub.intensidad||'',descanso:sub.descanso||'',videoUrl:sub.videoUrl||'',tipo:ex.tipo||'simple'});
         }
@@ -2429,7 +2452,10 @@ function saveRutina() {
   });
   var hasExs = diasArr.length>0;
   if(!hasExs){toast('Añade al menos un ejercicio en los días activos');return;}
-    var d=db();
+  // Persist auto-created exercises
+  var d=db();
+  d.ejercicios = dbSave.ejercicios;
+  save(d);
   var btn=document.querySelector('#m_rutina .btn-p');
   _saving['rutina']=true;
   if(btn){btn.disabled=true;btn.textContent='⏳ Guardando en Drive...';}
@@ -2563,7 +2589,7 @@ function pgLogs() {
     if (l.ejercicios && l.ejercicios.length) {
       html += '<div style="border-top:1px solid var(--brd);padding:10px 16px;overflow-x:auto">';
       html += '<table style="min-width:400px"><thead><tr>';
-      html += '<th>Ejercicio</th><th>Planeado</th><th>Realizado</th><th>Carga</th><th>Estado</th>';
+      html += '<th>Ejercicio</th><th>Planeado</th><th>Realizado</th><th>Intensidad</th><th>Estado</th>';
       html += '</tr></thead><tbody>';
       l.ejercicios.forEach(function(e) {
         var ok = e.completado;
@@ -2633,7 +2659,7 @@ function showLogDetail(logId) {
   if (l.ejercicios && l.ejercicios.length) {
     html += '<div style="font-size:11px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">📝 DETALLE DE EJERCICIOS</div>';
     html += '<div style="overflow-x:auto;margin-bottom:14px">';
-    html += '<table><thead><tr><th>Ejercicio</th><th>Planeado</th><th>Carga plan</th><th>Reps real</th><th>Carga real</th><th>Estado</th></tr></thead><tbody>';
+    html += '<table><thead><tr><th>Ejercicio</th><th>Planeado</th><th>Intens. plan</th><th>Reps real</th><th>Intens. real</th><th>Estado</th></tr></thead><tbody>';
     l.ejercicios.forEach(function(e) {
       var ok = e.completado;
       // Progress vs planned
@@ -3058,7 +3084,7 @@ function loadLogExs() {
     html += '<div style="font-size:11px;color:var(--gris);margin-bottom:8px">' + (e.dosis||'') + (e.carga?' · '+e.carga:'') + '</div>';
     html += '<div class="fr">';
     html += '<div class="fg"><label>Reps realizadas</label><input type="text" id="lex_r_'+i+'" placeholder="'+(e.dosis||'')+'"/></div>';
-    html += '<div class="fg"><label>Carga usada</label><input type="text" id="lex_c_'+i+'" placeholder="'+(e.carga||'—')+'"/></div>';
+    html += '<div class="fg"><label>Intensidad usada</label><input type="text" id="lex_c_'+i+'" placeholder="'+(e.carga||'—')+'"/></div>';
     html += '</div></div>';
   });
   html += '</div>';
