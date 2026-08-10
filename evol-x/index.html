@@ -1601,16 +1601,12 @@ function saveUsuario() {
     _saving['usuario'] = true;
     var btn = document.getElementById('u_save_btn');
     if(btn){btn.disabled=true;btn.textContent='⏳ Guardando...';}
-    // Save local immediately
-    d.users.push(nu);
-    save(d);
-    // Send to Drive via POST
-    sync('saveUser', nu, function(res) {
+    saveAndSync('saveUser', nu, function(ok) {
       _saving['usuario'] = false;
       if(btn){btn.disabled=false;btn.textContent='✅ Guardar';}
-      toast(res&&res.ok?'✅ '+nombre+' guardado en Drive':'✅ '+nombre+' guardado localmente');
+      toast('✅ '+nombre+' guardado'+(ok?' en Drive':''));
       closeModal('m_usuario');
-      if (privRole === 'coach' || privRole === 'admin' || privRole === 'recepcion') {
+      if (privRole==='coach'||privRole==='admin'||privRole==='recepcion') {
         pgAdminPanel();
       } else {
         pgUsuarios();
@@ -1639,10 +1635,12 @@ function saveUsuario() {
     var savedUser2 = d.users[idx];
     var savedRole2 = savedUser2 ? savedUser2.role : '';
     save(d);
-    sync('saveUser', savedUser2, function(res) {
+    _saving['usuario'] = true;
+    if(btn2){btn2.disabled=true;btn2.textContent='⏳ Guardando...';}
+    saveAndSync('saveUser', savedUser2, function(ok) {
       _saving['usuario'] = false;
       if(btn2){btn2.disabled=false;btn2.textContent='✅ Guardar';}
-      toast(res&&res.ok?'✅ Actualizado en Drive':'✅ Actualizado localmente');
+      toast('✅ Actualizado'+(ok?' en Drive':''));
       closeModal('m_usuario');
       if (savedRole2==='coach'||savedRole2==='admin'||savedRole2==='recepcion') {
         pgAdminPanel();
