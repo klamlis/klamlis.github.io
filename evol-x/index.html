@@ -326,7 +326,7 @@ tr:hover td{background:var(--s1)}
   <input type="hidden" id="u_edit_id"/>
   <div class="fr">
     <div class="fg"><label>Nombre completo</label><input type="text" id="u_nombre" style="text-transform:uppercase"/></div>
-    <div class="fg"><label>Username</label><input type="text" id="u_username" style="text-transform:uppercase"/></div>
+    <div class="fg"><label>Username</label><input type="text" id="u_username"/></div>
   </div>
   <div class="fr">
     <div class="fg"><label>Contraseña</label><div class="pass-wrap"><input type="password" id="u_pass"/><button type="button" class="eye-btn" data-target="u_pass">👁</button></div></div>
@@ -442,7 +442,7 @@ tr:hover td{background:var(--s1)}
     <div class="fg"><label>Nombre del plan</label><input type="text" id="rut_nombre" placeholder="Ej: ABRIL — MES 1" style="text-transform:uppercase"/></div>
   </div>
   <div class="fr">
-    <div class="fg"><label>Semana #</label><input type="number" id="rut_semana" min="1" max="52"/></div>
+    <div class="fg" style="display:none"><input type="hidden" id="rut_semana" value="1"/></div>
     <div class="fg"><label>Intensidad</label>
       <select id="rut_int">
         <option>Baja (5-6)</option><option selected>Media (7-8)</option>
@@ -450,7 +450,7 @@ tr:hover td{background:var(--s1)}
       </select>
     </div>
   </div>
-  <div class="fg"><label>Objetivo</label><input type="text" id="rut_obj" placeholder="Mejorar condición física"/></div>
+  <div class="fg"><label>Objetivo</label><input type="text" id="rut_obj" placeholder="MEJORAR CONDICIÓN FÍSICA" style="text-transform:uppercase"/></div>
   <div class="fr">
     <div class="fg"><label>Fecha inicio vigencia</label><input type="date" id="rut_fecha_ini"/></div>
     <div class="fg"><label>Fecha fin vigencia (cambio estimado)</label><input type="date" id="rut_fecha_fin"/></div>
@@ -904,9 +904,9 @@ function login() {
     var uUpper = u.toUpperCase();
     for (var i = 0; i < d2.users.length; i++) {
       var usr = d2.users[i];
-      var usrName = (usr.username || '').toUpperCase();
+      var usrName = (usr.username || '').toLowerCase();
       var usrEmail = (usr.email || '').toLowerCase();
-      if ((usrName === uUpper || usrEmail === uLower) && usr.password === p) {
+      if ((usrName === uLower || usrEmail === uLower) && usr.password === p) {
         user = usr; break;
       }
     }
@@ -1568,7 +1568,7 @@ function saveUsuario() {
   if (_saving['usuario']) return;
   var editId   = document.getElementById('u_edit_id').value;
   var nombre   = document.getElementById('u_nombre').value.trim().toUpperCase();
-  var username = document.getElementById('u_username').value.trim().toUpperCase();
+  var username = document.getElementById('u_username').value.trim();
   var pass     = document.getElementById('u_pass').value;
   if (!nombre||!username) { toast('Nombre y username son obligatorios'); return; }
   var d = db();
@@ -1885,13 +1885,18 @@ function renderEjGrid(exs) {
     html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px">';
     grupos[g].forEach(function(e) {
       // Store ID in data attribute, attach listeners after render
-      html += '<div class="card" style="padding:13px">';
+      var uKey = (e.nombre||'').toUpperCase();
+      var times = usageCount[uKey]||0;
+      var borderStyle = e.incompleto ? 'border:1px solid #ff6b35;' : '';
+      html += '<div class="card" style="padding:13px;'+borderStyle+'">';
+      if (e.incompleto) html += '<div style="font-size:10px;background:#ff6b35;color:#fff;padding:2px 8px;border-radius:4px;margin-bottom:6px;font-weight:700">⚠️ INFORMACIÓN INCOMPLETA</div>';
       html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">';
       html += '<div style="font-weight:600;font-size:13px">' + e.nombre + '</div>';
       html += '<div style="display:flex;gap:4px">';
       html += '<button class="btn btn-g btn-sm ej-edit-btn" data-id="' + e.id + '">✏️ Editar</button>';
       html += '<button class="btn btn-d btn-sm ej-del-btn" data-id="' + e.id + '">🗑️</button>';
       html += '</div></div>';
+      html += '<div style="font-size:11px;color:var(--cyan);margin-bottom:4px">📋 Usado en rutinas: <strong>' + times + '</strong> vez' + (times!==1?'es':'') + '</div>';
       if (e.equipo) html += '<div style="font-size:11px;color:var(--gris);margin-bottom:4px">' + e.equipo + '</div>';
       if (e.desc) html += '<div style="font-size:11px;color:var(--gris);line-height:1.5">' + e.desc + '</div>';
       if (e.video) html += '<a href="' + e.video + '" target="_blank" style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:600;background:rgba(0,212,245,0.15);color:#00d4f5;border:1px solid rgba(0,212,245,0.35);text-decoration:none;margin-top:8px">▶ Ver video</a>';
@@ -2089,7 +2094,7 @@ function renderRutinaContent(r) {
   var html = '';
   (r.dias || []).forEach(function(dia) {
     html += '<div class="w-day"><div class="w-day-hdr"><span class="w-day-t">' + dia.nombre + '</span><span class="w-day-s">' + (dia.tipo||'') + '</span></div>';
-    html += '<div class="ex-hdr"><span>Ejercicio</span><span>Series×Reps</span><span>Carga</span><span>Descanso</span><span>Video</span></div>';
+    html += '<div class="ex-hdr"><span>Ejercicio</span><span>Series×Reps</span><span>Intensidad</span><span>Descanso</span><span>Video</span></div>';
     (dia.ejercicios||[]).forEach(function(e) {
       var vidHtml = e.videoUrl ? '<a href="' + e.videoUrl + '" target="_blank" style="font-size:10px;color:var(--cyan);text-decoration:none">▶ Ver</a>' : '—';
       html += '<div class="ex-row"><span style="font-weight:500">' + e.nombre + '</span><span style="color:var(--gris)">' + (e.dosis||'—') + '</span><span style="color:var(--gris)">' + (e.carga||'—') + '</span><span style="color:var(--gris)">' + (e.descanso||'—') + '</span><span>' + vidHtml + '</span></div>';
@@ -2219,11 +2224,11 @@ function saveRutina() {
   if (_saving['rutina']) return;
   var editId   = document.getElementById('rut_edit_id').value;
   var userId   = document.getElementById('rut_uid').value;
-  var semana   = parseInt(document.getElementById('rut_semana').value)||0;
+  var semana   = parseInt(document.getElementById('rut_semana').value) || Date.now();
   var nombre   = (document.getElementById('rut_nombre').value||'Semana '+semana).toUpperCase();
   var fechaIni = document.getElementById('rut_fecha_ini').value||new Date().toISOString().split('T')[0];
   var fechaFin = document.getElementById('rut_fecha_fin').value||'';
-  if(!userId||!semana){toast('Selecciona usuario y número de semana');return;}
+  if(!userId){toast('Selecciona un usuario');return;}
   var dias={
     dia1:{dia:'dia1',nombre:'Día 1',tipo:'',ejercicios:[]},
     dia2:{dia:'dia2',nombre:'Día 2',tipo:'',ejercicios:[]},
@@ -2241,8 +2246,27 @@ function saveRutina() {
     var vid=vidRaw;
     var ytM=vidRaw.match(/(?:youtu\.be\/|youtube\.com\/watch\?v=)([^&\s]+)/);
     if(ytM) vid='https://www.youtube.com/embed/'+ytM[1];
+    var exNombre = elN.value.trim().toUpperCase();
+    // Check if exercise exists in biblioteca, if not create it
+    var exExists = false;
+    for(var ei=0;ei<d.ejercicios.length;ei++){
+      if((d.ejercicios[ei].nombre||'').toUpperCase()===exNombre){exExists=true;break;}
+    }
+    if(!exExists && exNombre){
+      var newEj = {
+        id:'ej_'+Date.now()+'_'+i,
+        nombre:exNombre,
+        grupo:'SIN CLASIFICAR',
+        descripcion:'',
+        videoUrl:vid||'',
+        incompleto:true
+      };
+      d.ejercicios.push(newEj);
+      sync('saveEjercicio', newEj, function(){});
+      toast('⚠️ "'+exNombre+'" creado en biblioteca. Completa su información.');
+    }
     dias[diaKey].ejercicios.push({
-      nombre:elN.value.trim().toUpperCase(),
+      nombre:exNombre,
       dosis:(document.getElementById('rex_dos_'+i)||{value:''}).value,
       intensidad:(document.getElementById('rex_car_'+i)||{value:''}).value,
       descanso:(document.getElementById('rex_des_'+i)||{value:''}).value,
@@ -2795,7 +2819,7 @@ function pgMiRutina() {
   r.dias.forEach(function(dia, i) {
     html += '<div id="rd_'+i+'" class="' + (i>0?'hidden':'') + '">';
     html += '<div class="w-day"><div class="w-day-hdr"><span class="w-day-t">'+dia.nombre+'</span><span class="w-day-s">'+(dia.tipo||'')+'</span></div>';
-    html += '<div class="ex-hdr"><span>Ejercicio</span><span>Series×Reps</span><span>Carga</span><span>Descanso</span><span>Video</span></div>';
+    html += '<div class="ex-hdr"><span>Ejercicio</span><span>Series×Reps</span><span>Intensidad</span><span>Descanso</span><span>Video</span></div>';
     (dia.ejercicios||[]).forEach(function(e) {
       var vidHtml = '—';
       if (e.videoUrl) {
