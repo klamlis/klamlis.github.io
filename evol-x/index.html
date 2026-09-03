@@ -416,11 +416,15 @@ tr:hover td{background:var(--s1)}
   <div class="fr">
     <div class="fg"><label>Nombre</label><input type="text" id="ej_nombre" style="text-transform:uppercase" placeholder="Ej: Sentadilla con barra"/></div>
     <div class="fg"><label>Grupo muscular</label>
-      <select id="ej_grupo" style="text-transform:uppercase">
-        <option>Pierna</option><option>Glúteo</option><option>Espalda</option>
-        <option>Pecho</option><option>Hombro</option><option>Bíceps</option>
-        <option>Tríceps</option><option>Core</option><option>Full Body</option><option>Cardio</option>
-      </select>
+      <select id="ej_grupo" style="width:100%;text-transform:uppercase">
+    <option>PIERNA</option><option>GLÚTEO</option><option>ESPALDA</option>
+    <option>PECHO</option><option>HOMBRO</option><option>BÍCEPS</option>
+    <option>TRÍCEPS</option><option>CORE/ABDOMEN</option>
+    <option>CUELLO</option><option>ANTEBRAZO</option>
+    <option>CARDIO</option><option>FULL BODY</option>
+    <option>POTENCIA</option><option>PLIOMETRÍA</option>
+    <option>SIN CLASIFICAR</option>
+  </select>
     </div>
   </div>
   <div class="fr">
@@ -1990,7 +1994,7 @@ function openNewEj() {
   document.getElementById('m_ej_title').textContent = 'NUEVO EJERCICIO';
   document.getElementById('ej_edit_id').value = '';
   ['ej_nombre','ej_video','ej_equipo','ej_desc'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
-  document.getElementById('ej_grupo').value = 'Pierna';
+  document.getElementById('ej_grupo').value = 'PIERNA';
   openModal('m_ejercicio');
 }
 
@@ -2241,7 +2245,7 @@ function rutRenderDayPanel() {
     var bc = tipo==='biserie'?'#00e676':tipo==='triserie'?'#ff9800':'rgba(0,212,245,0.3)';
     var lbl = tipo==='biserie'?'BISERIE':tipo==='triserie'?'TRISERIE':'EJERCICIO';
     var subCount = tipo==='triserie'?3:tipo==='biserie'?2:1;
-    h += '<div class="rut-ex-card" data-idx="'+i+'" draggable="true" style="background:rgba(0,0,0,0.2);border:1px solid '+bc+';border-radius:10px;padding:12px;">';
+    h += '<div class="rut-ex-card" data-idx="'+i+'" draggable="true" style="background:rgba(0,0,0,0.2);border:1px solid '+bc+';border-radius:10px;padding:12px;user-select:none;">';
     h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
     h += '<span style="font-size:10px;font-weight:700;color:'+bc+'">⠿ '+lbl+' #'+(i+1)+'</span>';
     h += '<button class="rut-ex-rem" data-idx="'+i+'" data-dk="'+dk+'" style="background:none;border:none;color:var(--gris);cursor:pointer;font-size:18px;line-height:1">×</button>';
