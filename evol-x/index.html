@@ -503,6 +503,7 @@ tr:hover td{background:var(--s1)}
   <div class="hr"></div>
   <div class="fr">
     <div class="fg" style="display:none"><input type="hidden" id="log_peso" value=""/></div>
+  <div id="log_last_weight" style="font-size:11px;color:var(--cyan);margin:4px 0 8px;padding:6px 10px;background:rgba(0,212,245,0.07);border-radius:6px;border-left:2px solid var(--cyan)"></div>
     <div class="fg"><label>Esfuerzo percibido (1-10)</label>
       <select id="log_esfuerzo">
         <option value="">— Selecciona —</option>
@@ -1394,16 +1395,14 @@ function memStatus(u) {
   return { label: 'Activa ' + diff + 'd', color: '#80d4a0' };
 }
 
-function fDate(s) { try { return new Date(s).toLocaleDateString('es-CO', {day:'numeric',month:'short',year:'numeric'}); } catch(e) { return s; } }
-function numF(v) { return parseFloat(v) || null; }
-function ini(name) { return name.split(' ').map(function(n){return n[0];}).join('').slice(0,2).toUpperCase(); }
-
-function getMedDiff(last, first, key) {
-  if (!first || !last[key] || !first[key] || first[key] === last[key]) return '';
-  var diff = (last[key] - first[key]).toFixed(1);
-  var isGood = ['muslo','musloMedio','brazoD','brazoI','pectoral','talla'].indexOf(key) >= 0 ? diff > 0 : diff < 0;
-  var color = isGood ? '#80d4a0' : '#ff8080';
-  return '<div class="m-diff" style="color:' + color + '">' + (diff > 0 ? '+' : '') + diff + '</div>';
+function fDate(str) {
+  if (!str) return '';
+  var parts = str.split('-');
+  if (parts.length === 3) {
+    var months = ['ene','feb','mar','abr','may','jun','jul','ago','sept','oct','nov','dic'];
+    return parseInt(parts[2])+' de '+months[parseInt(parts[1])-1]+' de '+parts[0];
+  }
+  return str;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2192,7 +2191,7 @@ function renderRutinaContent(r) {
         for (var g = 0; g < gSize && (i+g) < exs.length; g++) {
           var ge = exs[i+g];
           var subLbl = g === 0 ? 'A' : g === 1 ? 'B' : 'C';
-          var vidH = ge.videoUrl ? ' <a href="'+ge.videoUrl+'" target="_blank" style="color:var(--cyan);font-size:10px">▶</a>' : '';
+          var vidH = ge.videoUrl ? ' <button class="vid-play-btn" data-url="'+ge.videoUrl+'" style="background:none;border:1px solid var(--cyan);border-radius:12px;padding:2px 8px;color:var(--cyan);font-size:10px;cursor:pointer">▶ Ver</button>' : '';
           html += '<div style="margin-bottom:6px;padding:6px 8px;background:rgba(0,0,0,0.25);border-radius:6px">';
           html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">';
           html += '<span style="font-size:11px;font-weight:800;color:'+gColor+'">'+subLbl+'</span>';
@@ -2208,7 +2207,7 @@ function renderRutinaContent(r) {
         html += '</div>';
         i += gSize;
       } else {
-        var vidHtml = e.videoUrl ? ' <a href="'+e.videoUrl+'" target="_blank" style="color:var(--cyan);font-size:10px">▶ Ver</a>' : '';
+        var vidHtml = e.videoUrl ? ' <button class="vid-play-btn" data-url="'+e.videoUrl+'" style="background:none;border:1px solid var(--cyan);border-radius:12px;padding:2px 8px;color:var(--cyan);font-size:10px;cursor:pointer">▶ Ver</button>' : '';
         html += '<div style="padding:10px;border:1px solid rgba(0,212,245,0.15);border-radius:10px;margin-bottom:6px">';
         html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">';
         html += '<span style="font-size:12px;font-weight:600">'+e.nombre+'</span>'+vidHtml+'</div>';
@@ -2740,7 +2739,9 @@ function showLogDetail(logId) {
   for (var i=0;i<d.rutinas.length;i++){if(d.rutinas[i].id===l.rutId){r=d.rutinas[i];break;}}
   var diaData = null;
   if (r){for(var i=0;i<r.dias.length;i++){if(r.dias[i].dia===l.dia){diaData=r.dias[i];break;}}}
-  var dt = new Date(l.fecha);
+  // Direct date parse to avoid UTC shift
+  var dtParts2 = (l.fecha||'').split('-');
+  var dtDay2 = dtParts2.length===3?parseInt(dtParts2[2]):1;
   var isCoach = CU.role==='coach' || CU.role==='admin' || CU.role==='recepcion';
   var esfColor = l.esfuerzo >= 8 ? '#ff8080' : l.esfuerzo >= 6 ? '#ffaa44' : '#80d4a0';
 
@@ -2771,27 +2772,24 @@ function showLogDetail(logId) {
   if (l.ejercicios && l.ejercicios.length) {
     html += '<div style="font-size:11px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">📝 DETALLE DE EJERCICIOS</div>';
     html += '<div style="overflow-x:auto;margin-bottom:14px">';
-    html += '<table><thead><tr><th>Ejercicio</th><th>Planeado</th><th>Intens. plan</th><th>Reps real</th><th>Intens. real</th><th>Estado</th></tr></thead><tbody>';
+    html += '<table><thead><tr><th>Ejercicio</th><th>Planeado</th><th>Int. plan</th><th>Reps real</th><th>Int. real</th><th>Estado</th></tr></thead><tbody>';
     l.ejercicios.forEach(function(e) {
-      var ok = e.completado;
-      // Progress vs planned
-      var progress = '';
-      if (e.reps && e.dosisPlaneada) {
-        var planNum = parseInt(e.dosisPlaneada.match(/\d+/g)||[0]);
-        var realNum = parseInt(e.reps.match(/\d+/g)||[0]);
-        if (planNum && realNum) {
-          var pct = Math.round(realNum/planNum*100);
-          progress = ' <span style="font-size:10px;color:'+(pct>=100?'#80d4a0':pct>=80?'#ffaa44':'#ff8080')+'">'+pct+'%</span>';
-        }
-      }
+      var ok = e.completado || !!(e.repsReal || e.intensidadReal);
+      var repsReal = e.repsReal || e.reps || '—';
+      var intReal  = e.intensidadReal || e.carga || '—';
+      var intPlan  = e.intensidadPlaneada || e.cargaPlaneada || '—';
+      var dosis    = e.dosisPlaneada || '—';
       html += '<tr>';
       html += '<td style="font-weight:500">'+e.nombre+'</td>';
-      html += '<td style="color:var(--gris)">'+( e.dosisPlaneada||'—')+'</td>';
-      html += '<td style="color:var(--gris)">'+( e.cargaPlaneada||'—')+'</td>';
-      html += '<td style="color:'+(ok?'#80d4a0':'#ff8080')+'">'+( e.reps||'—')+progress+'</td>';
-      html += '<td style="color:'+(ok?'#80d4a0':'var(--gris)')+'">'+( e.carga||'—')+'</td>';
+      html += '<td style="color:var(--gris)">'+dosis+'</td>';
+      html += '<td style="color:var(--gris)">'+intPlan+'</td>';
+      html += '<td style="color:'+(ok?'#80d4a0':'#ff8080')+'">'+repsReal+'</td>';
+      html += '<td style="color:'+(ok?'#80d4a0':'var(--gris)')+'">'+intReal+'</td>';
       html += '<td><span class="badge '+(ok?'bk':'bw')+'">'+(ok?'✓ OK':'No registrado')+'</span></td>';
       html += '</tr>';
+      if(e.comentarioUsuario){
+        html += '<tr><td colspan="6" style="padding:3px 8px 8px;font-size:11px;color:var(--cyan);font-style:italic">💬 '+e.comentarioUsuario+'</td></tr>';
+      }
     });
     html += '</tbody></table></div>';
   }
@@ -3168,6 +3166,14 @@ function openLogModal() {
   document.getElementById('log_fecha').value = dateCOL();
   document.getElementById('log_dur').value = '';
   document.getElementById('log_peso').value = '';
+  // Show last weight and coach rutina intensity suggestion
+  var d0 = db();
+  var myMeds = (d0.medidas||[]).filter(function(m){return m.userId===CU.id;}).sort(function(a,b){return b.fecha>a.fecha?1:-1;});
+  var lastWeightEl = document.getElementById('log_last_weight');
+  if(lastWeightEl && myMeds.length) {
+    var lastW = myMeds[0].peso;
+    lastWeightEl.textContent = lastW ? 'Tu último peso registrado: '+lastW+' kg ('+myMeds[0].fecha+')' : '';
+  } else if(lastWeightEl) { lastWeightEl.textContent = ''; }
   document.getElementById('log_comment').value = '';
   loadLogExs();
   openModal('m_log');
@@ -3182,6 +3188,14 @@ function openLogForDia(rutId, diaVal) {
   document.getElementById('log_fecha').value = dateCOL();
   document.getElementById('log_dur').value = '';
   document.getElementById('log_peso').value = '';
+  // Show last weight and coach rutina intensity suggestion
+  var d0 = db();
+  var myMeds = (d0.medidas||[]).filter(function(m){return m.userId===CU.id;}).sort(function(a,b){return b.fecha>a.fecha?1:-1;});
+  var lastWeightEl = document.getElementById('log_last_weight');
+  if(lastWeightEl && myMeds.length) {
+    var lastW = myMeds[0].peso;
+    lastWeightEl.textContent = lastW ? 'Tu último peso registrado: '+lastW+' kg ('+myMeds[0].fecha+')' : '';
+  } else if(lastWeightEl) { lastWeightEl.textContent = ''; }
   document.getElementById('log_comment').value = '';
   loadLogExs();
   openModal('m_log');
@@ -3336,15 +3350,37 @@ function saveLog() {
   for(var i=0;i<d.rutinas.length;i++){if(d.rutinas[i].id===rutId){r=d.rutinas[i];break;}}
   var diaData = null;
   if(r){for(var i=0;i<r.dias.length;i++){if(r.dias[i].dia===dia){diaData=r.dias[i];break;}}}
+  // Collect ejercicios from new combo fields
   var ejercicios = [];
-  if(diaData&&diaData.ejercicios){
-    diaData.ejercicios.forEach(function(e,i){
-      var rEl=document.getElementById('lex_r_'+i);
-      var cEl=document.getElementById('lex_c_'+i);
-      var reps=rEl?rEl.value.trim():'';
-      var carga=cEl?cEl.value.trim():'';
-      ejercicios.push({nombre:e.nombre,dosisPlaneada:e.dosis||'',cargaPlaneada:e.carga||'',reps:reps,carga:carga,completado:!!(reps||carga)});
-    });
+  var diaExs = (diaData && diaData.ejercicios) || [];
+  var exIdx = 0;
+  var ii = 0;
+  while(ii < diaExs.length) {
+    var planEx = diaExs[ii];
+    var tipo = planEx.tipo || 'simple';
+    var gSize = tipo==='triserie'?3:tipo==='biserie'?2:1;
+    for(var g=0;g<gSize&&(ii+g)<diaExs.length;g++){
+      var pe = diaExs[ii+g];
+      var series = (document.getElementById('lex_s_'+exIdx)||{value:'3'}).value||'3';
+      var reps   = (document.getElementById('lex_rp_'+exIdx)||{value:''}).value||'';
+      var intVal = (document.getElementById('lex_int_'+exIdx)||{value:'—'}).value||'—';
+      var unidad = (document.getElementById('lex_u_'+exIdx)||{value:'kg'}).value||'kg';
+      var com    = (document.getElementById('lex_com_'+exIdx)||{value:''}).value||'';
+      var intReal = (intVal && intVal !== '—') ? intVal+' '+unidad : '';
+      var repsReal = (series && reps) ? series+'x'+reps : '';
+      ejercicios.push({
+        nombre: pe.nombre,
+        dosisPlaneada: pe.dosis||'',
+        intensidadPlaneada: pe.intensidad||pe.carga||'',
+        repsReal: repsReal,
+        intensidadReal: intReal,
+        comentarioUsuario: com,
+        tipo: tipo,
+        completado: !!(repsReal || intReal)
+      });
+      exIdx++;
+    }
+    ii += gSize;
   }
   var log = {id:'l'+Date.now(),userId:CU.id,fecha:fecha,rutId:rutId,semana:r?r.semana:0,
     dia:dia,duracion:duracion,peso:peso,esfuerzo:esfuerzo,dolor:dolor,
@@ -3512,7 +3548,12 @@ function pgMiHistorial() {
   }
 
   allLogs.forEach(function(l) {
-    var dt = new Date(l.fecha);
+    // Parse date directly to avoid UTC timezone issue
+    var dtParts = (l.fecha||'').split('-');
+    var dtDay = dtParts.length===3 ? parseInt(dtParts[2]) : 1;
+    var dtMonthIdx = dtParts.length===3 ? parseInt(dtParts[1])-1 : 0;
+    var dtMonths = ['ene','feb','mar','abr','may','jun','jul','ago','sept','oct','nov','dic'];
+    var dtMonthStr = dtMonths[dtMonthIdx]||'';
     var isLibre = l.tipo === 'libre';
 
     if (isLibre) {
@@ -3521,8 +3562,8 @@ function pgMiHistorial() {
       html += '<div class="card" style="padding:0;margin-bottom:10px">';
       html += '<div style="padding:12px 14px;display:flex;gap:10px;align-items:flex-start">';
       html += '<div class="log-date" style="background:linear-gradient(135deg,#2D6A4F,#40916C)">';
-      html += '<div class="log-d">' + dt.getDate() + '</div>';
-      html += '<div class="log-m">' + dt.toLocaleDateString('es',{month:'short'}) + '</div></div>';
+      html += '<div class="log-d">' + dtDay + '</div>';
+      html += '<div class="log-m">' + dtMonthStr + '</div></div>';
       html += '<div style="flex:1">';
       html += '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">';
       html += '<span style="font-weight:600;font-size:13px">' + (l.actNombre || 'Actividad') + '</span>';
@@ -3976,6 +4017,19 @@ function delPrivUser(uid) {
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px" id="hist_field_tabs"></div>
   <div style="position:relative;height:320px"><canvas id="hist_chart"></canvas></div>
   <div id="hist_feedback_wrap" style="margin-top:16px"></div>
+</div>
+</div>
+
+<!-- VIDEO MODAL -->
+<div class="overlay" id="m_video" onclick="if(event.target===this)closeModal('m_video')">
+<div class="modal" style="width:700px;max-width:96vw;padding:0;background:#000;border-radius:12px;overflow:hidden">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--deep)">
+    <div style="font-weight:700;color:var(--cyan);font-size:13px">▶ VIDEO DEL EJERCICIO</div>
+    <button class="close-btn" onclick="closeVideoModal()">×</button>
+  </div>
+  <div style="position:relative;padding-bottom:56.25%;height:0">
+    <iframe id="vid_iframe" style="position:absolute;top:0;left:0;width:100%;height:100%" src="" frameborder="0" allowfullscreen></iframe>
+  </div>
 </div>
 </div>
 </body>
