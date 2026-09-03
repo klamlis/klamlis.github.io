@@ -235,6 +235,7 @@ tr:hover td{background:var(--s1)}
 .eye-btn { position:absolute; right:8px; background:none; border:none; cursor:pointer; color:var(--gris); font-size:18px; padding:4px; line-height:1; z-index:2; user-select:none; }
 .eye-btn:hover { color:var(--cyan); }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -398,6 +399,22 @@ tr:hover td{background:var(--s1)}
     <div class="fg"><label>Muslo Der (cm)</label><input type="number" id="med_musD" step="0.1"/></div>
     <div class="fg"><label>Muslo Izq (cm)</label><input type="number" id="med_musI" step="0.1"/></div>
   </div>
+  <div class="fr">
+    <div class="fg"><label>Muslo Medio Der (cm)</label><input type="number" id="med_musmD" step="0.1"/></div>
+    <div class="fg"><label>Muslo Medio Izq (cm)</label><input type="number" id="med_musmI" step="0.1"/></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Pantorrilla Der (cm)</label><input type="number" id="med_pantD" step="0.1"/></div>
+    <div class="fg"><label>Pantorrilla Izq (cm)</label><input type="number" id="med_pantI" step="0.1"/></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Brazo Relajado D (cm)</label><input type="number" id="med_bRelD" step="0.1"/></div>
+    <div class="fg"><label>Brazo Relajado I (cm)</label><input type="number" id="med_bRelI" step="0.1"/></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Brazo Contraído D (cm)</label><input type="number" id="med_bConD" step="0.1"/></div>
+    <div class="fg"><label>Brazo Contraído I (cm)</label><input type="number" id="med_bConI" step="0.1"/></div>
+  </div>
   <div id="med_calcs" style="background:rgba(0,212,245,0.07);border-radius:8px;padding:12px;margin-top:8px;font-size:12px;display:none">
     <div style="font-weight:700;color:var(--cyan);margin-bottom:6px">📊 CÁLCULOS AUTOMÁTICOS</div>
     <div id="med_imc_val"></div>
@@ -480,12 +497,13 @@ tr:hover td{background:var(--s1)}
     <div class="fg"><label>Plan</label><select id="log_rut" onchange="loadLogExs()"></select></div>
     <div class="fg"><label>Día</label><select id="log_dia" onchange="loadLogExs()">
       <option value="dia1">Día 1</option><option value="dia2">Día 2</option><option value="dia3">Día 3</option>
+      <option value="dia4">Día 4</option><option value="dia5">Día 5</option><option value="dia6">Día 6</option>
     </select></div>
   </div>
   <div id="log_exs_wrap"></div>
   <div class="hr"></div>
   <div class="fr">
-    <div class="fg"><label>Peso hoy (kg)</label><input type="number" id="log_peso" step="0.1" placeholder="Opcional"/></div>
+    <div class="fg" style="display:none"><input type="hidden" id="log_peso" value=""/></div>
     <div class="fg"><label>Esfuerzo percibido (1-10)</label>
       <select id="log_esfuerzo">
         <option value="">— Selecciona —</option>
@@ -634,6 +652,19 @@ tr:hover td{background:var(--s1)}
 // ═══════════════════════════════════════════════════════════
 //  STORAGE — Simple, directa, confiable
 // ═══════════════════════════════════════════════════════════
+
+// ── ZONA HORARIA COLOMBIA (UTC-5) ────────────────────────────
+function nowCOL() {
+  var d = new Date();
+  d.setTime(d.getTime() - (5 * 60 * 60 * 1000));
+  return d;
+}
+function dateCOL() {
+  var d = nowCOL();
+  var pad = function(n){ return n < 10 ? '0'+n : n; };
+  return d.getUTCFullYear()+'-'+pad(d.getUTCMonth()+1)+'-'+pad(d.getUTCDate());
+}
+
 var DB_KEY = 'evolx_db_v1';
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbyn3D8ieRZSXF6XG3deYEtnSpx3LoemWBv6IDMCWVY3typSsvHh0qhfekmVpuFSHzwMFg/exec';
 var GAS_SECRET = (function(){var _k=['E','v','o','l','X','G','y','m','2','0','2','5','k','Z','9'];return _k.join('');})();
@@ -1751,7 +1782,7 @@ function pgMedidas() {
       var v = last[f.k]; if (!v) return;
       grid += '<div class="m-item"><div class="m-name">' + f.l + '</div><div class="m-val">' + v + '<span class="m-u"> ' + f.u + '</span></div>' + getMedDiff(last, first, f.k) + '</div>';
     });
-    html += '<div class="card"><div class="card-title"><span>📏 ' + u.name + '</span><button class="btn btn-g btn-sm" onclick="openMedidasFor(\'' + u.id + '\')">+ Nueva medición</button></div>';
+    html += '<div class="card"><div class="card-title"><span>📏 ' + u.name + '</span><div style="display:flex;gap:6px"><button class="btn btn-g btn-sm" onclick="openMedidasFor(\'' + u.id + '\')">+ Nueva medición</button><button class="btn btn-g btn-sm" onclick="openHistograma(\'' + u.id + '\')">📊 Histograma</button></div></div>';
     html += '<div class="m-grid">' + grid + '</div>';
     if (meds.length > 1) html += '<div style="margin-top:10px;font-size:11px;color:var(--gris)">▲▼ comparado con primera medición (' + fDate(first.fecha) + ') · Última: ' + fDate(last.fecha) + '</div>';
     html += '</div>';
@@ -1858,6 +1889,14 @@ function saveMedidas() {
     antebrazo: numF(document.getElementById('med_ant').value),
     musloD: numF(document.getElementById('med_musD').value),
     musloI: numF(document.getElementById('med_musI').value),
+    musloMedioD: numF((document.getElementById('med_musmD')||{value:''}).value),
+    musloMedioI: numF((document.getElementById('med_musmI')||{value:''}).value),
+    pantorrillaD: numF((document.getElementById('med_pantD')||{value:''}).value),
+    pantorrillaI: numF((document.getElementById('med_pantI')||{value:''}).value),
+    brazoRelajadoD: numF((document.getElementById('med_bRelD')||{value:''}).value),
+    brazoRelajadoI: numF((document.getElementById('med_bRelI')||{value:''}).value),
+    brazoContraidoD: numF((document.getElementById('med_bConD')||{value:''}).value),
+    brazoContraidoI: numF((document.getElementById('med_bConI')||{value:''}).value),
     obs: document.getElementById('med_obs').value
   };
   _saving['medidas'] = true;
@@ -2139,12 +2178,51 @@ function pgRutinas() {
 function renderRutinaContent(r) {
   var html = '';
   (r.dias || []).forEach(function(dia) {
-    html += '<div class="w-day"><div class="w-day-hdr"><span class="w-day-t">' + dia.nombre + '</span><span class="w-day-s">' + (dia.tipo||'') + '</span></div>';
-    html += '<div class="ex-hdr"><span>Ejercicio</span><span>Series×Reps</span><span>Intensidad</span><span>Descanso</span><span>Video</span></div>';
-    (dia.ejercicios||[]).forEach(function(e) {
-      var vidHtml = e.videoUrl ? '<a href="' + e.videoUrl + '" target="_blank" style="font-size:10px;color:var(--cyan);text-decoration:none">▶ Ver</a>' : '—';
-      html += '<div class="ex-row"><span style="font-weight:500">' + e.nombre + '</span><span style="color:var(--gris)">' + (e.dosis||'—') + '</span><span style="color:var(--gris)">' + (e.carga||'—') + '</span><span style="color:var(--gris)">' + (e.descanso||'—') + '</span><span>' + vidHtml + '</span></div>';
-    });
+    html += '<div class="w-day"><div class="w-day-hdr"><span class="w-day-t">' + dia.nombre + '</span></div>';
+    var exs = dia.ejercicios || [];
+    var i = 0;
+    while (i < exs.length) {
+      var e = exs[i];
+      var tipo = e.tipo || 'simple';
+      if (tipo === 'biserie' || tipo === 'triserie') {
+        var gSize = tipo === 'triserie' ? 3 : 2;
+        var gLabel = tipo === 'biserie' ? '⚡ BISERIE' : '🔥 TRISERIE';
+        var gColor = tipo === 'biserie' ? '#00e676' : '#ff9800';
+        html += '<div style="border:1px solid '+gColor+';border-radius:10px;padding:10px;margin-bottom:8px">';
+        html += '<div style="font-size:10px;font-weight:800;color:'+gColor+';margin-bottom:8px;letter-spacing:1px">'+gLabel+'</div>';
+        for (var g = 0; g < gSize && (i+g) < exs.length; g++) {
+          var ge = exs[i+g];
+          var subLbl = g === 0 ? 'A' : g === 1 ? 'B' : 'C';
+          var vidH = ge.videoUrl ? ' <a href="'+ge.videoUrl+'" target="_blank" style="color:var(--cyan);font-size:10px">▶</a>' : '';
+          html += '<div style="margin-bottom:6px;padding:6px 8px;background:rgba(0,0,0,0.25);border-radius:6px">';
+          html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">';
+          html += '<span style="font-size:11px;font-weight:800;color:'+gColor+'">'+subLbl+'</span>';
+          html += '<span style="font-size:12px;font-weight:600">'+ge.nombre+'</span>'+vidH+'</div>';
+          html += '<div style="font-size:11px;color:var(--gris)">';
+          if(ge.dosis) html += '📊 '+ge.dosis;
+          if(ge.intensidad||ge.carga) html += ' &nbsp;💪 '+(ge.intensidad||ge.carga);
+          if(ge.descanso) html += ' &nbsp;⏱ '+ge.descanso;
+          html += '</div>';
+          if(ge.comentario) html += '<div style="font-size:11px;color:var(--cyan);margin-top:4px;padding:3px 8px;background:rgba(0,212,245,0.08);border-radius:6px;border-left:2px solid var(--cyan)">💬 '+ge.comentario+'</div>';
+          html += '</div>';
+        }
+        html += '</div>';
+        i += gSize;
+      } else {
+        var vidHtml = e.videoUrl ? ' <a href="'+e.videoUrl+'" target="_blank" style="color:var(--cyan);font-size:10px">▶ Ver</a>' : '';
+        html += '<div style="padding:10px;border:1px solid rgba(0,212,245,0.15);border-radius:10px;margin-bottom:6px">';
+        html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">';
+        html += '<span style="font-size:12px;font-weight:600">'+e.nombre+'</span>'+vidHtml+'</div>';
+        html += '<div style="font-size:11px;color:var(--gris)">';
+        if(e.dosis) html += '📊 '+e.dosis;
+        if(e.intensidad||e.carga) html += ' &nbsp;💪 '+(e.intensidad||e.carga);
+        if(e.descanso) html += ' &nbsp;⏱ '+e.descanso;
+        html += '</div>';
+        if(e.comentario) html += '<div style="font-size:11px;color:var(--cyan);margin-top:4px;padding:3px 8px;background:rgba(0,212,245,0.08);border-radius:6px;border-left:2px solid var(--cyan)">💬 '+e.comentario+'</div>';
+        html += '</div>';
+        i++;
+      }
+    }
     html += '</div>';
   });
   return html;
@@ -2346,7 +2424,7 @@ function openNuevaRutina(uid) {
   document.getElementById('rut_nombre').value = '';
   document.getElementById('rut_obj').value = '';
   document.getElementById('rut_int').value = 'Media (7-8)';
-  var hoy = new Date().toISOString().split('T')[0];
+  var hoy = dateCOL();
   document.getElementById('rut_fecha_ini').value = hoy;
   var fin = new Date(); fin.setDate(fin.getDate()+28);
   document.getElementById('rut_fecha_fin').value = fin.toISOString().split('T')[0];
@@ -3076,7 +3154,7 @@ function openLogModal() {
   var ruts = d.rutinas.filter(function(r){return r.userId===CU.id;});
   var sel = document.getElementById('log_rut');
   sel.innerHTML = ruts.map(function(r){return '<option value="'+r.id+'">'+(r.nombre||'Semana '+r.semana)+'</option>';}).join('');
-  document.getElementById('log_fecha').value = new Date().toISOString().split('T')[0];
+  document.getElementById('log_fecha').value = dateCOL();
   document.getElementById('log_dur').value = '';
   document.getElementById('log_peso').value = '';
   document.getElementById('log_comment').value = '';
@@ -3090,7 +3168,7 @@ function openLogForDia(rutId, diaVal) {
   var sel = document.getElementById('log_rut');
   sel.innerHTML = ruts.map(function(r){return '<option value="'+r.id+'"'+(r.id===rutId?' selected':'')+'>'+( r.nombre||'Semana '+r.semana)+'</option>';}).join('');
   document.getElementById('log_dia').value = diaVal;
-  document.getElementById('log_fecha').value = new Date().toISOString().split('T')[0];
+  document.getElementById('log_fecha').value = dateCOL();
   document.getElementById('log_dur').value = '';
   document.getElementById('log_peso').value = '';
   document.getElementById('log_comment').value = '';
@@ -3699,5 +3777,16 @@ function delPrivUser(uid) {
   pgAdminPanel();
 }
 </script>
+
+<!-- HISTOGRAMA MEDIDAS -->
+<div class="overlay" id="m_histograma">
+<div class="modal" style="width:900px;max-width:98vw">
+  <div class="modal-title">📊 HISTOGRAMA DE MEDIDAS<button class="close-btn" onclick="closeModal('m_histograma')">×</button></div>
+  <div id="hist_user_name" style="font-size:13px;color:var(--cyan);margin-bottom:12px;font-weight:700"></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px" id="hist_field_tabs"></div>
+  <div style="position:relative;height:320px"><canvas id="hist_chart"></canvas></div>
+  <div id="hist_feedback_wrap" style="margin-top:16px"></div>
+</div>
+</div>
 </body>
 </html>
