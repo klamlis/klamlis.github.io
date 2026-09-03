@@ -667,6 +667,25 @@ function dateCOL() {
 }
 
 var DB_KEY = 'evolx_db_v1';
+
+// ── UTILITY FUNCTIONS ─────────────────────────────────────────
+function ini(name) {
+  if (!name) return '?';
+  return (name||'').split(' ').map(function(n){return n[0]||'';}).join('').slice(0,2).toUpperCase();
+}
+
+function numF(v) { return parseFloat(v) || null; }
+
+function fDate(str) {
+  if (!str) return '';
+  var parts = str.split('-');
+  if (parts.length === 3) {
+    var months = ['ene','feb','mar','abr','may','jun','jul','ago','sept','oct','nov','dic'];
+    return parseInt(parts[2])+' de '+months[parseInt(parts[1])-1]+' de '+parts[0];
+  }
+  return str;
+}
+
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbyn3D8ieRZSXF6XG3deYEtnSpx3LoemWBv6IDMCWVY3typSsvHh0qhfekmVpuFSHzwMFg/exec';
 var GAS_SECRET = (function(){var _k=['E','v','o','l','X','G','y','m','2','0','2','5','k','Z','9'];return _k.join('');})();
 
@@ -1391,15 +1410,7 @@ function memStatus(u) {
   return { label: 'Activa ' + diff + 'd', color: '#80d4a0' };
 }
 
-function fDate(str) {
-  if (!str) return '';
-  var parts = str.split('-');
-  if (parts.length === 3) {
-    var months = ['ene','feb','mar','abr','may','jun','jul','ago','sept','oct','nov','dic'];
-    return parseInt(parts[2])+' de '+months[parseInt(parts[1])-1]+' de '+parts[0];
-  }
-  return str;
-}
+
 
 // ═══════════════════════════════════════════════════════════
 //  COACH: DASHBOARD
@@ -1755,6 +1766,14 @@ function openMembresiaFor(uid) {
 // ═══════════════════════════════════════════════════════════
 //  COACH: MEDIDAS
 // ═══════════════════════════════════════════════════════════
+function getMedDiff(last, first, key) {
+  if (!last || !first || !last[key] || !first[key]) return '';
+  var diff = parseFloat(last[key]) - parseFloat(first[key]);
+  if (!diff) return '';
+  var color = diff < 0 ? '#80d4a0' : '#ff8080';
+  return '<div style="font-size:10px;color:'+color+';margin-top:2px">'+(diff>0?'+':'')+diff.toFixed(1)+'</div>';
+}
+
 function pgMedidas() {
   var d = db();
   var usr = d.users.filter(function(u){return u.role==='user';});
@@ -4084,6 +4103,18 @@ function renderHistograma() {
   var fbEl=document.getElementById('hist_feedback_wrap');
   if(fbEl) fbEl.innerHTML = hasFb?fbHtml:'<div style="font-size:12px;color:var(--gris)">Sin retroalimentaciones aún.</div>';
 }
+
+// ── APP STARTUP ──────────────────────────────────────────────
+(function() {
+  // Run after DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+      autoFillLogin();
+    });
+  } else {
+    autoFillLogin();
+  }
+})();
 </script>
 
 <!-- HISTOGRAMA MEDIDAS -->
