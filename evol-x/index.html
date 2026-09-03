@@ -1158,15 +1158,7 @@ document.addEventListener('click', function(e) {
 });
 
 // Event delegation for SI/NO buttons
-document.addEventListener('click', function(e) {
-  var el = e.target;
-  if (!el || !el.classList) return;
-  if (el.classList.contains('sino-btn')) {
-    var key = el.getAttribute('data-key');
-    var val = el.getAttribute('data-val');
-    if (key && val) selRad(key, val);
-  }
-});
+
 
 function getRad(field) {
   var si = document.getElementById('ro_'+field+'_si');
@@ -3684,6 +3676,12 @@ function pgMiPerfil() {
     html += '</div>';
   }
   setMain(html);
+}
+
+function closeVideoModal() {
+  var iframe = document.querySelector('#m_video iframe');
+  if (iframe) iframe.src = '';
+  closeModal('m_video');
 }
 
 function showVideoModal(url, nombre) {
