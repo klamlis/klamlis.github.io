@@ -3124,22 +3124,45 @@ function pgMiRutina() {
   html += '</div>';
   r.dias.forEach(function(dia, i) {
     html += '<div id="rd_'+i+'" class="' + (i>0?'hidden':'') + '">';
-    html += '<div class="w-day"><div class="w-day-hdr"><span class="w-day-t">'+dia.nombre+'</span><span class="w-day-s">'+(dia.tipo||'')+'</span></div>';
-    html += '<div class="ex-hdr"><span>Ejercicio</span><span>Series×Reps</span><span>Intensidad</span><span>Descanso</span><span>Video</span></div>';
-    (dia.ejercicios||[]).forEach(function(e) {
-      var vidHtml = '—';
-      if (e.videoUrl) {
-        // Check if it's a YouTube embed
-        if (e.videoUrl.indexOf('youtube.com/embed/') >= 0 || e.videoUrl.indexOf('youtu.be/') >= 0) {
-          var embedUrl = e.videoUrl.indexOf('youtube.com/embed/') >= 0 ? e.videoUrl : e.videoUrl.replace('youtu.be/','youtube.com/embed/');
-          vidHtml = '<button class="vid-play-btn" data-url="'+embedUrl+'" data-nom="'+e.nombre.replace(/"/g,'&quot;')+'" style="background:rgba(119,0,105,0.2);border:1px solid rgba(119,0,105,0.4);color:var(--cyan);font-size:10px;font-weight:600;padding:3px 9px;border-radius:20px;cursor:pointer;font-family:inherit">&#9654; Ver video</button>';
-        } else {
-          vidHtml = '<a href="'+e.videoUrl+'" target="_blank" style="font-size:10px;color:var(--cyan);text-decoration:none;font-weight:600">▶ Ver</a>';
+    // Use renderRutinaContent-style display for each day
+    var exs = dia.ejercicios || [];
+    var di = 0;
+    while (di < exs.length) {
+      var e = exs[di];
+      var tipo = e.tipo || 'simple';
+      var gSize = tipo==='triserie'?3:tipo==='biserie'?2:1;
+      var gColor = tipo==='biserie'?'#00e676':tipo==='triserie'?'#ff9800':'rgba(0,212,245,0.2)';
+      var gLabel = tipo==='biserie'?'⚡ BISERIE':tipo==='triserie'?'🔥 TRISERIE':'';
+      if (gLabel) {
+        html += '<div style="border:1px solid '+gColor+';border-radius:10px;padding:10px;margin-bottom:8px">';
+        html += '<div style="font-size:10px;font-weight:800;color:'+gColor+';margin-bottom:8px">'+gLabel+'</div>';
+        for (var g=0;g<gSize&&(di+g)<exs.length;g++) {
+          var ge = exs[di+g];
+          var subLbl = g===0?'A':g===1?'B':'C';
+          var vidH2 = ge.videoUrl?'<button class="vid-play-btn" data-url="'+ge.videoUrl+'" style="background:none;border:1px solid var(--cyan);border-radius:12px;padding:2px 8px;color:var(--cyan);font-size:10px;cursor:pointer">▶ Ver</button>':'';
+          html += '<div style="margin-bottom:6px;padding:6px 8px;background:rgba(0,0,0,0.2);border-radius:6px">';
+          html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">';
+          html += '<span style="font-weight:800;font-size:11px;color:'+gColor+'">'+subLbl+'</span>';
+          html += '<span style="font-size:12px;font-weight:600">'+ge.nombre+'</span>'+vidH2+'</div>';
+          html += '<div style="font-size:11px;color:var(--gris);margin-bottom:3px">📊 '+(ge.dosis||'—')+(ge.descanso?' &nbsp;⏱ '+ge.descanso:'')+'</div>';
+          if(ge.intensidad) html += '<div style="font-size:11px;margin-bottom:3px"><span style="padding:2px 8px;background:rgba(0,212,245,0.1);border:1px solid rgba(0,212,245,0.3);border-radius:20px;color:var(--cyan)">💪 RIR sugerido: '+ge.intensidad+'</span></div>';
+          if(ge.comentario) html += '<div style="font-size:11px;padding:4px 8px;background:rgba(0,212,245,0.07);border-left:2px solid var(--cyan);border-radius:6px;color:var(--cyan)">💬 '+ge.comentario+'</div>';
+          html += '</div>';
         }
+        html += '</div>';
+        di += gSize;
+      } else {
+        var vidH3 = e.videoUrl?'<button class="vid-play-btn" data-url="'+e.videoUrl+'" style="background:none;border:1px solid var(--cyan);border-radius:12px;padding:2px 8px;color:var(--cyan);font-size:10px;cursor:pointer">▶ Ver</button>':'';
+        html += '<div style="padding:10px;border:1px solid rgba(0,212,245,0.15);border-radius:10px;margin-bottom:6px">';
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">';
+        html += '<span style="font-size:12px;font-weight:600">'+e.nombre+'</span>'+vidH3+'</div>';
+        html += '<div style="font-size:11px;color:var(--gris);margin-bottom:3px">📊 '+(e.dosis||'—')+(e.descanso?' &nbsp;⏱ '+e.descanso:'')+'</div>';
+        if(e.intensidad) html += '<div style="font-size:11px;margin-bottom:3px"><span style="padding:2px 8px;background:rgba(0,212,245,0.1);border:1px solid rgba(0,212,245,0.3);border-radius:20px;color:var(--cyan)">💪 RIR sugerido: '+e.intensidad+'</span></div>';
+        if(e.comentario) html += '<div style="font-size:11px;padding:4px 8px;background:rgba(0,212,245,0.07);border-left:2px solid var(--cyan);border-radius:6px;color:var(--cyan)">💬 '+e.comentario+'</div>';
+        html += '</div>';
+        di++;
       }
-      html += '<div class="ex-row"><span style="font-weight:500">'+e.nombre+'</span><span style="color:var(--gris)">'+(e.dosis||'—')+'</span><span style="color:var(--gris)">'+(e.carga||'—')+'</span><span style="color:var(--gris)">'+(e.descanso||'—')+'</span><span>'+vidHtml+'</span></div>';
-    });
-    html += '</div>';
+    }
     html += '<button class="btn btn-p" style="margin-top:12px;width:100%" onclick="openLogForDia(\''+r.id+'\',\''+dia.dia+'\')">✅ Registrar esta sesión</button>';
     html += '</div>';
   });
