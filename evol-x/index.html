@@ -2212,11 +2212,8 @@ function renderRutinaContent(r) {
           html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">';
           html += '<span style="font-size:11px;font-weight:800;color:'+gColor+'">'+subLbl+'</span>';
           html += '<span style="font-size:12px;font-weight:600">'+ge.nombre+'</span>'+vidH+'</div>';
-          html += '<div style="font-size:11px;color:var(--gris)">';
-          if(ge.dosis) html += '📊 '+ge.dosis;
-          if(ge.intensidad||ge.carga) html += ' &nbsp;💪 '+(ge.intensidad||ge.carga);
-          if(ge.descanso) html += ' &nbsp;⏱ '+ge.descanso;
-          html += '</div>';
+          html += '<div style="font-size:11px;color:var(--gris);margin-bottom:3px">📊 '+(ge.dosis||'—')+(ge.descanso?' &nbsp;⏱ '+ge.descanso:'')+'</div>';
+          if(ge.intensidad||ge.carga) html += '<div style="font-size:11px;margin-bottom:2px"><span style="padding:2px 8px;background:rgba(0,212,245,0.1);border:1px solid rgba(0,212,245,0.3);border-radius:20px;color:var(--cyan)">💪 Intensidad sugerida: '+(ge.intensidad||ge.carga)+'</span></div>';
           if(ge.comentario) html += '<div style="font-size:11px;color:var(--cyan);margin-top:4px;padding:3px 8px;background:rgba(0,212,245,0.08);border-radius:6px;border-left:2px solid var(--cyan)">💬 '+ge.comentario+'</div>';
           html += '</div>';
         }
@@ -2227,11 +2224,8 @@ function renderRutinaContent(r) {
         html += '<div style="padding:10px;border:1px solid rgba(0,212,245,0.15);border-radius:10px;margin-bottom:6px">';
         html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">';
         html += '<span style="font-size:12px;font-weight:600">'+e.nombre+'</span>'+vidHtml+'</div>';
-        html += '<div style="font-size:11px;color:var(--gris)">';
-        html += '📊 '+(e.dosis||'—');
-        if(e.intensidad||e.carga) html += ' &nbsp;💪 '+(e.intensidad||e.carga);
-        if(e.descanso) html += ' &nbsp;⏱ '+e.descanso;
-        html += '</div>';
+        html += '<div style="font-size:11px;color:var(--gris);margin-bottom:3px">📊 '+(e.dosis||'—')+(e.descanso?' &nbsp;⏱ '+e.descanso:'')+'</div>';
+        if(e.intensidad||e.carga) html += '<div style="font-size:11px;margin-bottom:2px"><span style="padding:2px 8px;background:rgba(0,212,245,0.1);border:1px solid rgba(0,212,245,0.3);border-radius:20px;color:var(--cyan)">💪 Intensidad sugerida: '+(e.intensidad||e.carga)+'</span></div>';
         if(e.comentario) html += '<div style="font-size:11px;color:var(--cyan);margin-top:4px;padding:3px 8px;background:rgba(0,212,245,0.08);border-radius:6px;border-left:2px solid var(--cyan)">💬 '+e.comentario+'</div>';
         html += '</div>';
         i++;
@@ -2348,7 +2342,8 @@ function rutRenderDayPanel() {
       h+='<div style="margin-bottom:6px"><input class="rut-inp" list="ejl_'+i+'_'+s+'" data-ei="'+i+'" data-si="'+s+'" data-field="nombre" data-dk="'+dk+'" placeholder="NOMBRE DEL EJERCICIO" value="'+(sub.nombre||'')+'" style="'+iStyle+'"><datalist id="ejl_'+i+'_'+s+'">'+ejOpts+'</datalist></div>';
       h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr 2fr;gap:6px;margin-bottom:'+(s<subCount-1?'10':'2')+'px">';
       h+='<div><div style="font-size:9px;color:var(--gris);margin-bottom:3px">SERIES×REPS</div><input class="rut-inp" data-ei="'+i+'" data-si="'+s+'" data-field="dosis" data-dk="'+dk+'" placeholder="3x12" value="'+(sub.dosis||'')+'" style="'+iStyle+'"></div>';
-      h+='<div><div style="font-size:9px;color:var(--gris);margin-bottom:3px">INTENSIDAD</div><input class="rut-inp" data-ei="'+i+'" data-si="'+s+'" data-field="intensidad" data-dk="'+dk+'" placeholder="" value="'+(sub.intensidad||'')+'" style="'+iStyle+'"></div>';
+      var rirOpts2 = ['','RIR 0','RIR 1','RIR 2','RIR 3','RIR 4','RIR 5','Fallo muscular'].map(function(v){return '<option value="'+v+'"'+(sub.intensidad===v?' selected':'')+'>'+v+'</option>';}).join('');
+      h+='<div><div style="font-size:9px;color:var(--gris);margin-bottom:3px">INTENSIDAD (RIR)</div><select class="rut-inp" data-ei="'+i+'" data-si="'+s+'" data-field="intensidad" data-dk="'+dk+'" style="'+iStyle+'">'+rirOpts2+'</select></div>';
       h+='<div><div style="font-size:9px;color:var(--gris);margin-bottom:3px">DESCANSO</div><input class="rut-inp" data-ei="'+i+'" data-si="'+s+'" data-field="descanso" data-dk="'+dk+'" placeholder="60s" value="'+(sub.descanso||'')+'" style="'+iStyle+'"></div>';
       h+='<div><div style="font-size:9px;color:var(--gris);margin-bottom:3px">VIDEO</div><input class="rut-inp" data-ei="'+i+'" data-si="'+s+'" data-field="videoUrl" data-dk="'+dk+'" placeholder="youtu.be/..." value="'+(sub.videoUrl||'')+'" style="'+iStyle+'"></div>';
       h+='</div>';
@@ -2788,19 +2783,20 @@ function showLogDetail(logId) {
   if (l.ejercicios && l.ejercicios.length) {
     html += '<div style="font-size:11px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">📝 DETALLE DE EJERCICIOS</div>';
     html += '<div style="overflow-x:auto;margin-bottom:14px">';
-    html += '<table><thead><tr><th>Ejercicio</th><th>Planeado</th><th>Int. plan</th><th>Reps real</th><th>Int. real</th><th>Estado</th></tr></thead><tbody>';
+    html += '<table><thead><tr><th>Ejercicio</th><th>Planeado</th><th>RIR coach</th><th>Reps real</th><th>Carga / RIR real</th><th>Estado</th></tr></thead><tbody>';
     l.ejercicios.forEach(function(e) {
       var ok = e.completado || !!(e.repsReal || e.intensidadReal);
       var repsReal = e.repsReal || e.reps || '—';
-      var intReal  = e.intensidadReal || e.carga || '—';
-      var intPlan  = e.intensidadPlaneada || e.cargaPlaneada || '—';
+      var cargaReal = e.cargaReal || e.intensidadReal || e.carga || '—';
+      var rirReal  = e.intensidadReal && e.intensidadReal.indexOf('RIR')>=0 ? e.intensidadReal : (e.cargaReal ? (e.intensidadReal||'—') : '—');
+      var intPlan  = e.intensidadPlaneada || '—';
       var dosis    = e.dosisPlaneada || '—';
       html += '<tr>';
       html += '<td style="font-weight:500">'+e.nombre+'</td>';
       html += '<td style="color:var(--gris)">'+dosis+'</td>';
-      html += '<td style="color:var(--gris)">'+intPlan+'</td>';
+      html += '<td style="color:var(--cyan)">'+intPlan+'</td>';
       html += '<td style="color:'+(ok?'#80d4a0':'#ff8080')+'">'+repsReal+'</td>';
-      html += '<td style="color:'+(ok?'#80d4a0':'var(--gris)')+'">'+intReal+'</td>';
+      html += '<td style="color:'+(ok?'#80d4a0':'var(--gris)')+'">'+cargaReal+(rirReal&&rirReal!=='—'?' <small style="color:#00d4f5">'+rirReal+'</small>':'')+'</td>';
       html += '<td><span class="badge '+(ok?'bk':'bw')+'">'+(ok?'✓ OK':'No registrado')+'</span></td>';
       html += '</tr>';
       if(e.comentarioUsuario){
@@ -3292,21 +3288,31 @@ function loadLogExs() {
       html += '<input type="checkbox" id="lex_done_'+exIdx+'" style="accent-color:var(--cyan);width:16px;height:16px;cursor:pointer" checked>';
       html += '<label for="lex_done_'+exIdx+'" style="font-size:12px;font-weight:700;cursor:pointer">'+subLbl+ge.nombre+'</label>';
       html += '</div>';
-      html += '<div style="font-size:11px;color:var(--gris);margin-bottom:6px">Plan: '+(ge.dosis||'-')+' &nbsp; Intensidad plan: '+(ge.intensidad||ge.carga||'—')+'</div>';
+      var coachInt = ge.intensidad||ge.carga||'';
+      html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">';
+      html += '<span style="font-size:11px;color:var(--gris)">📊 Plan: <strong>'+(ge.dosis||'—')+'</strong></span>';
+      if(coachInt) html += '<span style="font-size:11px;padding:2px 8px;background:rgba(0,212,245,0.12);border:1px solid var(--cyan);border-radius:20px;color:var(--cyan)">💪 Intens. coach: <strong>'+coachInt+'</strong></span>';
+      html += '</div>';
       
       // Series selector
-      html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-bottom:6px">';
+      // RIR options for intensity achieved
+      var rirOpts = ['—','RIR 0','RIR 1','RIR 2','RIR 3','RIR 4','RIR 5','Fallo muscular'].map(function(v){return '<option>'+v+'</option>';}).join('');
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:6px;margin-bottom:6px">';
+      // Series
       html += '<div><div style="font-size:9px;color:var(--gris);margin-bottom:3px">SERIES</div>';
       html += '<select id="lex_s_'+exIdx+'" style="width:100%;padding:6px;background:var(--s1);border:1px solid var(--brd);border-radius:6px;color:var(--blanco);font-size:12px">'+seriesOpts+'</select></div>';
-      // Reps selector
+      // Reps
       html += '<div><div style="font-size:9px;color:var(--gris);margin-bottom:3px">REPS</div>';
       html += '<select id="lex_rp_'+exIdx+'" style="width:100%;padding:6px;background:var(--s1);border:1px solid var(--brd);border-radius:6px;color:var(--blanco);font-size:12px">'+repsOpts+'</select></div>';
-      // Intensidad selector
-      html += '<div><div style="font-size:9px;color:var(--gris);margin-bottom:3px">INTENSIDAD</div>';
+      // Carga (weight)
+      html += '<div><div style="font-size:9px;color:var(--gris);margin-bottom:3px">CARGA</div>';
       html += '<select id="lex_int_'+exIdx+'" style="width:100%;padding:6px;background:var(--s1);border:1px solid var(--brd);border-radius:6px;color:var(--blanco);font-size:12px">'+intOpts+'</select></div>';
-      // Unidad selector
+      // Unit
       html += '<div><div style="font-size:9px;color:var(--gris);margin-bottom:3px">UNIDAD</div>';
       html += '<select id="lex_u_'+exIdx+'" style="width:100%;padding:6px;background:var(--s1);border:1px solid var(--brd);border-radius:6px;color:var(--blanco);font-size:12px"><option>kg</option><option>lb</option></select></div>';
+      // RIR achieved
+      html += '<div><div style="font-size:9px;color:var(--cyan);margin-bottom:3px">INTENSIDAD (RIR)</div>';
+      html += '<select id="lex_rir_'+exIdx+'" style="width:100%;padding:6px;background:var(--s1);border:1px solid rgba(0,212,245,0.3);border-radius:6px;color:var(--cyan);font-size:12px">'+rirOpts+'</select></div>';
       html += '</div>';
       
       if(lastInt) html += '<div style="font-size:10px;color:var(--cyan);margin-bottom:4px">⚡ Última sesión: '+lastInt+'</div>';
@@ -3384,15 +3390,18 @@ function saveLog() {
       var reps   = (document.getElementById('lex_rp_'+exIdx)||{value:''}).value||'';
       var intVal = (document.getElementById('lex_int_'+exIdx)||{value:'—'}).value||'—';
       var unidad = (document.getElementById('lex_u_'+exIdx)||{value:'kg'}).value||'kg';
+      var rir    = (document.getElementById('lex_rir_'+exIdx)||{value:'—'}).value||'—';
       var com    = (document.getElementById('lex_com_'+exIdx)||{value:''}).value||'';
-      var intReal = (intVal && intVal !== '—') ? intVal+' '+unidad : '';
+      var cargaReal = (intVal && intVal !== '—') ? intVal+' '+unidad : '';
+      var rirReal = rir !== '—' ? rir : '';
       var repsReal = (series && reps) ? series+'x'+reps : '';
       ejercicios.push({
         nombre: pe.nombre,
         dosisPlaneada: pe.dosis||'',
-        intensidadPlaneada: pe.intensidad||pe.carga||'',
+        intensidadPlaneada: pe.intensidad||'',
         repsReal: repsReal,
-        intensidadReal: intReal,
+        cargaReal: cargaReal,
+        intensidadReal: rirReal,
         comentarioUsuario: com,
         tipo: tipo,
         completado: !!(document.getElementById('lex_done_'+exIdx) ? document.getElementById('lex_done_'+exIdx).checked : true)
