@@ -172,6 +172,10 @@ tr:hover td{background:var(--s1)}
 .toast{position:fixed;bottom:20px;right:20px;background:rgba(var(--bg-rgb),0.97);color:var(--blanco);border:1px solid var(--brd);padding:10px 18px;border-radius:var(--r);font-size:13px;font-weight:500;z-index:999;transform:translateY(80px);opacity:0;transition:all 0.3s;backdrop-filter:blur(12px);max-width:320px}
 .toast.show{transform:translateY(0);opacity:1}
 .toast{pointer-events:none}
+.ej-sug{font-size:11px;margin-top:4px;line-height:1.5;color:var(--gris)}
+.ej-sug.warn{color:#b26a00;background:rgba(255,170,0,.1);border:1px solid rgba(255,170,0,.35);border-radius:8px;padding:6px 8px}
+.ej-sug.ok{color:#1d8a4e}
+.ej-sug button{font-size:11px;padding:3px 8px;margin:3px 4px 0 0;border-radius:14px;border:1px solid rgba(var(--acc-rgb),.5);background:rgba(var(--acc-rgb),.08);color:inherit;cursor:pointer;font-family:inherit}
 #log_last_weight:empty{display:none} /* el aviso nunca debe tapar botones (en el celular tapaba «Guardar») */
 
 /* MOBILE */
@@ -462,7 +466,7 @@ body.modal-open{overflow:hidden}
   <div class="modal-title"><span id="m_ej_title">NUEVO EJERCICIO</span><button class="close-btn" onclick="closeModal('m_ejercicio')">×</button></div>
   <input type="hidden" id="ej_edit_id"/>
   <div class="fr">
-    <div class="fg"><label>Nombre</label><input type="text" id="ej_nombre" style="text-transform:uppercase" placeholder="Ej: Sentadilla con barra"/></div>
+    <div class="fg"><label>Nombre</label><input type="text" id="ej_nombre" style="text-transform:uppercase" placeholder="Ej: Sentadilla con barra" autocomplete="off" oninput="ejDupHint()"/><div id="ej_dup_hint"></div></div>
     <div class="fg"><label>Grupo muscular</label>
       <select id="ej_grupo" style="width:100%;text-transform:uppercase" onchange="fillSubList()">
     <option>PIERNA</option><option>GLÚTEO</option><option>ESPALDA</option>
@@ -2434,9 +2438,13 @@ function pgEjercicios() {
   renderEjGrid(exs);
 }
 
-function renderEjGrid(exs) {
+function renderEjGrid(exs, query) {
   var grid = document.getElementById('ej_grid');
   if (!grid) return;
+  if (query && (!exs || !exs.length)) {
+    grid.innerHTML = '<div style="text-align:center;padding:30px;color:var(--gris)"><div style="font-size:36px;margin-bottom:8px">🔎</div><div style="font-weight:700;margin-bottom:6px">Sin resultados para «'+esc(query)+'»</div><div style="font-size:12px">Prueba con otra palabra: nombre, grupo muscular, subcategoría o equipo.</div><button class="btn btn-p btn-sm" style="margin-top:12px" onclick="openNewEj(\''+esc(query).replace(/'/g,'')+'\')">+ Crear «'+esc(query.toUpperCase())+'»</button></div>';
+    return;
+  }
   if (!exs || !exs.length) {
     grid.innerHTML = '<div style="text-align:center;padding:40px;color:var(--gris)"><div style="font-size:48px;margin-bottom:12px">📚</div><div style="font-weight:700;margin-bottom:8px">Sin ejercicios en biblioteca</div><div style="font-size:13px">Crea ejercicios con el botón de arriba o se crearán automáticamente al guardar rutinas.</div></div>';
     return;
@@ -2447,19 +2455,24 @@ function renderEjGrid(exs) {
   (d2.rutinas||[]).forEach(function(r){
     (r.dias||[]).forEach(function(dia){
       (dia.ejercicios||[]).forEach(function(ex){
-        var k = (ex.nombre||'').toUpperCase();
-        usageCount[k] = (usageCount[k]||0) + 1;
+        var lb = findEjercicio(ex.nombre, ex.ejId); var k = lb ? lb.id : '';
+        if (k) usageCount[k] = (usageCount[k]||0) + 1;
       });
     });
   });
+  if (query) {
+    var hq = '<div style="font-size:12px;color:var(--gris);margin-bottom:10px">'+exs.length+' resultado'+(exs.length===1?'':'s')+' para «'+esc(query)+'» · ordenados por coincidencia</div>';
+    var grupos0 = {}; grupos0['RESULTADOS'] = exs; exs = exs; var _q = true;
+  }
   // Group by grupo
   var grupos = {};
   exs.forEach(function(e) {
-    var g = (e.grupo||'SIN CLASIFICAR').toUpperCase();
+    var g = query ? '🔎 RESULTADOS' : (e.grupo||'SIN CLASIFICAR').toUpperCase();
     if (!grupos[g]) grupos[g] = [];
     grupos[g].push(e);
   });
   var html = '';
+  var html = query ? hq : '';
   Object.keys(grupos).sort().forEach(function(g) {
     html += '<div style="margin-bottom:20px">';
     html += '<div style="font-weight:800;font-size:13px;letter-spacing:2px;color:var(--cyan);margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid rgba(var(--acc-rgb),0.2)">' + g + '</div>';
@@ -2470,7 +2483,7 @@ function renderEjGrid(exs) {
     if (Object.keys(subs).length > 1 || sg) html += '<div style="font-size:11px;font-weight:700;color:var(--gris);letter-spacing:1px;margin:8px 0 6px">'+(sg?'› '+esc(sg):'› OTROS')+'</div>';
     html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-bottom:8px">';
     subs[sg].forEach(function(e) {
-      var uKey = (e.nombre||'').toUpperCase();
+      var uKey = e.id;
       var times = usageCount[uKey] || 0;
       var bc = e.incompleto ? '1px solid #ff6b35' : '1px solid var(--brd)';
       html += '<div class="card" style="padding:13px;border:'+bc+'">';
@@ -2528,7 +2541,7 @@ function filterEjs() {
   var exs = d.ejercicios || [];
   var gf = (document.getElementById('ej_filter_g')||{value:''}).value;
   if (gf) exs = exs.filter(function(e){ return (e.grupo||'SIN CLASIFICAR').toUpperCase() === gf; });
-  if (q) exs = exs.filter(function(e){ return (e.nombre||'').toLowerCase().indexOf(q)>=0 || (e.grupo||'').toLowerCase().indexOf(q)>=0 || (e.subgrupo||'').toLowerCase().indexOf(q)>=0; });
+  if (normTxt(q)) { renderEjGrid(buscarEjercicios(q, exs), q); return; }
   renderEjGrid(exs);
 }
 
@@ -2555,13 +2568,54 @@ function fillSubList() {
   (db().ejercicios||[]).forEach(function(e){ if (e.subgrupo && (!g || (e.grupo||'').toUpperCase()===g.toUpperCase())) seen[e.subgrupo.toUpperCase()] = 1; });
   dl.innerHTML = Object.keys(seen).sort().map(function(x){ return '<option value="'+esc(x)+'">'; }).join('');
 }
-function openNewEj() {
+function openNewEj(prefill) {
   document.getElementById('m_ej_title').textContent = 'NUEVO EJERCICIO';
   document.getElementById('ej_edit_id').value = '';
   ['ej_nombre','ej_video','ej_equipo','ej_desc','ej_subgrupo'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+  if (typeof prefill === 'string') document.getElementById('ej_nombre').value = prefill.toUpperCase();
   document.getElementById('ej_grupo').value = 'PIERNA';
-  fillSubList();
+  fillSubList(); ejDupHint();
   openModal('m_ejercicio');
+}
+// Aviso mientras se escribe el nombre: ejercicios parecidos que ya están en la biblioteca
+function ejDupHint() {
+  var box = document.getElementById('ej_dup_hint'); if (!box) return;
+  var nombre = (document.getElementById('ej_nombre').value||'').trim();
+  var editId = document.getElementById('ej_edit_id').value;
+  var par = normTxt(nombre).length >= 4 ? ejerciciosParecidos(nombre, editId, 0.8).slice(0,3) : [];
+  if (!par.length) { box.innerHTML = ''; return; }
+  box.innerHTML = '<div class="ej-sug warn">⚠️ Ya hay '+(par.length===1?'un ejercicio parecido':'ejercicios parecidos')+': '+par.map(function(e){ return '<b>'+esc(e.nombre)+'</b>'; }).join(', ')+'</div>';
+}
+var _ejDupOk = false;
+function ejDupModal(nombre, par) {
+  var ov = document.getElementById('m_ej_dup');
+  if (!ov) { ov = document.createElement('div'); ov.className = 'overlay'; ov.id = 'm_ej_dup'; ov.style.zIndex = '2100'; document.body.appendChild(ov); }
+  var h = '<div class="modal" style="max-width:480px"><div class="modal-title"><span>¿EJERCICIO REPETIDO?</span><button class="close-btn" onclick="closeModal(\'m_ej_dup\')">×</button></div>';
+  h += '<div style="font-size:13px;line-height:1.5;margin-bottom:12px">«<b>'+esc(nombre)+'</b>» se parece a '+(par.length===1?'este ejercicio que ya está':'estos ejercicios que ya están')+' en la biblioteca:</div>';
+  par.forEach(function(e){
+    h += '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--borde);border-radius:10px;margin-bottom:8px">'
+      + '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">'+esc(e.nombre)+'</div><div style="font-size:11px;color:var(--gris)">'+esc((e.grupo||'')+(e.subgrupo?' · '+e.subgrupo:''))+(e.equipo?' · '+esc(e.equipo):'')+'</div></div>'
+      + '<button class="btn btn-s btn-sm" onclick="closeModal(\'m_ej_dup\');closeModal(\'m_ejercicio\');openEditEj(\''+e.id+'\')">✏️ Editar este</button></div>';
+  });
+  h += '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--borde)"><div style="font-size:12px;font-weight:700;margin-bottom:6px">¿Es otro ejercicio? Agrégale un diferencial</div>'
+    + '<input type="text" id="ej_dup_dif" placeholder="Ej: CON MANCUERNA, UNILATERAL, EN MÁQUINA" style="text-transform:uppercase;width:100%;margin-bottom:6px" oninput="var v=this.value.trim().toUpperCase();document.getElementById(\'ej_dup_prev\').textContent=v?\''+esc(nombre).replace(/'/g,"\\'")+' \'+v:\'\';"/>'
+    + '<div style="font-size:11px;color:var(--gris);margin-bottom:10px">Quedará como: <b id="ej_dup_prev"></b></div>'
+    + '<button class="btn btn-p btn-full" onclick="ejDupGuardarNuevo()">➕ Guardar como nuevo</button>'
+    + '<button class="btn btn-s btn-full" style="margin-top:8px" onclick="closeModal(\'m_ej_dup\')">Cancelar</button></div></div>';
+  ov.innerHTML = h;
+  openModal('m_ej_dup');
+  setTimeout(function(){ var i = document.getElementById('ej_dup_dif'); if (i) i.focus(); }, 50);
+}
+function ejDupGuardarNuevo() {
+  var dif = (document.getElementById('ej_dup_dif').value||'').trim().toUpperCase();
+  var inp = document.getElementById('ej_nombre');
+  var base = (inp.value||'').trim().toUpperCase();
+  if (!dif) { if (!confirm('No agregaste diferencial. ¿Guardar «'+base+'» igual?')) return; }
+  else inp.value = base + ' ' + dif;
+  var exacto = findEjercicio(inp.value);
+  if (exacto && exacto.id !== document.getElementById('ej_edit_id').value) { toast('«'+inp.value.toUpperCase()+'» ya existe. Usa otro diferencial.'); inp.value = base; return; }
+  closeModal('m_ej_dup');
+  _ejDupOk = true; saveEjercicio();
 }
 
 function openEditEj(ejid) {
@@ -2588,13 +2642,14 @@ function saveEjercicio() {
   var nombre = (document.getElementById('ej_nombre').value||'').trim().toUpperCase();
   if (!nombre) { toast('Ingresa el nombre del ejercicio'); return; }
   var d = db();
-  // Check duplicate name (only for new)
-  if (!editId) {
-    var dup = (d.ejercicios||[]).filter(function(e){return (e.nombre||'').toUpperCase()===nombre.toUpperCase();});
-    if (dup.length > 0) {
-      if (!confirm('"'+nombre+'" ya existe en la biblioteca.\n¿Guardar de todas formas?')) return;
-    }
+  // Repetidos: mismo nombre o nombre parecido (sin tildes, errores de escritura: GLOBET ≈ GOBLET)
+  var _prev = editId ? (d.ejercicios||[]).filter(function(e){ return e.id===editId; })[0] : null;
+  var _cambioNombre = !_prev || ejTokens(_prev.nombre).join(' ') !== ejTokens(nombre).join(' ');
+  if (_cambioNombre && !_ejDupOk) {
+    var par = ejerciciosParecidos(nombre, editId, 0.8).slice(0,4);
+    if (par.length) { ejDupModal(nombre, par); return; }
   }
+  _ejDupOk = false;
   var vidRaw = document.getElementById('ej_video').value.trim();
   var vid = vidRaw;
   var ytM = vidRaw.match(/(?:youtu\.be\/|youtube\.com\/watch\?v=)([^&\s]+)/);
@@ -2894,7 +2949,7 @@ function rutInitDays(existingDias) {
       if (d.nombre) RUT_DAYS[d.dia].nombre = d.nombre;
       // Reagrupar la lista guardada en bloques (simple / biserie / triserie)
       var flat = d.ejercicios||[], grupos = [], i = 0;
-      var toSub = function(ex){ return {nombre:ex.nombre||'',dosis:ex.dosis||'',intensidad:ex.intensidad||ex.carga||'',intMetric:ex.intMetric||'',descanso:ex.descanso||'',videoUrl:ex.videoUrl||'',comentario:ex.comentario||''}; };
+      var toSub = function(ex){ return {ejId:ex.ejId||'',nombre:ex.nombre||'',dosis:ex.dosis||'',intensidad:ex.intensidad||ex.carga||'',intMetric:ex.intMetric||'',descanso:ex.descanso||'',videoUrl:ex.videoUrl||'',comentario:ex.comentario||''}; };
       while (i < flat.length) {
         var tipo = flat[i].tipo || 'simple';
         var size = tipo==='triserie'?3:tipo==='biserie'?2:1;
@@ -2993,7 +3048,7 @@ function rutRenderDayPanel() {
     for(var s=0;s<subCount;s++){
       var sub=(ex.subs&&ex.subs[s])||{};
       if(subCount>1) h+='<div style="font-size:11px;color:'+bc+';font-weight:700;margin-bottom:4px">'+(s===0?'A —':s===1?'B —':'C —')+'</div>';
-      h+='<div style="margin-bottom:6px"><input class="rut-inp" list="ejl_'+i+'_'+s+'" data-ei="'+i+'" data-si="'+s+'" data-field="nombre" data-dk="'+dk+'" placeholder="NOMBRE DEL EJERCICIO" value="'+esc(sub.nombre||'')+'" style="'+iStyle+'"><datalist id="ejl_'+i+'_'+s+'">'+ejOpts+'</datalist></div>';
+      h+='<div style="margin-bottom:6px"><input class="rut-inp" list="ejl_'+i+'_'+s+'" data-ei="'+i+'" data-si="'+s+'" data-field="nombre" data-dk="'+dk+'" placeholder="NOMBRE DEL EJERCICIO" value="'+esc(sub.nombre||'')+'" style="'+iStyle+'" autocomplete="off"><datalist id="ejl_'+i+'_'+s+'">'+ejOpts+'</datalist><div class="ej-sug" id="ejsug_'+dk+'_'+i+'_'+s+'">'+rutSugHtml(sub, dk, i, s)+'</div></div>';
       var _pi = parseIntens(sub.intensidad, sub.intMetric);
       var _met = sub.intMetric || _pi.m;
       var _metOpts = Object.keys(INT_METRICAS).map(function(k){ return '<option value="'+k+'"'+(k===_met?' selected':'')+'>'+INT_METRICAS[k].label+'</option>'; }).join('');
@@ -3021,10 +3076,11 @@ function rutRenderDayPanel() {
         rutUpdateEx(parseInt(this.getAttribute('data-ei')), parseInt(this.getAttribute('data-si')), this.getAttribute('data-field'), this.value, this.getAttribute('data-dk'));
       });
       inp.addEventListener('change', function(){
+        if (!this.isConnected) return;
         var ei = parseInt(this.getAttribute('data-ei')), si = parseInt(this.getAttribute('data-si')), fld = this.getAttribute('data-field'), dk2 = this.getAttribute('data-dk');
         rutUpdateEx(ei, si, fld, this.value, dk2);
         if (fld === 'nombre') {
-          var lib = findEjercicio(this.value);
+          var lib = findEjercicio(this.value, (RUT_DAYS[dk2].ejercicios[ei].subs[si]||{}).ejId);
           var vidEl = panelEl.querySelector('.rut-inp[data-ei="'+ei+'"][data-si="'+si+'"][data-field="videoUrl"]');
           var libVid = lib ? (lib.video || lib.videoUrl || '') : '';
           if (lib && libVid && vidEl && !vidEl.value) { vidEl.value = libVid; rutUpdateEx(ei, si, 'videoUrl', libVid, dk2); toast('▶ Video tomado de la biblioteca'); }
@@ -3066,11 +3122,37 @@ function rutRemoveEx(idx,dk) {
   rutRenderDayPanel();
 }
 
+// Estado de asociación con la biblioteca bajo el nombre de cada ejercicio de la rutina
+function rutSugHtml(sub, dk, i, s) {
+  var nombre = (sub && sub.nombre || '').trim();
+  if (!normTxt(nombre)) return '';
+  var lib = findEjercicio(nombre, sub.ejId);
+  if (lib) return '<span class="ok">✓ En biblioteca · '+esc((lib.grupo||'')+(lib.subgrupo?' · '+lib.subgrupo:''))+'</span>';
+  var par = buscarEjercicios(nombre).slice(0,3);
+  if (!par.length) par = ejerciciosParecidos(nombre, null, 0.7).slice(0,3);
+  if (!par.length) return '➕ Nuevo: se agregará a la biblioteca al guardar';
+  return '¿Quisiste decir? ' + par.map(function(e){ return '<button type="button" onmousedown="event.preventDefault()" onclick="rutAsociar(\''+dk+'\','+i+','+s+',\''+e.id+'\')">'+esc(e.nombre)+'</button>'; }).join('') + '<div style="margin-top:2px">o sigue escribiendo para crear uno nuevo</div>';
+}
+function rutAsociar(dk, i, s, ejId) {
+  var e = (db().ejercicios||[]).filter(function(x){ return x.id===ejId; })[0]; if (!e) return;
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  var sb = RUT_DAYS[dk].ejercicios[i].subs[s];
+  sb.nombre = e.nombre; sb.ejId = e.id;
+  if (!sb.videoUrl && (e.video||e.videoUrl)) sb.videoUrl = e.video || e.videoUrl;
+  rutRenderDayPanel();
+  toast('✓ Asociado a «'+e.nombre+'»');
+}
 function rutUpdateEx(exIdx,subIdx,field,value,dk) {
   if(!RUT_DAYS[dk]||!RUT_DAYS[dk].ejercicios[exIdx]) return;
   if(!RUT_DAYS[dk].ejercicios[exIdx].subs) RUT_DAYS[dk].ejercicios[exIdx].subs=[];
   if(!RUT_DAYS[dk].ejercicios[exIdx].subs[subIdx]) RUT_DAYS[dk].ejercicios[exIdx].subs[subIdx]={};
   var _sb = RUT_DAYS[dk].ejercicios[exIdx].subs[subIdx];
+  if (field === 'nombre') {
+    var _l = findEjercicio(value); _sb.ejId = _l ? _l.id : '';
+    var _sg = document.getElementById('ejsug_'+dk+'_'+exIdx+'_'+subIdx);
+    _sb.nombre = value;
+    if (_sg) { var _nh = rutSugHtml(_sb, dk, exIdx, subIdx); if (_sg.innerHTML !== _nh) _sg.innerHTML = _nh; }
+  }
   if (field === 'intMetric' || field === 'intVal') {
     var cur = parseIntens(_sb.intensidad, _sb.intMetric);
     var m = field === 'intMetric' ? value : (_sb.intMetric || cur.m);
@@ -3118,12 +3200,12 @@ function metricaDe(ex) { return (ex && ex.intMetric && INT_METRICAS[ex.intMetric
 function videoDe(ex) {
   if (!ex) return '';
   if (ex.videoUrl) return ex.videoUrl;
-  var lib = findEjercicio(ex.nombre);
+  var lib = findEjercicio(ex.nombre, ex.ejId);
   return lib ? (lib.video || lib.videoUrl || '') : '';
 }
 // ── INSTRUCCIONES: descripción y equipamiento de la biblioteca, desplegables en la rutina ──
 function instrBlock(ex) {
-  var lib = ex ? findEjercicio(ex.nombre) : null;
+  var lib = ex ? findEjercicio(ex.nombre, ex.ejId) : null;
   if (!lib) return '';
   var desc = (lib.desc || lib.descripcion || '').trim(), eq = (lib.equipo || '').trim();
   if (!desc && !eq) return '';
@@ -3139,10 +3221,103 @@ function vidBtn(ex) {
   return u ? ' <button type="button" class="vid-play-btn" data-url="'+esc(u)+'" data-nom="'+esc(ex.nombre||'')+'" style="background:none;border:1px solid var(--cyan);border-radius:12px;padding:3px 10px;color:var(--cyan);font-size:11px;cursor:pointer;white-space:nowrap">▶ Ver video</button>' : '';
 }
 
-function findEjercicio(nombre) {
-  var n = (nombre||'').toUpperCase().trim(); if (!n) return null;
+// ═══════════════════════════════════════════════════════════
+//  BÚSQUEDA DE EJERCICIOS: sin tildes, sin importar el orden de las palabras,
+//  tolera errores de escritura (globet → goblet) y entiende sinónimos.
+// ═══════════════════════════════════════════════════════════
+var EJ_STOP = {de:1,del:1,con:1,en:1,a:1,al:1,la:1,el:1,los:1,las:1,y:1,o:1,un:1,una:1,por:1,para:1,sin:1};
+var EJ_SINONIMOS = [
+  ['abdomen','abdominal','abdominales','core','abs'], ['gluteo','gluteos','glute','cola','nalga'],
+  ['biceps','bicep'], ['triceps','tricep'], ['hombro','hombros','deltoides','deltoide'],
+  ['pecho','pectoral','pectorales'], ['espalda','dorsal','dorsales'], ['pantorrilla','gemelo','gemelos','pantorrillas'],
+  ['pierna','piernas','cuadriceps','femoral','isquiotibial','isquios'], ['mancuerna','mancuernas','dumbbell'],
+  ['barra','barbell'], ['kettlebell','pesa rusa','kettle'], ['banda','bandas','liga','ligas','elastico'],
+  ['sentadilla','squat','sentadillas'], ['zancada','zancadas','lunge','estocada','estocadas'], ['plancha','plank'],
+  ['peso muerto','deadlift'], ['remo','row'], ['press','empuje'], ['flexion','flexiones','push up','lagartija','lagartijas'],
+  ['dominada','dominadas','pull up'], ['puente','hip thrust','elevacion de cadera'], ['cardio','aerobico'], ['salto','saltos','pliometria','jump']
+];
+function normTxt(t) {
+  return String(t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9ñ ]+/g,' ').replace(/\s+/g,' ').trim();
+}
+function ejTokens(t) {
+  return normTxt(t).split(' ').filter(function(w){ return w && !EJ_STOP[w]; }).map(function(w){ return (w.length > 4 && /s$/.test(w)) ? w.slice(0,-1) : w; });
+}
+// distancia de edición con trasposición (globet ↔ goblet = 1)
+function osaDist(a, b) {
+  var m = a.length, n = b.length, d = [], i, j;
+  for (i=0;i<=m;i++) { d[i] = [i]; }
+  for (j=0;j<=n;j++) d[0][j] = j;
+  for (i=1;i<=m;i++) for (j=1;j<=n;j++) {
+    var c = a[i-1] === b[j-1] ? 0 : 1;
+    d[i][j] = Math.min(d[i-1][j]+1, d[i][j-1]+1, d[i-1][j-1]+c);
+    if (i>1 && j>1 && a[i-1]===b[j-2] && a[i-2]===b[j-1]) d[i][j] = Math.min(d[i][j], d[i-2][j-2]+1);
+  }
+  return d[m][n];
+}
+function wordSim(q, w) {
+  if (q === w) return 1;
+  if (w.indexOf(q) === 0) return q.length >= 3 ? 0.95 : 0.7;
+  if (q.length >= 4 && w.indexOf(q) > 0) return 0.85;
+  var mx = Math.max(q.length, w.length); if (mx < 4) return 0;
+  var dd = osaDist(q, w), sim = 1 - dd / mx;
+  // palabras largas: se toleran 2 errores (GLOBET → GOBLET, SENTADIYA → SENTADILLA)
+  if (mx >= 6 && dd <= 2) sim = Math.max(sim, 0.72);
+  return sim;
+}
+var _sinMap = null;
+function sinonimosDe(w) {
+  if (!_sinMap) { _sinMap = {}; EJ_SINONIMOS.forEach(function(g){ var gg = g.map(function(x){ return ejTokens(x).join(' '); }); gg.forEach(function(x){ _sinMap[x] = gg; }); }); }
+  return _sinMap[w] || [w];
+}
+// Puntaje de qué tan bien un ejercicio responde a la búsqueda (0 = no coincide)
+function ejScore(e, query) {
+  var qt = ejTokens(query); if (!qt.length) return 1;
+  var campos = [ [ejTokens(e.nombre), 1], [ejTokens((e.grupo||'')+' '+(e.subgrupo||'')), 0.8], [ejTokens(e.equipo), 0.7], [ejTokens(e.desc||e.descripcion), 0.5] ];
+  var total = 0;
+  for (var i=0;i<qt.length;i++) {
+    var variantes = sinonimosDe(qt[i]), best = 0;
+    variantes.forEach(function(v){
+      var vt = v.split(' ');
+      campos.forEach(function(c){
+        var vs = 0;
+        vt.forEach(function(vw){ var b = 0; c[0].forEach(function(w){ b = Math.max(b, wordSim(vw, w)); }); vs += b; });
+        vs = vs / vt.length;
+        if (vs >= 0.72) best = Math.max(best, vs * c[1] * (v === qt[i] ? 1 : 0.9));
+      });
+    });
+    if (!best) return 0;
+    total += best;
+  }
+  return total / qt.length;
+}
+function buscarEjercicios(query, lista) {
+  lista = lista || db().ejercicios || [];
+  if (!normTxt(query)) return lista.slice();
+  return lista.map(function(e){ return {e:e, s:ejScore(e, query)}; }).filter(function(x){ return x.s > 0; })
+    .sort(function(a,b){ return b.s - a.s || (a.e.nombre||'').localeCompare(b.e.nombre||''); }).map(function(x){ return x.e; });
+}
+// Parecido entre dos nombres de ejercicio (0..1) para detectar repetidos
+function nombreSim(a, b) {
+  var ta = ejTokens(a), tb = ejTokens(b);
+  if (!ta.length || !tb.length) return 0;
+  if (ta.join(' ') === tb.join(' ')) return 1;
+  var dir = function(x, y){ var t = 0; x.forEach(function(w){ var b = 0; y.forEach(function(v){ b = Math.max(b, wordSim(w, v) >= 0.72 ? wordSim(w, v) : 0); }); t += b; }); return t / x.length; };
+  var s1 = dir(ta, tb), s2 = dir(tb, ta);
+  var whole = 1 - osaDist(ta.join(''), tb.join('')) / Math.max(ta.join('').length, tb.join('').length);
+  return Math.max(Math.min(s1, s2), whole);
+}
+function ejerciciosParecidos(nombre, excluirId, umbral) {
+  umbral = umbral || 0.8;
+  return (db().ejercicios||[]).filter(function(e){ return e.id !== excluirId; })
+    .map(function(e){ return {e:e, s:nombreSim(nombre, e.nombre)}; }).filter(function(x){ return x.s >= umbral; })
+    .sort(function(a,b){ return b.s - a.s; }).map(function(x){ return x.e; });
+}
+// Ejercicio de la biblioteca asociado a un ejercicio de rutina: por id si lo tiene, si no por nombre (sin tildes ni mayúsculas)
+function findEjercicio(nombre, ejId) {
   var exs = db().ejercicios || [];
-  for (var i=0;i<exs.length;i++) if ((exs[i].nombre||'').toUpperCase().trim() === n) return exs[i];
+  if (ejId) for (var k=0;k<exs.length;k++) if (exs[k].id === ejId) return exs[k];
+  var n = ejTokens(nombre).join(' '); if (!n) return null;
+  for (var i=0;i<exs.length;i++) if (ejTokens(exs[i].nombre).join(' ') === n) return exs[i];
   return null;
 }
 
@@ -3305,18 +3480,25 @@ function saveRutina() {
       var subCount = ex.tipo==='triserie'?3:ex.tipo==='biserie'?2:1;
       (ex.subs||[]).slice(0,subCount).forEach(function(sub,si){
         if(sub&&sub.nombre){
-          var libEx=null;
-          (dbSave.ejercicios||[]).forEach(function(e){ if((e.nombre||'').toUpperCase()===sub.nombre.toUpperCase()) libEx=e; });
+          var libEx = findEjercicio(sub.nombre, sub.ejId);
+          if (!libEx) {
+            // ¿Se parece a uno que ya existe? (ej: GLOBET → GOBLET) — evita crear duplicados
+            var _par = ejerciciosParecidos(sub.nombre, null, 0.8);
+            if (!_par.length) _par = buscarEjercicios(sub.nombre).slice(0,1);
+            if (_par.length && confirm('«'+sub.nombre.toUpperCase()+'» no está en la biblioteca, pero se parece a «'+_par[0].nombre+'».\n\nAceptar = usar «'+_par[0].nombre+'» (recomendado)\nCancelar = crear «'+sub.nombre.toUpperCase()+'» como ejercicio nuevo')) {
+              libEx = _par[0]; sub.nombre = libEx.nombre;
+            }
+          }
           if(!libEx){
             var nEj={id:'ej_auto_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),nombre:sub.nombre.toUpperCase(),grupo:'SIN CLASIFICAR',subgrupo:'',desc:'',video:sub.videoUrl||'',incompleto:true};
-            dbSave.ejercicios.push(nEj);
+            dbSave.ejercicios.push(nEj); libEx = nEj;
             save(dbSave);
             sync('saveEjercicio', nEj, function(){});
           } else if (sub.videoUrl && !(libEx.video||libEx.videoUrl)) {
             // AJ-028: el video puesto en la rutina queda guardado en la biblioteca
             libEx.video = sub.videoUrl; save(dbSave); sync('saveEjercicio', libEx, function(){});
           }
-          dayExs.push({nombre:sub.nombre.toUpperCase(),dosis:(sub.dosis||'').toUpperCase(),intensidad:sub.intensidad||'',intMetric:sub.intMetric||parseIntens(sub.intensidad).m,descanso:sub.descanso||'',videoUrl:sub.videoUrl||'',comentario:sub.comentario||'',tipo:ex.tipo||'simple'});
+          dayExs.push({ejId:libEx?libEx.id:'',nombre:sub.nombre.toUpperCase(),dosis:(sub.dosis||'').toUpperCase(),intensidad:sub.intensidad||'',intMetric:sub.intMetric||parseIntens(sub.intensidad).m,descanso:sub.descanso||'',videoUrl:sub.videoUrl||'',comentario:sub.comentario||'',tipo:ex.tipo||'simple'});
         }
       });
     });
