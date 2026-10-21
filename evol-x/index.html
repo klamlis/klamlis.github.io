@@ -468,7 +468,7 @@ body.modal-open{overflow:hidden}
   <div class="fr">
     <div class="fg"><label>Nombre</label><input type="text" id="ej_nombre" style="text-transform:uppercase" placeholder="Ej: Sentadilla con barra" autocomplete="off" oninput="ejDupHint()"/><div id="ej_dup_hint"></div></div>
     <div class="fg"><label>Grupo muscular</label>
-      <select id="ej_grupo" style="width:100%;text-transform:uppercase" onchange="fillSubList()">
+      <select id="ej_grupo" style="width:100%;text-transform:uppercase" onchange="document.getElementById('ej_subgrupo').value='';fillSubList()">
     <option>PIERNA</option><option>GLÚTEO</option><option>ESPALDA</option>
     <option>PECHO</option><option>HOMBRO</option><option>BÍCEPS</option>
     <option>TRÍCEPS</option><option>CORE/ABDOMEN</option>
@@ -480,7 +480,7 @@ body.modal-open{overflow:hidden}
     </div>
   </div>
   <div class="fr">
-    <div class="fg"><label>Subcategoría</label><input type="text" id="ej_subgrupo" list="ej_sub_list" placeholder="EJ: CUÁDRICEPS, ISQUIOS..." style="text-transform:uppercase" autocomplete="off"/><datalist id="ej_sub_list"></datalist></div>
+    <div class="fg"><label>Subcategoría</label><select id="ej_subgrupo_sel" style="width:100%" onchange="subSelChange()"></select><input type="text" id="ej_subgrupo" placeholder="ESCRIBE LA NUEVA SUBCATEGORÍA" style="text-transform:uppercase;display:none;margin-top:6px" autocomplete="off"/></div>
     <div class="fg"><label>URL Video (YouTube)</label><input type="text" id="ej_video" placeholder="https://youtu.be/..."/></div>
   </div>
   <div class="fg"><label>Equipamiento</label><input type="text" id="ej_equipo" placeholder="Mancuernas, banda..."/></div>
@@ -2494,7 +2494,7 @@ function renderEjGrid(exs, query) {
       html += '<button class="btn btn-g btn-sm ej-edit-btn" data-id="' + e.id + '">✏️</button>';
       html += '<button class="btn btn-d btn-sm ej-del-btn" data-id="' + e.id + '">🗑️</button>';
       html += '</div></div>';
-      html += '<div style="font-size:11px;color:var(--cyan);margin-bottom:4px">📋 En rutinas: <strong>' + times + '</strong> vez' + (times!==1?'es':'') + '</div>';
+      html += '<div style="font-size:11px;color:var(--cyan);margin-bottom:4px">📋 En rutinas: <strong>' + times + '</strong> ' + (times!==1?'veces':'vez') + '</div>';
       if (e.equipo) html += '<div style="font-size:11px;color:var(--gris);margin-bottom:4px">' + e.equipo + '</div>';
       if (e.desc) html += '<div style="font-size:11px;color:var(--gris);line-height:1.5;margin-bottom:4px">' + e.desc + '</div>';
       var evid = e.video || e.videoUrl;
@@ -2561,12 +2561,46 @@ function attachEjListeners() {
   });
 }
 
+// ═══ SUBCATEGORÍAS POR GRUPO MUSCULAR — edita esta lista para agregar o quitar opciones ═══
+var SUBGRUPOS = {
+  'PIERNA':        ['CUÁDRICEPS','ISQUIOTIBIALES','CUÁDRICEPS Y GLÚTEOS','ADUCTORES','ABDUCTORES','PANTORRILLA','PIERNA COMPLETA','UNILATERAL'],
+  'GLÚTEO':        ['GLÚTEO MAYOR','GLÚTEO MEDIO','GLÚTEO MENOR','EXTENSIÓN DE CADERA','ABDUCCIÓN DE CADERA','PUENTES / HIP THRUST'],
+  'ESPALDA':       ['DORSAL ANCHO','ESPALDA ALTA / ROMBOIDES','TRAPECIO','ESPALDA BAJA / LUMBAR','REMOS','JALONES / DOMINADAS'],
+  'PECHO':         ['PECHO SUPERIOR','PECHO MEDIO','PECHO INFERIOR','APERTURAS','PRESS / EMPUJES','FLEXIONES'],
+  'HOMBRO':        ['DELTOIDES ANTERIOR','DELTOIDES LATERAL','DELTOIDES POSTERIOR','MANGUITO ROTADOR','PRESS DE HOMBRO'],
+  'BÍCEPS':        ['CABEZA LARGA','CABEZA CORTA','BRAQUIAL','CURL MARTILLO'],
+  'TRÍCEPS':       ['CABEZA LARGA','CABEZA LATERAL','CABEZA MEDIAL','EXTENSIONES','FONDOS'],
+  'CORE/ABDOMEN':  ['RECTO ABDOMINAL','ABDOMEN INFERIOR','OBLICUOS','TRANSVERSO','PLANCHAS / ESTABILIDAD','ANTI-ROTACIÓN'],
+  'CUELLO':        ['FLEXORES','EXTENSORES','LATERALES','MOVILIDAD'],
+  'ANTEBRAZO':     ['FLEXORES','EXTENSORES','AGARRE'],
+  'CARDIO':        ['CONTINUO (ZONA 2)','INTERVALOS / HIIT','CAMINATA','BICICLETA','ELÍPTICA','REMO ERGÓMETRO','CUERDA / SALTOS'],
+  'FULL BODY':     ['EMPUJE','TRACCIÓN','BISAGRA DE CADERA','SENTADILLA','CARGAS / TRANSPORTE','CIRCUITO','MOVILIDAD'],
+  'POTENCIA':      ['LEVANTAMIENTOS OLÍMPICOS','LANZAMIENTOS / BALÓN MEDICINAL','KETTLEBELL BALÍSTICO','SPRINTS'],
+  'PLIOMETRÍA':    ['SALTOS VERTICALES','SALTOS HORIZONTALES','SALTOS LATERALES','DROP / DEPTH JUMPS','SALTOS UNILATERALES'],
+  'SIN CLASIFICAR':['MOVILIDAD','ESTIRAMIENTO','CALENTAMIENTO','REHABILITACIÓN']
+};
+// Llena el combo de subcategorías según el grupo elegido (+ las que ya existan en la biblioteca para ese grupo)
 function fillSubList() {
-  var dl = document.getElementById('ej_sub_list'); if (!dl) return;
-  var g = (document.getElementById('ej_grupo')||{}).value || '';
-  var seen = {};
-  (db().ejercicios||[]).forEach(function(e){ if (e.subgrupo && (!g || (e.grupo||'').toUpperCase()===g.toUpperCase())) seen[e.subgrupo.toUpperCase()] = 1; });
-  dl.innerHTML = Object.keys(seen).sort().map(function(x){ return '<option value="'+esc(x)+'">'; }).join('');
+  var sel = document.getElementById('ej_subgrupo_sel'), inp = document.getElementById('ej_subgrupo'); if (!sel || !inp) return;
+  var g = ((document.getElementById('ej_grupo')||{}).value || '').toUpperCase();
+  var actual = (inp.value||'').trim().toUpperCase();
+  var lista = (SUBGRUPOS[g] || []).slice(), seen = {};
+  lista.forEach(function(x){ seen[normTxt(x)] = 1; });
+  var extra = [];
+  (db().ejercicios||[]).forEach(function(e){ var sg = (e.subgrupo||'').toUpperCase(); if (sg && (e.grupo||'').toUpperCase()===g && !seen[normTxt(sg)]) { seen[normTxt(sg)] = 1; extra.push(sg); } });
+  if (actual && !seen[normTxt(actual)]) extra.push(actual);
+  var h = '<option value="">— Sin subcategoría —</option>' + lista.map(function(x){ return '<option value="'+esc(x)+'">'+esc(x)+'</option>'; }).join('');
+  if (extra.length) h += '<optgroup label="Ya usadas en la biblioteca">' + extra.sort().map(function(x){ return '<option value="'+esc(x)+'">'+esc(x)+'</option>'; }).join('') + '</optgroup>';
+  h += '<option value="__otra">➕ Otra… (escribir)</option>';
+  sel.innerHTML = h;
+  var match = '';
+  Array.prototype.forEach.call(sel.options, function(o){ if (o.value !== '__otra' && normTxt(o.value) === normTxt(actual)) match = o.value; });
+  sel.value = match; inp.value = match; inp.style.display = 'none';
+}
+function subSelChange() {
+  var sel = document.getElementById('ej_subgrupo_sel'), inp = document.getElementById('ej_subgrupo');
+  if (sel.value === '__otra') { inp.value = ''; inp.style.display = ''; inp.focus(); }
+  else { inp.value = sel.value; inp.style.display = 'none'; }
 }
 function openNewEj(prefill) {
   document.getElementById('m_ej_title').textContent = 'NUEVO EJERCICIO';
@@ -3304,7 +3338,9 @@ function nombreSim(a, b) {
   var dir = function(x, y){ var t = 0; x.forEach(function(w){ var b = 0; y.forEach(function(v){ b = Math.max(b, wordSim(w, v) >= 0.72 ? wordSim(w, v) : 0); }); t += b; }); return t / x.length; };
   var s1 = dir(ta, tb), s2 = dir(tb, ta);
   var whole = 1 - osaDist(ta.join(''), tb.join('')) / Math.max(ta.join('').length, tb.join('').length);
-  return Math.max(Math.min(s1, s2), whole);
+  // un nombre contenido en el otro (GOBLET ⊂ SENTADILLA GOBLET) también cuenta como posible repetido
+  var incl = Math.max(s1, s2) >= 0.9 ? 0.82 : 0;
+  return Math.max(Math.min(s1, s2), whole, incl);
 }
 function ejerciciosParecidos(nombre, excluirId, umbral) {
   umbral = umbral || 0.8;
