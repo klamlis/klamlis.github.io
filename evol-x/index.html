@@ -2,7 +2,9 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Coach App</title>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Bebas+Neue&family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -39,7 +41,7 @@ body{font-family:var(--font-body);background:rgba(var(--bg-rgb),1);color:var(--b
 .nav-btn{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--r);font-size:13px;color:var(--gris);font-weight:500;cursor:pointer;transition:all 0.15s;border:none;background:none;width:100%;text-align:left;font-family:var(--font-body)}
 .nav-btn:hover{background:var(--s2);color:var(--blanco)}
 .nav-btn.active{background:linear-gradient(90deg,rgba(var(--acc-rgb),0.15),rgba(var(--acc-rgb),0.07));color:var(--blanco);border-left:3px solid var(--mag)}
-.main{flex:1;overflow-y:auto;padding:24px 28px}
+.main{flex:1;min-width:0;overflow-y:auto;padding:24px 28px} /* min-width:0 evita que una tabla ancha ensanche toda la página en el celular */
 
 /* FORMS */
 .fg{margin-bottom:12px}
@@ -169,6 +171,8 @@ tr:hover td{background:var(--s1)}
 /* TOAST */
 .toast{position:fixed;bottom:20px;right:20px;background:rgba(var(--bg-rgb),0.97);color:var(--blanco);border:1px solid var(--brd);padding:10px 18px;border-radius:var(--r);font-size:13px;font-weight:500;z-index:999;transform:translateY(80px);opacity:0;transition:all 0.3s;backdrop-filter:blur(12px);max-width:320px}
 .toast.show{transform:translateY(0);opacity:1}
+.toast{pointer-events:none}
+#log_last_weight:empty{display:none} /* el aviso nunca debe tapar botones (en el celular tapaba «Guardar») */
 
 /* MOBILE */
 .mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:300;background:rgba(var(--bg-rgb),0.97);backdrop-filter:blur(16px);border-top:1px solid var(--brd);padding:6px 0 env(safe-area-inset-bottom,6px)}
@@ -252,6 +256,45 @@ tr:hover td{background:var(--s1)}
 .theme-swatch{width:100%;height:38px;border-radius:8px;border:1px solid var(--brd);padding:0;background:none;cursor:pointer}
 .brand-opt{flex:1;min-width:150px;padding:14px;border-radius:12px;border:2px solid var(--brd);cursor:pointer;background:var(--s1);text-align:center}
 .brand-opt.sel{border-color:var(--cyan)}
+
+/* ══════════════ IPHONE / CELULAR ══════════════ */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{-webkit-tap-highlight-color:transparent}
+input[type=date],input[type=time]{-webkit-appearance:none;appearance:none;min-height:40px;display:block}
+input[type=date]::-webkit-date-and-time-value{text-align:left}
+select{-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23999' stroke-width='1.6'/%3E%3C/svg%3E")!important;background-repeat:no-repeat!important;background-position:right 10px center!important;background-size:12px 8px!important;padding-right:28px!important}
+body.modal-open{overflow:hidden}
+.topbar{padding-top:env(safe-area-inset-top);height:calc(56px + env(safe-area-inset-top))}
+@media(max-width:768px){
+  .layout{min-height:calc(100vh - 56px - env(safe-area-inset-top))}
+  .main{overflow:visible;padding:14px 14px calc(92px + env(safe-area-inset-bottom))}
+  input,select,textarea,.rut-inp,.edit-input{font-size:16px!important}
+  .btn{min-height:40px}
+  .btn-sm{min-height:34px}
+  .page-title{font-size:24px;letter-spacing:2px}
+  .card{padding:14px 14px}
+  .card-title{flex-wrap:wrap;gap:8px}
+  .topbar{padding-left:12px;padding-right:12px}
+  .mob-nav{padding:6px 0 calc(6px + env(safe-area-inset-bottom))}
+  .mob-more{bottom:calc(62px + env(safe-area-inset-bottom));padding-bottom:16px}
+  .toast{left:12px;right:12px;bottom:calc(78px + env(safe-area-inset-bottom));max-width:none;text-align:center}
+  .overlay{align-items:flex-end}
+  .overlay .modal{width:100%!important;max-width:100%!important;border-radius:18px 18px 0 0;max-height:92vh;max-height:92dvh;padding:18px 14px calc(18px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+  #m_video{align-items:center}
+  [style*="grid-template-columns:1fr 1fr 1fr 1fr 1fr"]{grid-template-columns:1fr 1fr!important}
+  [style*="grid-template-columns:1fr 1.7fr 1fr 2fr"]{grid-template-columns:1fr 1fr!important}
+  [style*="grid-template-columns:1fr 1fr 1fr 2fr"]{grid-template-columns:1fr 1fr!important}
+  .m-grid{grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
+  .stat-v{font-size:26px}
+}
+@media(max-width:430px){
+  #tp_name,.role-pill{display:none}
+  .stats{grid-template-columns:1fr 1fr;gap:8px}
+  .stat{padding:11px}
+  .u-row{flex-wrap:wrap}
+  .u-btns{width:100%}
+}
+
 .pass-wrap { position:relative; display:flex; align-items:center; }
 .pass-wrap input { flex:1; width:100% !important; padding-right:42px !important; }
 .eye-btn { position:absolute; right:8px; background:none; border:none; cursor:pointer; color:var(--gris); font-size:18px; padding:4px; line-height:1; z-index:2; user-select:none; }
@@ -1368,7 +1411,7 @@ function obStep3() {
     '<div style="font-size:12px;color:var(--gris);line-height:1.8">Yo, <strong style="color:var(--blanco)">'+(CU.name||'_____')+'</strong>, confirmo que mis respuestas son verídicas y me comprometo a informar cualquier cambio en mi estado de salud.</div>' +
     '</div>' +
     '<div class="fg"><label>Firma (escribe tu nombre completo)</label><input type="text" id="ob_firma" value="'+(CU.name||'')+'" placeholder="Tu nombre completo"/></div>' +
-    '<div class="fg"><label>Fecha</label><input type="date" id="ob_fecha_diag" value="'+new Date().toISOString().split('T')[0]+'"/></div>' +
+    '<div class="fg"><label>Fecha</label><input type="date" id="ob_fecha_diag" value="'+dateCOL()+'"/></div>' +
     '<div style="display:flex;gap:10px;margin-top:16px"><button class="btn btn-g" onclick="obPrev()">← Atrás</button><button class="btn btn-gold btn-full" onclick="finishOb()">🎉 ¡Comenzar mi transformación!</button></div>';
 }
 
@@ -1593,13 +1636,68 @@ function nav(page) {
   if (pages[page]) pages[page]();
 }
 
-function setMain(html) { document.getElementById('main').innerHTML = html; }
+// ═══════════════════════════════════════════════════════════
+//  VISIBILIDAD POR COACH
+//  · Coach: solo ve los usuarios que tiene asignados.
+//    (Si la marca no tiene administrador —como Ivonne— también ve los que no tienen coach.)
+//  · Admin y recepción: ven todos y pueden filtrar por coach.
+// ═══════════════════════════════════════════════════════════
+var COACH_FILTER = (function(){ try { return localStorage.getItem('app_coach_filter') || ''; } catch(e){ return ''; } })();
+function esGestor() { return CU && (CU.role === 'admin' || CU.role === 'recepcion'); }
+function hayAdmin(d) { return (d||db()).users.some(function(u){ return u.role === 'admin'; }); }
+function usuarioVisible(u, d) {
+  if (!CU || u.role !== 'user') return false;
+  if (esGestor()) {
+    if (!COACH_FILTER) return true;
+    if (COACH_FILTER === '__none') return !u.coachId;
+    return u.coachId === COACH_FILTER;
+  }
+  if (CU.role === 'coach') return u.coachId === CU.id || (!u.coachId && !hayAdmin(d));
+  return false;
+}
+// Copia de la base filtrada a lo que esta cuenta puede ver (solo lectura)
+function vdb() {
+  var d = db();
+  if (!CU || CU.role === 'user') return d;
+  var vis = {};
+  d.users.forEach(function(u){ if (usuarioVisible(u, d)) vis[u.id] = 1; });
+  var keep = function(x){ return vis[x.userId]; };
+  return { users: d.users.filter(function(u){ return u.role !== 'user' || vis[u.id]; }),
+           medidas: d.medidas.filter(keep), rutinas: d.rutinas.filter(keep), logs: d.logs.filter(keep),
+           ejercicios: d.ejercicios, deleted: d.deleted };
+}
+function coachNombre(id, d) {
+  if (!id) return '';
+  var c = (d||db()).users.filter(function(u){ return u.id === id; })[0];
+  return c ? c.name : id;
+}
+function setCoachFilter(v) {
+  COACH_FILTER = v || '';
+  try { localStorage.setItem('app_coach_filter', COACH_FILTER); } catch(e) {}
+  nav(curPage);
+}
+var COACH_PAGES = ['dashboard','usuarios','medidas','rutinas','logs','bienestar'];
+function coachFilterBar() {
+  if (!esGestor() || COACH_PAGES.indexOf(curPage) < 0) return '';
+  var d = db();
+  var coaches = d.users.filter(function(u){ return u.role === 'coach' || u.role === 'admin'; });
+  var users = d.users.filter(function(u){ return u.role === 'user'; });
+  var cnt = function(fn){ return users.filter(fn).length; };
+  var o = '<option value="">Todos los coaches ('+users.length+')</option>';
+  coaches.forEach(function(c){ o += '<option value="'+c.id+'"'+(COACH_FILTER===c.id?' selected':'')+'>'+esc(c.name)+' ('+cnt(function(u){return u.coachId===c.id;})+')</option>'; });
+  o += '<option value="__none"'+(COACH_FILTER==='__none'?' selected':'')+'>Sin coach asignado ('+cnt(function(u){return !u.coachId;})+')</option>';
+  return '<div class="coach-filter" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;padding:8px 12px;border:1px solid var(--brd);border-radius:var(--r);background:var(--s1)">'+
+    '<span style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--gris)">👥 VER '+T.Usuarios.toUpperCase()+' DE:</span>'+
+    '<select onchange="setCoachFilter(this.value)" style="flex:1;min-width:180px;padding:8px 10px;background:var(--bg);border:1px solid var(--brd);border-radius:8px;color:var(--blanco);font-family:var(--font-body);font-size:13px">'+o+'</select></div>';
+}
+
+function setMain(html) { document.getElementById('main').innerHTML = coachFilterBar() + html; window.scrollTo(0,0); var m = document.getElementById('main'); if (m) m.scrollTop = 0; }
 
 // ═══════════════════════════════════════════════════════════
 //  MODALS
 // ═══════════════════════════════════════════════════════════
-function openModal(id) { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function openModal(id) { document.getElementById(id).classList.add('open'); document.body.classList.add('modal-open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); if (!document.querySelector('.overlay.open')) document.body.classList.remove('modal-open'); }
 
 // AJ-010: solo se cierra si el clic EMPIEZA y TERMINA en el fondo oscuro.
 // Antes, seleccionar texto dentro de un campo y soltar el mouse fuera del cuadro cerraba el modal.
@@ -1612,6 +1710,7 @@ document.addEventListener('click', function(e) {
     if (e.target === ov && _ovDownTarget === ov) {
       if (ov.id === 'm_video') stopVideo();
       ov.classList.remove('open');
+      if (!document.querySelector('.overlay.open')) document.body.classList.remove('modal-open');
     }
   });
   if (!e.target.closest('#mobNav') && !e.target.closest('#mobMore')) {
@@ -1645,7 +1744,7 @@ function memStatus(u) {
 //  COACH: DASHBOARD
 // ═══════════════════════════════════════════════════════════
 function pgDashboard() {
-  var d = db();
+  var d = vdb();
   var usr = d.users.filter(function(u) { return u.role === 'user'; });
   var logsW = 0;
   var now = Date.now();
@@ -1679,6 +1778,10 @@ function pgDashboard() {
     var u4 = d.users.filter(function(x){return x.id===l.userId;})[0];
     alerts.push({ name:(u4?u4.name:''), label:'⚠️ Reportó dolor fuerte el '+fDate(l.fecha)+' — sin retroalimentar', color:'#ff8080', action:'showLogDetail(\''+l.id+'\')' });
   });
+  if (esGestor() && !COACH_FILTER) {
+    var sinCoach = d.users.filter(function(u){ return u.role==='user' && !u.coachId; }).length;
+    if (sinCoach) alerts.push({ name:'Gestión', label:'👥 '+sinCoach+' '+(sinCoach===1?T.usuario:T.usuarios)+' sin coach asignado', color:'#ffaa44', action:"setCoachFilter('__none');nav('usuarios')" });
+  }
   var sinFb = ses(d).filter(function(l){ return l.tipo !== 'libre' && !l.feedback; }).length;
   // Bienestar: estrés alto o poco sueño en los últimos 3 días
   var hace3 = new Date(Date.now()-3*86400000).toISOString().split('T')[0];
@@ -1739,7 +1842,7 @@ function pgDashboard() {
 //  COACH: USUARIOS
 // ═══════════════════════════════════════════════════════════
 function pgUsuarios() {
-  var d = db();
+  var d = vdb();
   var usr = d.users.filter(function(u) { return u.role === 'user'; });
   var html = '<div class="page-title">MIS '+T.Usuarios.toUpperCase()+'</div><div class="page-sub">' + usr.length + ' '+T.usuarios+' '+T.registrados+'</div>';
   html += '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"><button class="btn btn-p" onclick="openNuevaUsuario()">+ '+T.nuevo+'</button>'+
@@ -1760,6 +1863,7 @@ function pgUsuarios() {
       html += '<div class="u-meta">' + (u.email || '') + (u.tel ? ' · ' + u.tel : '') + '</div>';
       html += '<div style="font-size:11px;color:var(--gris);margin-top:2px">' + (u.objetivo || '') + '</div>';
       html += '<div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap">';
+      if (esGestor() || hayAdmin()) html += u.coachId ? '<span class="badge bo">🧑‍🏫 '+esc(coachNombre(u.coachId))+'</span>' : '<span class="badge bw">Sin coach</span>';
       html += '<span class="badge bm">' + ruts + ' rutinas</span>';
       html += '<span class="badge bg">' + sesiones + ' sesiones</span>';
       if (um) html += '<span class="badge bo">' + um.peso + ' kg</span>';
@@ -1856,7 +1960,8 @@ function openNuevaUsuario() {
   var cedEl=document.getElementById('u_cedula'); if(cedEl) cedEl.value='';
   var fnacEl=document.getElementById('u_fnac'); if(fnacEl) fnacEl.value='';
   var genEl=document.getElementById('u_genero'); if(genEl) genEl.value='';
-  fillCoachDropdown('u_coach', '');
+  fillCoachDropdown('u_coach', CU && CU.role==='coach' ? CU.id : (COACH_FILTER && COACH_FILTER!=='__none' ? COACH_FILTER : ''));
+  document.getElementById('u_coach_wrap').style.display = esGestor() ? '' : 'none';
   openModal('m_usuario');
 }
 
@@ -1886,7 +1991,7 @@ function editUsuario(uid) {
   document.getElementById('u_emerg_tel').value = u.emergTel || '';
   var isPrivRole = (u.role==='admin'||u.role==='coach'||u.role==='recepcion');
   setModalMode(isPrivRole);
-  if (!isPrivRole) fillCoachDropdown('u_coach', u.coachId||'');
+  if (!isPrivRole) { fillCoachDropdown('u_coach', u.coachId||''); document.getElementById('u_coach_wrap').style.display = esGestor() ? '' : 'none'; }
   openModal('m_usuario');
 }
 
@@ -1912,7 +2017,7 @@ function saveUsuario() {
       cedula:(document.getElementById('u_cedula')||{value:''}).value||'',
       fechaNac:(document.getElementById('u_fnac')||{value:''}).value||'',
       genero:(document.getElementById('u_genero')||{value:''}).value||'',
-      coachId:(document.getElementById('u_coach')||{value:''}).value||'',
+      coachId: (CU && CU.role==='coach') ? CU.id : ((document.getElementById('u_coach')||{value:''}).value||''),
       objetivo:((document.getElementById('u_obj')||{value:''}).value||'').toUpperCase(),
       obs:((document.getElementById('u_obs')||{value:''}).value||'').toUpperCase(),
       mem_start:(document.getElementById('u_mem_start')||{value:''}).value||null,
@@ -1961,7 +2066,7 @@ function saveUsuario() {
     d.users[idx].cedula  = _e('u_cedula');
     d.users[idx].fechaNac= _e('u_fnac');
     d.users[idx].genero  = _e('u_genero');
-    d.users[idx].coachId = _e('u_coach');
+    if (esGestor()) d.users[idx].coachId = _e('u_coach');
     d.users[idx].objetivo= _e('u_obj');
     d.users[idx].obs     = _e('u_obs');
     d.users[idx].mem_start=_e('u_mem_start')||null;
@@ -2152,7 +2257,7 @@ function getMedDiff(last, first, key) {
 }
 
 function pgMedidas() {
-  var d = db();
+  var d = vdb();
   var usr = d.users.filter(function(u){return u.role==='user';});
   var html = '<div class="page-title">CONTROL DE MEDIDAS</div><div class="page-sub">Valoración física y seguimiento</div>';
   html += '<div style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-p" onclick="openMedidasFor(\'\')">+ Registrar medidas</button></div>';
@@ -2225,7 +2330,7 @@ function openEditMedida(mid) {
 }
 
 function openMedidasFor(uid, editMed) {
-  var d = db();
+  var d = vdb();
   var usr = d.users.filter(function(u){return u.role==='user';});
   var sel = document.getElementById('med_uid');
   sel.innerHTML = usr.map(function(u){return '<option value="'+u.id+'"'+(u.id===uid?' selected':'')+'>'+esc(u.name)+'</option>';}).join('');
@@ -2531,7 +2636,7 @@ function delEj(ejid) {
 var exCount = 0;
 
 function pgRutinas() {
-  var d = db();
+  var d = vdb();
   var usr = d.users.filter(function(u){return u.role==='user';});
   var hoy = new Date(); hoy.setHours(0,0,0,0);
   var html = '<div class="page-title">RUTINAS</div><div class="page-sub">Planes de entrenamiento por '+T.usuario+'</div>';
@@ -2946,7 +3051,7 @@ function rutInitDrag() {
 }
 
 function openNuevaRutina(uid) {
-  var d = db();
+  var d = vdb();
   var usr = d.users.filter(function(u){return u.role==='user';});
   document.getElementById('m_rut_title').textContent = 'NUEVA RUTINA';
   document.getElementById('rut_edit_id').value = '';
@@ -2965,7 +3070,7 @@ function openNuevaRutina(uid) {
 }
 
 function openEditRutina(rid) {
-  var d = db();
+  var d = vdb();
   var r = null;
   for (var i = 0; i < d.rutinas.length; i++) { if (d.rutinas[i].id === rid) { r = d.rutinas[i]; break; } }
   if (!r) return;
@@ -3059,7 +3164,7 @@ function saveRutina() {
   var semana   = parseInt(document.getElementById('rut_semana').value) || 1;
   var nombre   = (document.getElementById('rut_nombre').value||'RUTINA').toUpperCase();
   var obj      = (document.getElementById('rut_obj').value||'').toUpperCase();
-  var fechaIni = document.getElementById('rut_fecha_ini').value||new Date().toISOString().split('T')[0];
+  var fechaIni = document.getElementById('rut_fecha_ini').value||dateCOL();
   var fechaFin = document.getElementById('rut_fecha_fin').value||'';
   if(!userId){toast('Selecciona '+(T.usuario==='usuaria'?'una ':'un ')+T.usuario);return;}
   // AJ-027: cada rutina nueva recibe su propio número. Antes todas eran "semana 1"
@@ -3118,7 +3223,7 @@ function saveRutina() {
         d.rutinas[i].objetivo=obj;
         d.rutinas[i].intensidad=document.getElementById('rut_int').value;
         d.rutinas[i].fechaIni=fechaIni; d.rutinas[i].fechaFin=fechaFin;
-        d.rutinas[i].dias=diasArr; d.rutinas[i].fechaUpdate=new Date().toISOString().split('T')[0];
+        d.rutinas[i].dias=diasArr; d.rutinas[i].fechaUpdate=dateCOL();
         saveAndSync('saveRutina',d.rutinas[i],done); return;
       }
     }
@@ -3128,7 +3233,7 @@ function saveRutina() {
       objetivo:obj,
       intensidad:document.getElementById('rut_int').value,
       fechaIni:fechaIni,fechaFin:fechaFin,
-      fechaCarga:new Date().toISOString().split('T')[0],dias:diasArr};
+      fechaCarga:dateCOL(),dias:diasArr};
     d.rutinas.push(rutina);
     saveAndSync('saveRutina',rutina,done);
   }
@@ -3150,7 +3255,7 @@ function delRutina(rid) {
 //  COACH: LOGS
 // ═══════════════════════════════════════════════════════════
 function pgLogs() {
-  var d = db();
+  var d = vdb();
   var sorted = ses(d).slice().sort(function(a,b){return b.fecha.localeCompare(a.fecha);});
   // Filters
   var html = '<div class="page-title">REGISTRO GLOBAL</div>';
@@ -3380,7 +3485,7 @@ function saveFeedback(logId) {
   if (idx < 0) { toast('Sesión no encontrada'); return; }
   d.logs[idx].feedback = text;
   d.logs[idx].feedbackBy = CU.name;
-  d.logs[idx].fechaFeedback = new Date().toISOString().split('T')[0];
+  d.logs[idx].fechaFeedback = dateCOL();
   save(d);
   _saving['feedback_'+logId] = true;
   var fbBtn = document.querySelector('#m_log_detail_content .btn-p');
@@ -3624,7 +3729,7 @@ function exportData() {
   var d = db();
   var b = new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
   var a = document.createElement('a'); a.href = URL.createObjectURL(b);
-  a.download = BRAND.backupPrefix + new Date().toISOString().split('T')[0] + '.json'; a.click();
+  a.download = BRAND.backupPrefix + dateCOL() + '.json'; a.click();
 }
 
 function resetData() {
@@ -4019,7 +4124,7 @@ function pgMiBienestar() {
 }
 
 function pgBienestarCoach() {
-  var d = db();
+  var d = vdb();
   var usr = d.users.filter(function(u){ return u.role==='user'; });
   var sel = (document.getElementById('bien_filter_u')||{value:''}).value;
   var html = '<div class="page-title">BIENESTAR</div><div class="page-sub">Agua, sueño, estrés, pasos y actividades extra que registran '+(T.usuario==='usuaria'?'tus usuarias':'tus usuarios')+'</div>';
@@ -4738,7 +4843,7 @@ function openFreeLog(existingId) {
     document.getElementById('free_log_id').value = '';
     document.getElementById('free_act_tipo').value = '';
     document.getElementById('free_act_nombre').value = '';
-    document.getElementById('free_act_fecha').value = new Date().toISOString().split('T')[0];
+    document.getElementById('free_act_fecha').value = dateCOL();
     document.getElementById('free_act_dur').value = '';
     document.getElementById('free_act_comment').value = '';
     document.getElementById('free_act_esf').value = '';
@@ -4811,11 +4916,14 @@ function pgAdminPanel() {
   html += '<div style="padding:12px"><button class="btn btn-p btn-sm" id="btn_new_admin">+ Nuevo admin</button></div></div>';
   html += '<div class="card"><div class="card-title">Coaches</div>';
   coaches.forEach(function(u) {
+    var nAsig = d.users.filter(function(x){ return x.role==='user' && x.coachId===u.id; }).length;
     html += '<div class="u-row">';
     html += '<div class="u-av" style="background:linear-gradient(135deg,var(--grad-a),var(--grad-b))">'+ini(u.name)+'</div>';
     html += '<div class="u-info"><div class="u-name">'+u.name+'</div>';
-    html += '<div class="u-meta">'+u.username+' - '+(u.email||'')+'</div></div>';
+    html += '<div class="u-meta">'+u.username+' - '+(u.email||'')+'</div>';
+    html += '<div style="margin-top:6px"><span class="badge bm">'+nAsig+' '+(nAsig===1?T.usuario:T.usuarios)+' asignad'+(T.usuario==='usuaria'?'a':'o')+(nAsig===1?'':'s')+'</span></div></div>';
     html += '<div class="u-btns">';
+    html += '<button class="btn btn-p btn-sm" onclick="setCoachFilter(\''+u.id+'\');nav(\'usuarios\')">👥 Ver '+T.usuarios+'</button>';
     html += '<button class="btn btn-g btn-sm priv-edit-btn" data-uid="'+u.id+'">Editar</button>';
     html += '<button class="btn btn-d btn-sm priv-del-btn" data-uid="'+u.id+'">Eliminar</button>';
     html += '</div>';
