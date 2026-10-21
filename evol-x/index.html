@@ -611,6 +611,22 @@ body.modal-open{overflow:hidden}
 </div>
 </div>
 
+<!-- Cerrar rutina -->
+<div class="overlay" id="m_cierre">
+<div class="modal modal-lg">
+  <div class="modal-title"><span id="cierre_title">🏁 CERRAR RUTINA</span><button class="close-btn" onclick="closeModal('m_cierre')">×</button></div>
+  <input type="hidden" id="cierre_rid"/>
+  <div id="cierre_resumen"></div>
+  <div class="fg" style="margin-top:12px"><label>💬 Retroalimentación general de la rutina (la verá <span class="t-el">el usuario</span>)</label>
+    <textarea id="cierre_retro" style="min-height:120px" placeholder="Logros, avances, qué mejorar en la siguiente etapa..."></textarea></div>
+  <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;margin:4px 0 14px">
+    <input type="checkbox" id="cierre_nueva" checked style="accent-color:var(--cyan);width:16px;height:16px"/>
+    Al cerrar, crear la siguiente rutina usando esta como base
+  </label>
+  <button class="btn btn-p btn-full" id="cierre_btn" onclick="guardarCierre()">🏁 Cerrar rutina y archivarla</button>
+</div>
+</div>
+
 <!-- Video Modal -->
 <div class="overlay" id="m_video" style="align-items:center;padding:16px;z-index:600">
 <div style="background:rgba(var(--bg-rgb),1);border:1px solid var(--brd);border-radius:18px;width:min(660px,95vw);overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.8)">
@@ -1744,13 +1760,13 @@ function pgDashboard() {
   // Rutina expiry alerts
   var hoyD = new Date(); hoyD.setHours(0,0,0,0);
   d.rutinas.forEach(function(r) {
-    if (!r.fechaFin) return;
+    if (!r.fechaFin || rutCerrada(r)) return;
     var fin = new Date(r.fechaFin); fin.setHours(0,0,0,0);
     var diff = Math.ceil((fin - hoyD) / 86400000);
     if (diff <= 7) {
       var u2=null; for(var i=0;i<d.users.length;i++){if(d.users[i].id===r.userId){u2=d.users[i];break;}}
-      var msg = diff<0?'Rutina vencida hace '+Math.abs(diff)+'d':diff===0?'Rutina vence HOY':'Rutina vence en '+diff+'d';
-      alerts.push({ name:(u2?u2.name:''), label:msg, color:'#ffaa44' });
+      var msg = diff<0?'Rutina vencida hace '+Math.abs(diff)+'d — ciérrala y crea la siguiente':diff===0?'Rutina vence HOY':'Rutina vence en '+diff+'d';
+      alerts.push({ name:(u2?u2.name:''), label:msg, color:'#ffaa44', action:"openCierre('"+r.id+"')" });
     }
   });
   // Check points de medidas (AJ-021) y sesiones con dolor fuerte sin retroalimentar
@@ -2624,72 +2640,192 @@ var exCount = 0;
 function pgRutinas() {
   var d = vdb();
   var usr = d.users.filter(function(u){return u.role==='user';});
-  var hoy = new Date(); hoy.setHours(0,0,0,0);
+  var hoyS = dateCOL();
   var html = '<div class="page-title">RUTINAS</div><div class="page-sub">Planes de entrenamiento por '+T.usuario+'</div>';
   html += '<div style="margin-bottom:16px"><button class="btn btn-p" onclick="openNuevaRutina(\'\')">+ Nueva rutina</button></div>';
-  // Rutina expiry alerts
-  var alertas = [];
-  d.rutinas.forEach(function(r) {
-    if (!r.fechaFin) return;
-    var fin = new Date(r.fechaFin); fin.setHours(0,0,0,0);
-    var diff = Math.ceil((fin - hoy) / 86400000);
-    if (diff <= 7) {
-      var u2 = null;
-      for (var i=0;i<d.users.length;i++){if(d.users[i].id===r.userId){u2=d.users[i];break;}}
-      alertas.push({ name: (u2?u2.name:''), rutName: r.nombre||'Sem.'+r.semana, diff: diff, rid: r.id });
-    }
-  });
+  // Alertas: rutinas activas vencidas o por vencer
+  var alertas = d.rutinas.filter(function(r){ return !rutCerrada(r) && r.fechaFin; }).map(function(r){
+    var diff = Math.round((new Date(r.fechaFin) - new Date(hoyS)) / 86400000);
+    return { r:r, diff:diff, u: d.users.filter(function(x){return x.id===r.userId;})[0] };
+  }).filter(function(a){ return a.diff <= 7; });
   if (alertas.length) {
     html += '<div style="background:rgba(255,140,0,0.1);border:1px solid rgba(255,140,0,0.3);border-radius:12px;padding:14px 16px;margin-bottom:16px">';
-    html += '<div style="font-size:11px;font-weight:700;color:#ffaa44;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">⏰ RUTINAS POR VENCER / CAMBIAR</div>';
+    html += '<div style="font-size:11px;font-weight:700;color:#ffaa44;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">⏰ RUTINAS VENCIDAS O POR VENCER</div>';
     alertas.forEach(function(a) {
       var msg = a.diff < 0 ? 'Venció hace '+Math.abs(a.diff)+' días' : a.diff===0 ? 'Vence HOY' : 'Vence en '+a.diff+' días';
-      html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,140,0,0.1)">';
-      html += '<span style="font-size:12px;color:var(--blanco)">'+a.name+' — '+a.rutName+'</span>';
-      html += '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:#ffaa44">'+msg+'</span>';
-      html += '<button class="btn btn-warn btn-sm" onclick="openEditRutina(\''+a.rid+'\')">✏️ Cambiar</button></div>';
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid rgba(255,140,0,0.1)">';
+      html += '<span style="font-size:12px;color:var(--blanco)">'+esc(a.u?a.u.name:'')+' — '+esc(a.r.nombre||'Plan '+a.r.semana)+' · <span style="color:#ffaa44">'+msg+'</span></span>';
+      html += '<span style="display:flex;gap:6px"><button class="btn btn-g btn-sm" onclick="openEditRutina(\''+a.r.id+'\')">✏️ Extender</button><button class="btn btn-warn btn-sm" onclick="openCierre(\''+a.r.id+'\')">🏁 Cerrar y crear la siguiente</button></span>';
       html += '</div>';
     });
     html += '</div>';
   }
+  var resumenFila = function(r){
+    var nB=0,nT=0,nD=(r.dias||[]).length;
+    (r.dias||[]).forEach(function(dd){ var ex=dd.ejercicios||[],k=0; while(k<ex.length){ var t=ex[k].tipo||'simple'; if(t==='biserie'){nB++;k+=2;} else if(t==='triserie'){nT++;k+=3;} else k++; } });
+    var vig = (r.fechaIni?'📅 '+fDate(r.fechaIni):'')+(r.fechaFin?' → '+fDate(r.fechaFin):'');
+    return '<div><div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px"><span class="rut-num">'+r.semana+'</span>'+esc(r.nombre||'Plan '+r.semana)+' '+rutEstadoBadge(r)+
+      '<span style="font-size:11px;color:var(--gris);margin-left:6px">'+(r.intensidad||'')+' · '+nD+' día'+(nD!==1?'s':'')+'</span>'+
+      (nB?'<span class="tipo-chip tipo-biserie">'+nB+' BISERIE'+(nB>1?'S':'')+'</span>':'')+(nT?'<span class="tipo-chip tipo-triserie">'+nT+' TRISERIE'+(nT>1?'S':'')+'</span>':'')+'</div>'+
+      (vig?'<div style="font-size:11px;color:var(--gris);margin-top:4px">'+vig+'</div>':'')+'</div>';
+  };
   usr.forEach(function(u) {
     var ruts = d.rutinas.filter(function(r){return r.userId===u.id;}).sort(function(a,b){return (b.fechaIni||'').localeCompare(a.fechaIni||'') || (b.semana-a.semana);});
+    var activas = ruts.filter(function(r){ return !rutCerrada(r); }), cerradas = ruts.filter(rutCerrada);
     html += '<div class="card"><div class="card-title">';
-    html += '<span>🏋️ '+u.name+' <span class="badge bm" style="font-size:11px">'+ruts.length+' planes</span></span>';
+    html += '<span>🏋️ '+esc(u.name)+' <span class="badge bm" style="font-size:11px">'+activas.length+' activa'+(activas.length===1?'':'s')+'</span>'+(cerradas.length?' <span class="badge bg" style="font-size:11px">📁 '+cerradas.length+' en archivo</span>':'')+'</span>';
     html += '<button class="btn btn-g btn-sm" onclick="openNuevaRutina(\''+u.id+'\')">+ Añadir</button>';
     html += '</div>';
-    if (!ruts.length) {
-      html += '<div style="font-size:12px;color:var(--gris)">Sin rutinas. Carga el primer plan.</div>';
-    } else {
-      ruts.forEach(function(r) {
-        var finDate = r.fechaFin ? new Date(r.fechaFin) : null;
-        finDate && finDate.setHours(0,0,0,0);
-        var diffDays = finDate ? Math.ceil((finDate-hoy)/86400000) : null;
-        var vigenciaHtml = '';
-        if (r.fechaIni || r.fechaFin) {
-          var color = diffDays===null ? 'var(--gris)' : diffDays<0 ? '#ff8080' : diffDays<=7 ? '#ffaa44' : '#80d4a0';
-          var vigLabel = '';
-          if (r.fechaIni) vigLabel += '📅 '+fDate(r.fechaIni);
-          if (r.fechaFin) vigLabel += ' → '+fDate(r.fechaFin);
-          if (diffDays!==null) vigLabel += ' · <span style="color:'+color+'">'+( diffDays<0?'Venció':'Vence en '+diffDays+' días')+'</span>';
-          vigenciaHtml = '<div style="font-size:11px;color:var(--gris);margin-top:4px">'+vigLabel+'</div>';
-        }
-        html += '<details style="margin-bottom:8px">';
-        html += '<summary style="cursor:pointer;padding:10px 13px;background:var(--s2);border-radius:var(--r);font-size:13px;font-weight:600;list-style:none;display:flex;justify-content:space-between;align-items:flex-start;border:1px solid var(--brd)">';
-        var nB=0,nT=0,nD=(r.dias||[]).length;
-        (r.dias||[]).forEach(function(dd){ var ex=dd.ejercicios||[],k=0; while(k<ex.length){ var t=ex[k].tipo||'simple'; if(t==='biserie'){nB++;k+=2;} else if(t==='triserie'){nT++;k+=3;} else k++; } });
-        html += '<div><div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px"><span class="rut-num">'+r.semana+'</span>'+(r.nombre||'Semana '+r.semana)+'<span style="font-size:11px;color:var(--gris);margin-left:8px">'+(r.intensidad||'')+' · '+nD+' día'+(nD!==1?'s':'')+'</span>'+(nB?'<span class="tipo-chip tipo-biserie">'+nB+' BISERIE'+(nB>1?'S':'')+'</span>':'')+(nT?'<span class="tipo-chip tipo-triserie">'+nT+' TRISERIE'+(nT>1?'S':'')+'</span>':'')+'</div>'+vigenciaHtml+'</div>';
-        html += '<div style="display:flex;gap:5px;margin-top:2px" onclick="event.stopPropagation()">';
-        html += '<button class="btn btn-g btn-sm" onclick="openEditRutina(\''+r.id+'\')">✏️ Editar</button>';
-        html += '<button class="btn btn-d btn-sm" onclick="delRutina(\''+r.id+'\')">🗑️</button>';
-        html += '</div></summary>';
-        html += '<div style="padding:8px 4px">'+renderRutinaContent(r)+'</div>';
-        html += '</details>';
+    if (!activas.length) html += '<div style="font-size:12px;color:var(--gris);margin-bottom:8px">Sin rutina activa. '+(cerradas.length?'Crea la siguiente o usa una del archivo como base.':'Carga el primer plan.')+'</div>';
+    activas.forEach(function(r) {
+      html += '<details style="margin-bottom:8px">';
+      html += '<summary style="cursor:pointer;padding:10px 13px;background:var(--s2);border-radius:var(--r);font-size:13px;font-weight:600;list-style:none;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;border:1px solid '+(rutVencida(r)?'rgba(255,128,128,0.5)':'var(--brd)')+'">';
+      html += resumenFila(r);
+      html += '<div style="display:flex;gap:5px;margin-top:2px;flex-wrap:wrap" onclick="event.stopPropagation()">';
+      html += '<button class="btn btn-g btn-sm" onclick="openEditRutina(\''+r.id+'\')">✏️ Editar</button>';
+      html += '<button class="btn btn-warn btn-sm" onclick="openCierre(\''+r.id+'\')">🏁 Cerrar</button>';
+      html += '<button class="btn btn-d btn-sm" onclick="delRutina(\''+r.id+'\')">🗑️</button>';
+      html += '</div></summary>';
+      html += '<div style="padding:8px 4px">'+renderRutinaContent(r)+'</div>';
+      html += '</details>';
+    });
+    if (cerradas.length) {
+      html += '<details style="margin-top:6px"><summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--oro);padding:6px 0">📁 Archivo de rutinas ('+cerradas.length+')</summary>';
+      cerradas.forEach(function(r){
+        html += '<details style="margin:8px 0;border:1px solid var(--brd);border-radius:var(--r);background:rgba(0,0,0,0.15)">';
+        html += '<summary style="cursor:pointer;padding:10px 13px;font-size:13px;font-weight:600;list-style:none;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap">'+resumenFila(r);
+        html += '<div style="display:flex;gap:5px;flex-wrap:wrap" onclick="event.stopPropagation()"><button class="btn btn-g btn-sm" onclick="openCierre(\''+r.id+'\')">💬 Retroalimentación</button><button class="btn btn-g btn-sm" onclick="nuevaDesde(db().rutinas.filter(function(x){return x.id===\''+r.id+'\'})[0])">⧉ Usar como base</button><button class="btn btn-g btn-sm" onclick="reabrirRutina(\''+r.id+'\')">↺ Reabrir</button></div></summary>';
+        html += '<div style="padding:4px 13px 12px">'+archivoRutinaHtml(r, false)+'</div></details>';
       });
+      html += '</details>';
     }
     html += '</div>';
   });
   setMain(html);
+}
+
+function rutCerrada(r) { return r && r.estado === 'cerrada'; }
+function rutVencida(r) { return r && !rutCerrada(r) && r.fechaFin && r.fechaFin < dateCOL(); }
+function rutEstadoBadge(r) {
+  if (rutCerrada(r)) return '<span class="badge bg">📁 Cerrada '+(r.fechaCierre?fDate(r.fechaCierre):'')+'</span>';
+  if (rutVencida(r)) return '<span class="badge bw">⏰ Vencida</span>';
+  return '<span class="badge bk">● Activa</span>';
+}
+// Resumen de cómo le fue a la persona con esta rutina
+function rutResumen(r) {
+  var d = db();
+  var tope = r.fechaCierre || dateCOL();
+  var hasta = (r.fechaFin && r.fechaFin < tope) ? r.fechaFin : tope;
+  var desde = r.fechaIni || r.fechaCarga || '';
+  var logs = ses(d).filter(function(l){ return l.rutId === r.id && l.tipo !== 'libre'; });
+  var nDias = (r.dias||[]).length || 1;
+  var semanas = 1;
+  if (desde) { semanas = Math.max(1, Math.ceil(((new Date(hasta) - new Date(desde)) / 86400000 + 1) / 7)); }
+  var plan = semanas * nDias;
+  var esf = logs.filter(function(l){ return l.esfuerzo; }).map(function(l){ return parseFloat(l.esfuerzo); });
+  var ejT = 0, ejOk = 0, dolor = 0;
+  logs.forEach(function(l){ (l.ejercicios||[]).forEach(function(e){ ejT++; if (e.completado) ejOk++; }); if (l.dolor === 'fuerte' || l.dolor === 'moderado') dolor++; });
+  var bd = bienestarPorDia(r.userId).filter(function(x){ return (!desde || x.fecha >= desde) && x.fecha <= hasta; });
+  var avg = function(k){ var v = bd.filter(function(x){return x[k];}).map(function(x){return parseFloat(x[k]);}); return v.length ? v.reduce(function(a,b){return a+b;},0)/v.length : null; };
+  var extras = 0; bd.forEach(function(x){ extras += x.actividades.length; });
+  return { sesiones: logs.length, plan: plan, semanas: semanas, adherencia: plan ? Math.min(100, Math.round(logs.length*100/plan)) : 0,
+    esfuerzo: esf.length ? (esf.reduce(function(a,b){return a+b;},0)/esf.length).toFixed(1) : '—',
+    completados: ejT ? Math.round(ejOk*100/ejT) : 0, dolor: dolor, extras: extras,
+    agua: avg('agua'), sueno: avg('sueno'), estres: avg('estres'), pasos: avg('pasos'), desde: desde, hasta: hasta };
+}
+function rutResumenHtml(r) {
+  var x = r.resumenCierre || rutResumen(r);
+  var st = function(l, v, u){ return '<div class="stat" style="padding:10px"><div class="stat-l">'+l+'</div><div class="stat-v" style="font-size:24px">'+v+'<span class="stat-u">'+(u||'')+'</span></div></div>'; };
+  var h = '<div style="font-size:11px;color:var(--gris);margin-bottom:8px">📅 '+(x.desde?fDate(x.desde):'—')+' → '+fDate(x.hasta)+' · '+x.semanas+' semana'+(x.semanas===1?'':'s')+'</div>';
+  h += '<div class="stats" style="margin-bottom:10px">' +
+    st('Sesiones', x.sesiones, ' / '+x.plan) + st('Cumplimiento', x.adherencia, '%') + st('Ejercicios hechos', x.completados, '%') +
+    st('Esfuerzo prom.', x.esfuerzo, '/10') + st('Act. extra', x.extras) + st('Dolor reportado', x.dolor, ' ses.') + '</div>';
+  var b = [];
+  if (x.agua) b.push('💧 '+Math.round(x.agua).toLocaleString('es-CO')+' ml');
+  if (x.sueno) b.push('😴 '+x.sueno.toFixed(1)+' h');
+  if (x.estres) b.push('🧠 estrés '+x.estres.toFixed(1)+'/10');
+  if (x.pasos) b.push('👟 '+Math.round(x.pasos).toLocaleString('es-CO')+' pasos');
+  if (b.length) h += '<div style="font-size:12px;color:var(--gris);margin-bottom:4px">🌙 Bienestar promedio en la rutina: '+b.join(' · ')+'</div>';
+  return h;
+}
+
+function openCierre(rid) {
+  var d = db(), r = d.rutinas.filter(function(x){ return x.id === rid; })[0];
+  if (!r) return;
+  var u = d.users.filter(function(x){ return x.id === r.userId; })[0];
+  document.getElementById('cierre_rid').value = rid;
+  document.getElementById('cierre_title').textContent = '🏁 CERRAR: '+(r.nombre||'RUTINA');
+  document.querySelectorAll('#m_cierre .t-el').forEach(function(x){ x.textContent = T.el; });
+  document.getElementById('cierre_resumen').innerHTML = '<div style="font-size:13px;font-weight:700;margin-bottom:6px">'+esc(u?u.name:'')+'</div>' + rutResumenHtml(r);
+  document.getElementById('cierre_retro').value = r.retroFinal || '';
+  document.getElementById('cierre_nueva').checked = true;
+  openModal('m_cierre');
+}
+
+function guardarCierre() {
+  if (_saving['cierre']) return;
+  var rid = document.getElementById('cierre_rid').value;
+  var d = db(), r = d.rutinas.filter(function(x){ return x.id === rid; })[0];
+  if (!r) return;
+  var retro = document.getElementById('cierre_retro').value.trim();
+  if (!retro && !confirm('¿Cerrar la rutina sin retroalimentación general?')) return;
+  var nueva = document.getElementById('cierre_nueva').checked;
+  r.estado = 'cerrada';
+  r.fechaCierre = dateCOL();
+  r.cerradaPor = CU.name;
+  r.retroFinal = retro;
+  r.resumenCierre = rutResumen(r);
+  _saving['cierre'] = true;
+  saveAndSync('saveRutina', r, function(res){
+    _saving['cierre'] = false;
+    closeModal('m_cierre');
+    toast('🏁 Rutina cerrada y archivada'+(res&&res.ok?' en Drive':''));
+    pgRutinas();
+    if (nueva) setTimeout(function(){ nuevaDesde(r); }, 250);
+  });
+}
+
+// Abre "Nueva rutina" con los ejercicios de una rutina anterior como base
+function nuevaDesde(r) {
+  openNuevaRutina(r.userId);
+  setTimeout(function(){
+    document.getElementById('m_rut_title').textContent = 'NUEVA RUTINA (BASE: '+(r.nombre||'ANTERIOR')+')';
+    document.getElementById('rut_obj').value = r.objetivo || '';
+    if (r.intensidad) document.getElementById('rut_int').value = r.intensidad;
+    rutInitDays(JSON.parse(JSON.stringify(r.dias||[])));
+  }, 120);
+}
+
+function reabrirRutina(rid) {
+  var d = db(), r = d.rutinas.filter(function(x){ return x.id === rid; })[0];
+  if (!r || !confirm('¿Reabrir "'+(r.nombre||'esta rutina')+'"? Volverá a estar activa para '+T.el+'.')) return;
+  r.estado = 'activa'; delete r.fechaCierre;
+  saveAndSync('saveRutina', r, function(){ toast('↺ Rutina reabierta'); pgRutinas(); });
+}
+
+// El usuario puede dejar su propio comentario final en una rutina cerrada
+function guardarComentarioFinal(rid) {
+  var el = document.getElementById('com_final_'+rid); if (!el) return;
+  var d = db(), r = d.rutinas.filter(function(x){ return x.id === rid; })[0];
+  if (!r) return;
+  r.comentarioUsuarioFinal = el.value.trim(); r.fechaComentarioFinal = dateCOL();
+  saveAndSync('saveRutina', r, function(){ toast('💬 Comentario guardado'); pgMiRutina('archivo:'+rid); });
+}
+
+function archivoRutinaHtml(r, paraUsuario) {
+  var h = '<div style="padding:4px 0">';
+  h += rutResumenHtml(r);
+  h += '<div style="margin:10px 0;padding:12px 14px;border-radius:10px;background:rgba(var(--acc-rgb),0.07);border:1px solid var(--brd)">';
+  h += '<div style="font-size:10px;font-weight:700;letter-spacing:1px;color:var(--cyan);margin-bottom:6px">💬 RETROALIMENTACIÓN GENERAL DEL COACH'+(r.cerradaPor?' · '+esc(r.cerradaPor):'')+'</div>';
+  h += '<div style="font-size:13px;line-height:1.7;white-space:pre-line">'+(r.retroFinal?esc(r.retroFinal):'<span style="color:var(--gris)">Sin retroalimentación general.</span>')+'</div></div>';
+  if (paraUsuario) {
+    h += '<div class="fg"><label>✍️ Mi comentario final sobre esta rutina</label><textarea id="com_final_'+r.id+'" placeholder="¿Cómo te sentiste en esta etapa? ¿Qué lograste?">'+esc(r.comentarioUsuarioFinal||'')+'</textarea></div>';
+    h += '<button class="btn btn-g btn-sm" onclick="guardarComentarioFinal(\''+r.id+'\')">💾 Guardar mi comentario</button>';
+  } else if (r.comentarioUsuarioFinal) {
+    h += '<div style="margin:10px 0;padding:10px 12px;border-radius:10px;border-left:3px solid var(--oro);background:var(--s1);font-size:12px;line-height:1.6"><strong style="color:var(--oro)">Comentario de '+T.el+':</strong> '+esc(r.comentarioUsuarioFinal)+'</div>';
+  }
+  h += '<details style="margin-top:12px"><summary style="cursor:pointer;font-size:12px;color:var(--cyan);font-weight:600">🏋️ Ver los ejercicios de esta rutina</summary><div style="margin-top:8px">'+renderRutinaContent(r)+'</div></details>';
+  return h + '</div>';
 }
 
 function renderRutinaContent(r) {
@@ -3819,8 +3955,26 @@ function getGasCode() {
 // ═══════════════════════════════════════════════════════════
 function pgMiRutina(rid) {
   var d = db();
-  var ruts = d.rutinas.filter(function(r){return r.userId===CU.id;}).sort(function(a,b){return (b.fechaIni||'').localeCompare(a.fechaIni||'') || (b.semana-a.semana);});
+  var todas = d.rutinas.filter(function(r){return r.userId===CU.id;}).sort(function(a,b){return (b.fechaIni||'').localeCompare(a.fechaIni||'') || (b.semana-a.semana);});
+  var archivo = todas.filter(rutCerrada);
+  var ruts = todas.filter(function(r){ return !rutCerrada(r); });
+  var archivoBloque = function(abrir){
+    if (!archivo.length) return '';
+    var h = '<div class="card" style="margin-top:16px"><div class="card-title">📁 Mis rutinas anteriores <span class="badge bg">'+archivo.length+'</span></div>';
+    archivo.forEach(function(r){
+      h += '<details style="margin-bottom:8px;border:1px solid var(--brd);border-radius:var(--r);background:var(--s1)"'+(abrir===r.id?' open':'')+'>';
+      h += '<summary style="cursor:pointer;padding:10px 13px;font-size:13px;font-weight:600;list-style:none">'+esc(r.nombre||'Plan '+r.semana)+' '+rutEstadoBadge(r)+'<div style="font-size:11px;color:var(--gris);font-weight:400;margin-top:3px">'+(r.fechaIni?fDate(r.fechaIni):'')+(r.fechaFin?' → '+fDate(r.fechaFin):'')+(r.retroFinal?' · 💬 con retroalimentación':'')+'</div></summary>';
+      h += '<div style="padding:0 13px 12px">'+archivoRutinaHtml(r, true)+'</div></details>';
+    });
+    return h + '</div>';
+  };
+  var abrirArchivo = (rid && rid.indexOf('archivo:') === 0) ? rid.slice(8) : '';
+  if (abrirArchivo) rid = '';
   if (!ruts.length) {
+    if (archivo.length) {
+      setMain('<div class="page-title">MI RUTINA</div><div style="padding:14px 16px;border-radius:12px;border:1px dashed rgba(var(--acc-rgb),0.4);background:var(--s1);margin-bottom:8px"><div style="font-weight:700;margin-bottom:4px">🏁 Terminaste tu rutina anterior</div><div style="font-size:12px;color:var(--gris);line-height:1.6">'+BRAND.coachNombre.charAt(0).toUpperCase()+BRAND.coachNombre.slice(1)+' está preparando tu siguiente plan. Mientras tanto, revisa abajo tu resumen y la retroalimentación.</div></div>' + archivoBloque(abrirArchivo || archivo[0].id));
+      return;
+    }
     setMain('<div class="page-title">MI RUTINA</div><div class="empty"><div class="empty-icon">🏋️</div><div class="empty-t">SIN RUTINA</div><div class="empty-s">Tu coach cargará tu plan pronto. ¡Prepárate! 💪</div></div>');
     return;
   }
@@ -3830,6 +3984,7 @@ function pgMiRutina(rid) {
   if (r.fechaIni) vigStr += '📅 '+fDate(r.fechaIni);
   if (r.fechaFin) { var dDiff=Math.ceil((new Date(r.fechaFin)-new Date())/86400000); vigStr += ' → '+fDate(r.fechaFin); if(dDiff<=7) vigStr+=' ⚠️'; }
   var html = '<div class="page-title">MI RUTINA</div><div class="page-sub">' + (r.nombre||'Semana '+r.semana) + ' · ' + (r.objetivo||'') + (vigStr?' · '+vigStr:'') + '</div>';
+  if (rutVencida(r)) html += '<div style="padding:10px 14px;margin-bottom:12px;border-radius:var(--r);border:1px solid rgba(255,170,0,0.45);background:rgba(255,170,0,0.08);font-size:12px;color:#ffaa44">⏰ Esta rutina ya cumplió su fecha. Puedes seguir registrando hasta que recibas la siguiente.</div>';
   var _hoyBien = bien(d).some(function(l){ return l.userId===CU.id && l.fecha===dateCOL(); });
   if (!_hoyBien) html += '<div onclick="openBien()" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;margin-bottom:12px;border:1px dashed rgba(var(--acc-rgb),0.4);border-radius:var(--r);background:var(--s1);font-size:12px"><span>🌙 ¿Cómo estuvo tu día? Registra agua, sueño, estrés y pasos</span><span style="color:var(--cyan);font-weight:700">Registrar →</span></div>';
   if (ruts.length > 1) {
@@ -3889,6 +4044,7 @@ function pgMiRutina(rid) {
     html += '</div>';
   });
 
+  html += archivoBloque(abrirArchivo);
   setMain(html);
   // Activate first tab
   setTimeout(function(){ var b=document.getElementById('rdt_0'); if(b) b.classList.add('active'); }, 0);
@@ -3908,7 +4064,7 @@ function showDia(idx, total) {
 // ═══════════════════════════════════════════════════════════
 function openLogModal() {
   var d = db();
-  var ruts = d.rutinas.filter(function(r){return r.userId===CU.id;});
+  var ruts = d.rutinas.filter(function(r){return r.userId===CU.id && !rutCerrada(r);});
   var sel = document.getElementById('log_rut');
   sel.innerHTML = ruts.map(function(r){return '<option value="'+r.id+'">'+(r.nombre||'Rutina')+'</option>';}).join('');
   // Populate days from selected rutina
@@ -3932,7 +4088,7 @@ function openLogModal() {
 
 function openLogForDia(rutId, diaVal) {
   var d = db();
-  var ruts = d.rutinas.filter(function(r){return r.userId===CU.id;});
+  var ruts = d.rutinas.filter(function(r){return r.userId===CU.id && !rutCerrada(r);});
   var sel = document.getElementById('log_rut');
   sel.innerHTML = ruts.map(function(r){return '<option value="'+r.id+'"'+(r.id===rutId?' selected':'')+'>'+( r.nombre||'Semana '+r.semana)+'</option>';}).join('');
   document.getElementById('log_dia').value = diaVal;
