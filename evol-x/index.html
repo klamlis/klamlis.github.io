@@ -548,14 +548,6 @@ body.modal-open{overflow:hidden}
       <option value="fuerte">Dolor fuerte — necesito comentarlo</option>
     </select>
   </div>
-  <div style="padding:12px;border:1px solid var(--brd);border-radius:var(--r);background:var(--s1);margin-bottom:12px">
-    <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:var(--cyan);margin-bottom:8px">🌙 BIENESTAR DEL DÍA <span style="color:var(--gris);font-weight:500;letter-spacing:0">(opcional · también puedes registrarlo aparte en "Mi Bienestar")</span></div>
-    <div class="fr3">
-      <div class="fg"><label>💧 Agua (ml)</label><input type="number" id="log_agua" step="50" min="0" placeholder="2000"/></div>
-      <div class="fg"><label>😴 Sueño (horas)</label><input type="number" id="log_sueno" step="0.5" min="0" max="24" placeholder="7"/></div>
-      <div class="fg"><label>🧠 Estrés (1-10)</label><select id="log_estres"><option value="">—</option><option value="1">1 · Muy bajo</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5 · Medio</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10 · Muy alto</option></select></div>
-    </div>
-  </div>
   <div class="fg"><label>Comentario — ¿Cómo te sentiste? ¿Qué fue difícil? ¿Qué lograste?</label>
     <textarea id="log_comment" placeholder="Cuéntale a tu coach cómo fue tu sesión..." style="min-height:90px"></textarea>
   </div>
@@ -656,14 +648,6 @@ body.modal-open{overflow:hidden}
       <option value="moderado">Dolor moderado</option>
       <option value="fuerte">Dolor fuerte</option>
     </select>
-  </div>
-  <div style="padding:12px;border:1px solid var(--brd);border-radius:var(--r);background:var(--s1);margin-bottom:12px">
-    <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:var(--cyan);margin-bottom:8px">🌙 BIENESTAR DEL DÍA <span style="color:var(--gris);font-weight:500;letter-spacing:0">(opcional · también puedes registrarlo aparte en "Mi Bienestar")</span></div>
-    <div class="fr3">
-      <div class="fg"><label>💧 Agua (ml)</label><input type="number" id="edit_log_agua" step="50" min="0" placeholder="2000"/></div>
-      <div class="fg"><label>😴 Sueño (horas)</label><input type="number" id="edit_log_sueno" step="0.5" min="0" max="24" placeholder="7"/></div>
-      <div class="fg"><label>🧠 Estrés (1-10)</label><select id="edit_log_estres"><option value="">—</option><option value="1">1 · Muy bajo</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5 · Medio</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10 · Muy alto</option></select></div>
-    </div>
   </div>
   <div class="fg"><label>Comentario</label><textarea id="edit_log_comment" style="min-height:80px"></textarea></div>
   <div style="display:flex;gap:10px">
@@ -778,6 +762,7 @@ var BRANDS = {
     frase: 'Hasta el viaje más largo comienza con un solo paso',
     aceptoTexto: 'He leído y acepto la metodología de trabajo de Ivonne Wellness Coach.',
     coachNombre: 'Ivonne',
+    whatsapp: '573012834234',   // celular de Ivonne (+57 301 283 4234)
     metodologia: [
       'Seguir los videos de ejecución. Dudas → video corto de máx 1 min a Ivonne.',
       'Preguntas al grupo de WhatsApp. Respuesta en 24 horas.',
@@ -948,6 +933,7 @@ function db() {
 }
 
 function save(d) {
+  _bienCache = null;
   localStorage.setItem(DB_KEY, JSON.stringify(d));
 }
 
@@ -3983,14 +3969,24 @@ function readBienestar(p, obj) {
   if (document.getElementById(p+'_pasos')) obj.pasos = parseInt(g('pasos')) || null;
   return obj;
 }
+// El bienestar se registra aparte (Mi Bienestar). Para una sesión se muestra el bienestar
+// que la persona registró ESE MISMO DÍA, si existe (registros viejos: el anotado en la sesión).
+var _bienCache = null;
+function bienDia(userId, fecha) {
+  if (!_bienCache) { _bienCache = {}; bien(db()).forEach(function(r){ _bienCache[r.userId+'|'+r.fecha] = r; }); }
+  return _bienCache[userId+'|'+fecha] || null;
+}
 function bienestarHtml(l, compact) {
+  var b = (l.tipo === 'bienestar') ? l : (bienDia(l.userId, l.fecha) || ((l.agua||l.sueno||l.estres) ? l : null));
+  if (!b) return '';
   var parts = [];
-  if (l.agua) parts.push('💧 '+fmtMl(l.agua));
-  if (l.sueno) parts.push('😴 '+l.sueno+' h');
-  if (l.estres) parts.push('<span style="color:'+(l.estres>=8?'#ff8080':l.estres>=6?'#ffaa44':'#80d4a0')+'">🧠 Estrés '+l.estres+'/10</span>');
+  if (b.agua) parts.push('💧 '+fmtMl(b.agua));
+  if (b.sueno) parts.push('😴 '+b.sueno+' h');
+  if (b.estres) parts.push('<span style="color:'+(b.estres>=8?'#ff8080':b.estres>=6?'#ffaa44':'#80d4a0')+'">🧠 Estrés '+b.estres+'/10</span>');
+  if (b.pasos) parts.push('👟 '+Number(b.pasos).toLocaleString('es-CO')+' pasos');
   if (!parts.length) return '';
   return compact ? parts.map(function(p){return '<span style="font-size:11px;color:var(--gris)">'+p+'</span>';}).join('')
-    : '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--gris)">'+parts.join('')+'</div>';
+    : '<div style="margin-top:10px;padding:8px 10px;border-radius:8px;background:rgba(var(--acc-rgb),0.06);border:1px solid var(--brd)"><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:var(--cyan);margin-bottom:4px">🌙 BIENESTAR DE ESE DÍA</div><div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--gris)">'+parts.join('')+'</div>'+(b.comentario&&b.tipo==='bienestar'?'<div style="font-size:11px;color:var(--gris);margin-top:4px;font-style:italic">📝 '+esc(b.comentario)+'</div>':'')+'</div>';
 }
 // ── BIENESTAR (registro propio del usuario, aparte de la rutina) ──
 // Se guarda en la misma hoja "logs" con tipo:'bienestar' (no requiere cambiar el Apps Script).
@@ -4056,20 +4052,26 @@ function delBien() {
   saveAndSync('deleteLog', {id:id}, function(){ closeModal('m_bien'); toast('Registro eliminado'); pgMiBienestar(); });
 }
 
+var BIEN_PER = '7';
+function setBienPer(p) { BIEN_PER = p; nav(curPage); }
 function bienResumen(dias) {
-  var desde = new Date(Date.now()-7*86400000).toISOString().split('T')[0];
-  var last7 = dias.filter(function(x){ return x.fecha >= desde; });
+  var per = BIEN_PER;
+  var desde = per === 'all' ? '' : new Date(Date.now()-(per==='30'?30:7)*86400000).toISOString().split('T')[0];
+  var last7 = dias.filter(function(x){ return !desde || x.fecha >= desde; });
+  var conReg = last7.filter(function(x){ return x.agua || x.sueno || x.estres || x.pasos; }).length;
+  var perBtn = function(v, t){ return '<button class="btn btn-sm '+(per===v?'btn-p':'btn-g')+'" onclick="setBienPer(\''+v+'\')">'+t+'</button>'; };
   var avg = function(k, dec){ var v = last7.filter(function(x){return x[k];}).map(function(x){return parseFloat(x[k]);}); return v.length ? (v.reduce(function(a,b){return a+b;},0)/v.length).toFixed(dec===0?0:1) : '—'; };
   var acts = 0, mins = 0;
   last7.forEach(function(x){ acts += x.actividades.length; x.actividades.forEach(function(a){ mins += a.dur||0; }); });
   var pasos = avg('pasos', 0);
-  return '<div class="stats">' +
+  return '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px"><span style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--gris)">PROMEDIO DE:</span>'+perBtn('7','Últimos 7 días')+perBtn('30','Últimos 30 días')+perBtn('all','Todos los registros')+'</div>' +
+    '<div class="stats">' +
     '<div class="stat"><div class="stat-l">💧 Agua promedio</div><div class="stat-v">'+(avg('agua',0)==='—'?'—':Number(avg('agua',0)).toLocaleString('es-CO'))+'<span class="stat-u">ml</span></div></div>' +
     '<div class="stat"><div class="stat-l">😴 Sueño promedio</div><div class="stat-v">'+avg('sueno')+'<span class="stat-u">h</span></div></div>' +
     '<div class="stat"><div class="stat-l">🧠 Estrés promedio</div><div class="stat-v">'+avg('estres')+'<span class="stat-u">/10</span></div></div>' +
     '<div class="stat"><div class="stat-l">👟 Pasos promedio</div><div class="stat-v">'+(pasos==='—'?'—':Number(pasos).toLocaleString('es-CO'))+'</div></div>' +
     '<div class="stat"><div class="stat-l">🏃 Actividad extra</div><div class="stat-v">'+acts+'<span class="stat-u"> '+(mins?'· '+mins+' min':'')+'</span></div></div></div>' +
-    '<div style="font-size:11px;color:var(--gris);margin:-8px 0 16px">Promedios de los últimos 7 días</div>';
+    '<div style="font-size:11px;color:var(--gris);margin:-8px 0 16px">'+(per==='all'?'Promedio de todos tus registros':'Promedio de los últimos '+per+' días')+' · '+conReg+' día'+(conReg===1?'':'s')+' con registro de bienestar</div>';
 }
 function bienTabla(dias, editable) {
   var h = '<div style="overflow-x:auto"><table style="min-width:620px"><thead><tr><th>Fecha</th><th>💧 Agua</th><th>😴 Sueño</th><th>🧠 Estrés</th><th>👟 Pasos</th><th>🏃 Actividad extra</th><th>Nota</th>'+(editable?'<th></th>':'')+'</tr></thead><tbody>';
@@ -4369,7 +4371,6 @@ function saveLog() {
   var log = {id:'l'+Date.now(),userId:CU.id,fecha:fecha,rutId:rutId,semana:r?r.semana:0,
     dia:dia,duracion:duracion,peso:peso,esfuerzo:esfuerzo,dolor:dolor,
     comentario:comentario,ejercicios:ejercicios,feedback:null,fechaFeedback:null};
-  readBienestar('log', log);
   // Lock button
   _saving['log'] = true;
   var saveBtn = document.querySelector('#m_log .btn-p');
@@ -4760,9 +4761,6 @@ function openEditLog(logId) {
   document.getElementById('edit_log_esf').value=l.esfuerzo||'';
   document.getElementById('edit_log_dolor').value=l.dolor||'no';
   document.getElementById('edit_log_comment').value=l.comentario||'';
-  document.getElementById('edit_log_agua').value=aguaMl(l.agua)||'';
-  document.getElementById('edit_log_sueno').value=l.sueno||'';
-  document.getElementById('edit_log_estres').value=l.estres||'';
   openModal('m_edit_log');
 }
 function updateLog() {
@@ -4787,7 +4785,6 @@ function updateLog() {
   if (esfEl)   d.logs[idx].esfuerzo   = esfEl.value;
   if (dolorEl) d.logs[idx].dolor      = dolorEl.value;
   if (comEl)   d.logs[idx].comentario = comEl.value.trim();
-  readBienestar('edit_log', d.logs[idx]);
   save(d);
   _saving['edit_log'] = true;
   var btn = document.getElementById('edit_log_save_btn');
