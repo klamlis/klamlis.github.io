@@ -454,6 +454,7 @@ body.modal-open{overflow:hidden}
     <div class="fg" id="u_obj_wrap"><label>Objetivo</label><input type="text" id="u_obj" placeholder="EJ: GANAR MASA MUSCULAR" style="text-transform:uppercase"/></div>
   </div>
   <div class="fg" id="u_coach_wrap"><label>Asignar Coach</label><select id="u_coach" style="width:100%"><option value="">Sin asignar</option></select></div>
+  <div class="fg" id="u_dep_wrap" style="display:none"><label>Módulo deportista</label><label style="display:flex;gap:8px;align-items:center;font-size:13px;text-transform:none;letter-spacing:0;cursor:pointer"><input type="checkbox" id="u_dep_tenis" style="accent-color:var(--cyan);width:18px;height:18px"> 🎾 Es deportista · activar registro de <b>Tenis</b></label></div>
   <div id="u_user_only_wrap">
     <div class="fr"><div class="fg"><label>Contacto emergencia</label><input type="text" id="u_emerg_nom"/></div><div class="fg"><label>Tel. emergencia</label><input type="text" id="u_emerg_tel"/></div></div>
     <div class="fg"><label>Observaciones / Lesiones</label><textarea id="u_obs" placeholder="Condiciones médicas, lesiones..."></textarea></div>
@@ -605,11 +606,10 @@ body.modal-open{overflow:hidden}
   <div class="modal-title" id="m_free_log_title">REGISTRAR ACTIVIDAD<button class="close-btn" onclick="closeModal('m_free_log')">x</button></div>
   <input type="hidden" id="free_log_id"/>
   <div class="fg"><label>Tipo de actividad</label>
-    <select id="free_act_tipo">
+    <select id="free_act_tipo" onchange="tenisToggle()">
       <option value="">-- Selecciona o escribe abajo --</option>
       <option>Caminata</option>
       <option>Trote / Carrera</option>
-      <option>Tenis</option>
       <option>Rumba / Zumba</option>
       <option>Yoga</option>
       <option>Natacion</option>
@@ -618,6 +618,7 @@ body.modal-open{overflow:hidden}
       <option>Otra</option>
     </select>
   </div>
+  <div id="free_tenis"></div>
   <div class="fg"><label>Nombre / descripcion</label>
     <input type="text" id="free_act_nombre" placeholder="Ej: Caminata en el parque, Clase de tenis..."/>
   </div>
@@ -1009,6 +1010,11 @@ function db() {
     if (!d.users) d.users = [];
     if (!d.medidas) d.medidas = [];
     if (!d.rutinas) d.rutinas = [];
+    d.rutinas.forEach(function(r){
+      if (r && typeof r.dias === 'string') { try { r.dias = JSON.parse(r.dias); } catch(e) { r.dias = []; } }
+      if (r && !Array.isArray(r.dias)) r.dias = [];
+      (r && r.dias || []).forEach(function(x, i){ if (x && !x.dia) x.dia = 'dia' + (i+1); if (x && !x.nombre) x.nombre = 'Día ' + (i+1); if (x && !Array.isArray(x.ejercicios)) x.ejercicios = []; });
+    });
     if (!d.logs) d.logs = [];
     if (!d.ejercicios) d.ejercicios = [];
     if (!d.deleted) d.deleted = [];
@@ -1038,8 +1044,9 @@ function db() {
   }
 }
 
+var _dbv = 0;
 function save(d) {
-  _bienCache = null;
+  _bienCache = null; _dbv++;
   localStorage.setItem(DB_KEY, JSON.stringify(d));
 }
 
@@ -1673,7 +1680,7 @@ var COACH_MENU = [
 ];
 var USER_MENU = [
   {s:'Entrenamiento'}, {id:'miRutina',l:'Mi Rutina',ic:'🏋️'}, {id:'registrar',l:'Registrar Sesión',ic:'✅'}, {id:'miProgreso',l:'Mi Progreso',ic:'📈'},
-  {s:'Hábitos'}, {id:'miBienestar',l:'Mi Bienestar',ic:'🌙'},
+  {s:'Hábitos'}, {id:'miBienestar',l:'Mi Bienestar',ic:'🌙'}, {id:'miTenis',l:'Mi Tenis',ic:'🎾',deporte:'tenis'},
   {s:'Historial'}, {id:'miHistorial',l:'Historial',ic:'📋'}, {id:'miPerfil',l:'Mi Perfil',ic:'👤'}
 ];
 
@@ -1684,6 +1691,7 @@ function buildSidebar() {
   menu.forEach(function(item) {
     if (item.adminOnly && CU.role !== 'admin') return;
     if (item.modulo && !modulo(item.modulo)) return;
+    if (item.deporte && !esDeportista(CU, item.deporte)) return;
     if (item.gestor && !esGestor()) return;
     if (item.s) {
       var d = document.createElement('div'); d.className = 's-sect'; d.textContent = item.s; sb.appendChild(d);
@@ -1700,7 +1708,7 @@ function buildSidebar() {
 var COACH_MOB = [{id:'dashboard',l:'Inicio',ic:'📊'},{id:'usuarios',l:T.Usuarios,ic:'👥'},{id:'rutinas',l:'Rutinas',ic:'🏋️'},{id:'medidas',l:'Medidas',ic:'📏'},{id:'__more',l:'Más',ic:'☰'}];
 var USER_MOB = [{id:'miRutina',l:'Rutina',ic:'🏋️'},{id:'miHistorial',l:'Historial',ic:'📋'},{id:'registrar',l:'Sesion',ic:'✅'},{id:'__free',l:'Extra',ic:'🏃'},{id:'__more',l:'Mas',ic:'☰'}];
 var COACH_MORE = [{id:'agenda',l:'Agenda',ic:'📅'},{id:'cierre',l:'Cierre diario',ic:'💵', modulo:'cierreDiario'},{id:'recepcion',l:'Recepción',ic:'🛎️', modulo:'cierreDiario', gestor:true},{id:'ejercicios',l:'Biblioteca',ic:'📚'},{id:'logs',l:'Registro',ic:'📋'},{id:'bienestar',l:'Bienestar',ic:'🌙'},{id:'ajustes',l:'Ajustes',ic:'⚙️'}];
-var USER_MORE = [{id:'miBienestar',l:'Mi Bienestar',ic:'🌙'},{id:'miProgreso',l:'Mi Progreso',ic:'📈'},{id:'miPerfil',l:'Mi Perfil',ic:'👤'}];
+var USER_MORE = [{id:'miBienestar',l:'Mi Bienestar',ic:'🌙'},{id:'miTenis',l:'Mi Tenis',ic:'🎾',deporte:'tenis'},{id:'miProgreso',l:'Mi Progreso',ic:'📈'},{id:'miPerfil',l:'Mi Perfil',ic:'👤'}];
 
 function buildMobNav() {
   var items = (CU.role==='admin'||CU.role==='coach'||CU.role==='recepcion') ? COACH_MOB : USER_MOB;
@@ -1723,6 +1731,7 @@ function buildMobNav() {
   });
   moreItems.forEach(function(item) {
     if (item.modulo && !modulo(item.modulo)) return;
+    if (item.deporte && !esDeportista(CU, item.deporte)) return;
     if (item.gestor && !esGestor()) return;
     var b = document.createElement('button');
     b.className = 'nav-btn'; b.id = 'mb_more_' + item.id;
@@ -1750,7 +1759,7 @@ function nav(page) {
     admPanel: pgAdminPanel,
     miRutina: pgMiRutina, registrar: function() { pgMiRutina(); setTimeout(openLogModal, 200); },
     miProgreso: pgMiProgreso, miHistorial: pgMiHistorial, miPerfil: pgMiPerfil,
-    miBienestar: pgMiBienestar, bienestar: pgBienestarCoach,
+    miBienestar: pgMiBienestar, bienestar: pgBienestarCoach, miTenis: pgMiTenis,
     cierre: function(){ if (modulo('cierreDiario')) pgCierre(); else nav('dashboard'); },
     agenda: function(){ pgAgenda('usuarios'); },
     recepcion: function(){ if (modulo('cierreDiario') && puedeRecepcion()) pgRecepcion(); else nav('dashboard'); }
@@ -2006,6 +2015,7 @@ function pgUsuarios() {
       // BUTTONS — no onclick with args, using global functions with IDs stored in data attrs
       html += '<div class="u-btns">';
       html += '<button class="btn btn-p btn-sm" data-uid="' + u.id + '" data-action="res7">📊 7 días</button>';
+      if (esDeportista(u, 'tenis')) html += '<button class="btn btn-g btn-sm" data-uid="' + u.id + '" data-action="tenis">🎾 Tenis</button>';
       html += '<button class="btn btn-g btn-sm" data-uid="' + u.id + '" data-action="medidas">📏 Medidas</button>';
       html += '<button class="btn btn-g btn-sm" data-uid="' + u.id + '" data-action="rutina">🏋️ Rutina</button>';
       html += '<button class="btn btn-g btn-sm" data-uid="' + u.id + '" data-action="membresia">💳 Membresía</button>';
@@ -2028,6 +2038,7 @@ function pgUsuarios() {
       var uid = btn.getAttribute('data-uid');
       var action = btn.getAttribute('data-action');
       if (action === 'res7') openResumen7(uid);
+      else if (action === 'tenis') openTenisModal(uid);
       else if (action === 'medidas') openMedidasFor(uid);
       else if (action === 'rutina') { var _ra = rutinaActiva(uid); if (_ra) openEditRutina(_ra.id); else openNuevaRutina(uid); }
       else if (action === 'membresia') { if (modulo('cierreDiario')) openMembresia(uid); else openMembresiaFor(uid); }
@@ -2058,6 +2069,9 @@ function setModalMode(isPriv) {
   if (extraWrap) extraWrap.style.display = isPriv ? 'none' : '';
   if (coachWrap) coachWrap.style.display = isPriv ? 'none' : '';
   if (objWrap)   objWrap.style.display   = isPriv ? 'none' : '';
+  var depWrap = document.getElementById('u_dep_wrap');
+  if (depWrap) depWrap.style.display = (!isPriv && puedeAutorizarDep()) ? '' : 'none';
+  var depChk = document.getElementById('u_dep_tenis'); if (depChk) depChk.checked = false;
 }
 
 function togglePass(id, btn) {
@@ -2126,7 +2140,7 @@ function editUsuario(uid) {
   document.getElementById('u_emerg_tel').value = u.emergTel || '';
   var isPrivRole = (u.role==='admin'||u.role==='coach'||u.role==='recepcion');
   setModalMode(isPrivRole);
-  if (!isPrivRole) { fillCoachDropdown('u_coach', u.coachId||''); document.getElementById('u_coach_wrap').style.display = esGestor() ? '' : 'none'; }
+  if (!isPrivRole) { fillCoachDropdown('u_coach', u.coachId||''); document.getElementById('u_coach_wrap').style.display = esGestor() ? '' : 'none'; document.getElementById('u_dep_tenis').checked = esDeportista(u, 'tenis'); }
   openModal('m_usuario');
 }
 
@@ -2166,6 +2180,7 @@ function saveUsuario() {
     } else {
       ['tel','cedula','fechaNac','genero','coachId','objetivo','obs','mem_start','mem_end'].forEach(function(k){ delete nu[k]; });
     }
+    if (privRole === 'user' && puedeAutorizarDep() && document.getElementById('u_dep_tenis').checked) nu.deportista = depLeer();
     _saving['usuario'] = true;
     var btn = document.getElementById('u_save_btn');
     if(btn){btn.disabled=true;btn.textContent='⏳ Guardando...';}
@@ -2202,6 +2217,7 @@ function saveUsuario() {
     d.users[idx].fechaNac= _e('u_fnac');
     d.users[idx].genero  = _e('u_genero');
     if (esGestor()) d.users[idx].coachId = _e('u_coach');
+    if (puedeAutorizarDep() && (document.getElementById('u_dep_tenis').checked || esDeportista(d.users[idx]))) d.users[idx].deportista = depLeer();
     d.users[idx].objetivo= _e('u_obj');
     d.users[idx].obs     = _e('u_obs');
     d.users[idx].mem_start=_e('u_mem_start')||null;
@@ -3103,8 +3119,25 @@ function dosisTxt(ex, tipo) {
   return (t ? '⏱ ' : '') + d + (!t && /^\d+$/.test(d) ? ' reps' : '');
 }
 // Lo que hizo la persona la última vez con este ejercicio (referencia mientras entrena)
+var _ultCache = { k:'', idx:null };
+function ultimoIndex(uid) {
+  var raw = localStorage.getItem(DB_KEY) || '', k = uid + ':' + _dbv + ':' + raw.length;
+  if (_ultCache.k === k) return _ultCache.idx;
+  var idx = { id:{}, nom:{} };
+  ses(db()).filter(function(l){ return l.userId === uid && l.tipo !== 'libre'; })
+    .sort(function(a,b){ return (b.fecha||'').localeCompare(a.fecha||'') || String(b.id).localeCompare(String(a.id)); })
+    .forEach(function(l){ (l.ejercicios||[]).forEach(function(e){
+      if (e.completado === false && !e.repsReal && !e.cargaReal) return;
+      var n = ejTokens(e.nombre).join(' '), v = { fecha:l.fecha, e:e };
+      if (e.ejId && !idx.id[e.ejId]) idx.id[e.ejId] = v;
+      if (n && !idx.nom[n]) idx.nom[n] = v;
+    }); });
+  _ultCache = { k:k, idx:idx };
+  return idx;
+}
 function ultimoRegistro(uid, ex, antesDe) {
   if (!uid || !ex) return null;
+  if (!antesDe) { var ix = ultimoIndex(uid); return (ex.ejId && ix.id[ex.ejId]) || ix.nom[ejTokens(ex.nombre).join(' ')] || null; }
   var n = ejTokens(ex.nombre).join(' ');
   var logs = ses(db()).filter(function(l){ return l.userId === uid && l.tipo !== 'libre' && (!antesDe || l.fecha < antesDe); })
     .sort(function(a,b){ return (b.fecha||'').localeCompare(a.fecha||'') || String(b.id).localeCompare(String(a.id)); });
@@ -4498,58 +4531,9 @@ function showDia(idx, total) {
 // ═══════════════════════════════════════════════════════════
 //  LOG MODAL
 // ═══════════════════════════════════════════════════════════
-function openLogModal() {
-  var d = db();
-  var ruts = d.rutinas.filter(function(r){return r.userId===CU.id && !rutCerrada(r);});
-  var sel = document.getElementById('log_rut');
-  sel.innerHTML = ruts.map(function(r){return '<option value="'+r.id+'">'+(r.nombre||'Rutina')+'</option>';}).join('');
-  // Populate days from selected rutina
-  var _rv = ruts.filter(function(x){ return x.id === MR_VIEW.rid; })[0] || ruts[0];
-  if (_rv) {
-    sel.value = _rv.id;
-    populateLogDays(_rv.id);
-    var _dv = (_rv.dias || [])[MR_VIEW.rid === _rv.id ? MR_VIEW.idx : 0];
-    if (_dv) { document.getElementById('log_dia').value = _dv.dia; loadLogExs(); }
-  }
-  document.getElementById('log_fecha').value = dateCOL();
-  document.getElementById('log_dur').value = '';
-  document.getElementById('log_peso').value = '';
-  // Show last weight and coach rutina intensity suggestion
-  var d0 = db();
-  var myMeds = (d0.medidas||[]).filter(function(m){return m.userId===CU.id;}).sort(function(a,b){return b.fecha>a.fecha?1:-1;});
-  var lastWeightEl = document.getElementById('log_last_weight');
-  if(lastWeightEl && myMeds.length) {
-    var lastW = myMeds[0].peso;
-    lastWeightEl.textContent = lastW ? 'Tu último peso registrado: '+lastW+' kg ('+myMeds[0].fecha+')' : '';
-  } else if(lastWeightEl) { lastWeightEl.textContent = ''; }
-  document.getElementById('log_comment').value = '';
-  resetBienestar('log');
-  loadLogExs();
-  openModal('m_log');
-}
+function openLogModal() { prepararLog('', ''); }
 
-function openLogForDia(rutId, diaVal) {
-  var d = db();
-  var ruts = d.rutinas.filter(function(r){return r.userId===CU.id && !rutCerrada(r);});
-  var sel = document.getElementById('log_rut');
-  sel.innerHTML = ruts.map(function(r){return '<option value="'+r.id+'"'+(r.id===rutId?' selected':'')+'>'+( r.nombre||'Semana '+r.semana)+'</option>';}).join('');
-  document.getElementById('log_dia').value = diaVal;
-  document.getElementById('log_fecha').value = dateCOL();
-  document.getElementById('log_dur').value = '';
-  document.getElementById('log_peso').value = '';
-  // Show last weight and coach rutina intensity suggestion
-  var d0 = db();
-  var myMeds = (d0.medidas||[]).filter(function(m){return m.userId===CU.id;}).sort(function(a,b){return b.fecha>a.fecha?1:-1;});
-  var lastWeightEl = document.getElementById('log_last_weight');
-  if(lastWeightEl && myMeds.length) {
-    var lastW = myMeds[0].peso;
-    lastWeightEl.textContent = lastW ? 'Tu último peso registrado: '+lastW+' kg ('+myMeds[0].fecha+')' : '';
-  } else if(lastWeightEl) { lastWeightEl.textContent = ''; }
-  document.getElementById('log_comment').value = '';
-  resetBienestar('log');
-  loadLogExs();
-  openModal('m_log');
-}
+function openLogForDia(rutId, diaVal) { prepararLog(rutId, diaVal); }
 
 function resetBienestar(p) {
   ['agua','sueno','estres'].forEach(function(k){ var el = document.getElementById(p+'_'+k); if (el) el.value = ''; });
@@ -5605,6 +5589,153 @@ function recibirTurno() {
   var i = 0; (function next(){ if (i >= movs.length) { toast(desc ? '⚠️ Turno recibido con descuadre (recepción será notificada)' : '✅ Turno recibido'); pgCierre(CT.fecha, CT.coachId, 'turno'); return; } saveAndSync('saveLog', movs[i++], next); })();
 }
 
+
+// ═══════════════════════════════════════════════════════════
+//  MÓDULO DEPORTISTA · TENIS
+//  El admin lo activa en la ficha del usuario. El deportista registra
+//  prácticas (propósito y aspectos a mejorar) y partidos (modalidad, tipo,
+//  torneo, rivales, marcador, tiempo y comentarios) como "Actividad extra".
+// ═══════════════════════════════════════════════════════════
+function esDeportista(u, dep) {
+  var x = u && (userById(u.id) || u);
+  return !!(x && x.deportista && x.deportista.activo && (!dep || (x.deportista.deportes||[]).indexOf(dep) >= 0));
+}
+function puedeAutorizarDep() { return CU && (CU.role === 'admin' || (!hayAdmin() && CU.role === 'coach')); }
+function depLeer() {
+  var on = !!(document.getElementById('u_dep_tenis')||{}).checked;
+  return { activo:on, deportes: on ? ['tenis'] : [], por: CU.name, fecha: dateCOL() };
+}
+function esTenis(l) { return l && l.tipo === 'libre' && !!l.tenis; }
+var TEN = null;   // estado del formulario de tenis
+function tenisToggle() {
+  var box = document.getElementById('free_tenis'); if (!box) return;
+  var on = document.getElementById('free_act_tipo').value === 'Tenis' && esDeportista(CU, 'tenis');
+  if (!on) { box.innerHTML = ''; tenisLabels(false); return; }
+  if (!TEN) TEN = { clase:'partido', modalidad:'sencillos', tipoPartido:'practica', sets:[{a:'',b:''},{a:'',b:''},{a:'',b:''}] };
+  tenisLabels(true);
+  tenisRender();
+}
+function tenisLabels(on) {
+  var lbl = function(id, t){ var el = document.getElementById(id); if (el && el.previousElementSibling) el.previousElementSibling.textContent = t; };
+  lbl('free_act_dur', on ? 'Tiempo jugado (min)' : 'Duracion (min)');
+  lbl('free_act_comment', on ? (TEN && TEN.clase === 'practica' ? 'Comentarios de la práctica' : 'Comentarios generales del partido') : 'Como te sentiste?');
+  var n = document.getElementById('free_act_nombre'); if (n) n.placeholder = on ? 'Opcional: se arma solo (ej. Partido vs Juan)' : 'Ej: Caminata en el parque, Clase de tenis...';
+}
+function tenisRender() {
+  var box = document.getElementById('free_tenis'); if (!box || !TEN) return;
+  var seg = function(campo, val, txt){ return '<button type="button" class="dia-tab'+(TEN[campo]===val?' active':'')+'" onclick="tenisSet(\''+campo+'\',\''+val+'\')">'+txt+'</button>'; };
+  var inS = 'width:100%;padding:8px;background:var(--s1);border:1px solid var(--brd);border-radius:8px;color:var(--blanco);font-size:13px;box-sizing:border-box';
+  var h = '<div style="padding:12px;border-radius:12px;border:1px solid rgba(var(--acc-rgb),0.4);background:rgba(var(--acc-rgb),0.05);margin-bottom:12px">';
+  h += '<div style="font-weight:800;font-size:12px;letter-spacing:1px;color:var(--cyan);margin-bottom:8px">🎾 REGISTRO DE TENIS</div>';
+  h += '<div class="dia-tabs" style="margin-bottom:10px">'+seg('clase','partido','🏆 Partido')+seg('clase','practica','🎯 Práctica')+'</div>';
+  if (TEN.clase === 'practica') {
+    h += '<div class="fg"><label>Propósito de la práctica *</label><textarea class="ten-in" data-k="proposito" style="'+inS+';min-height:56px" placeholder="Ej: mejorar el saque, consistencia en el revés…">'+esc(TEN.proposito||'')+'</textarea></div>';
+    h += '<div class="fg"><label>Lo que salió bien</label><textarea class="ten-in" data-k="bien" style="'+inS+';min-height:46px">'+esc(TEN.bien||'')+'</textarea></div>';
+    h += '<div class="fg" style="margin:0"><label>Aspectos a mejorar</label><textarea class="ten-in" data-k="mejorar" style="'+inS+';min-height:56px">'+esc(TEN.mejorar||'')+'</textarea></div>';
+  } else {
+    h += '<div style="font-size:11px;color:var(--gris);margin-bottom:4px">Modalidad</div><div class="dia-tabs" style="margin-bottom:8px">'+seg('modalidad','sencillos','👤 Sencillos')+seg('modalidad','dobles','👥 Dobles')+'</div>';
+    h += '<div style="font-size:11px;color:var(--gris);margin-bottom:4px">Tipo de partido</div><div class="dia-tabs" style="margin-bottom:8px">'+seg('tipoPartido','torneo','🏆 Torneo')+seg('tipoPartido','practica','🎾 Práctica')+seg('tipoPartido','invitacion','🤝 Invitación')+'</div>';
+    if (TEN.tipoPartido === 'torneo') h += '<div class="fr"><div class="fg"><label>Torneo *</label><input class="ten-in" data-k="torneo" value="'+esc(TEN.torneo||'')+'" style="'+inS+'" placeholder="Nombre del torneo"></div><div class="fg"><label>Ronda / fase</label><input class="ten-in" data-k="ronda" value="'+esc(TEN.ronda||'')+'" style="'+inS+'" placeholder="Ej: cuartos de final"></div></div>';
+    if (TEN.modalidad === 'dobles') h += '<div class="fg"><label>Mi pareja</label><input class="ten-in" data-k="pareja" value="'+esc(TEN.pareja||'')+'" style="'+inS+'"></div>';
+    h += '<div class="fr"><div class="fg"><label>'+(TEN.modalidad==='dobles'?'Contrincante 1 *':'Contrincante *')+'</label><input class="ten-in" data-k="rival1" value="'+esc(TEN.rival1||'')+'" style="'+inS+'"></div>'
+      + (TEN.modalidad==='dobles' ? '<div class="fg"><label>Contrincante 2</label><input class="ten-in" data-k="rival2" value="'+esc(TEN.rival2||'')+'" style="'+inS+'"></div>' : '<div></div>') + '</div>';
+    h += '<div style="font-size:11px;color:var(--gris);margin-bottom:4px">Marcador por set (mis games – rival)</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">';
+    TEN.sets.forEach(function(st, i){
+      h += '<div style="display:flex;align-items:center;gap:3px;padding:6px 8px;border-radius:8px;background:rgba(0,0,0,0.2)"><span style="font-size:10px;color:var(--gris);margin-right:2px">S'+(i+1)+'</span>'
+        + '<input class="ten-set" data-i="'+i+'" data-k="a" inputmode="numeric" value="'+esc(st.a)+'" style="'+inS+';width:40px;text-align:center;padding:6px 2px">–<input class="ten-set" data-i="'+i+'" data-k="b" inputmode="numeric" value="'+esc(st.b)+'" style="'+inS+';width:40px;text-align:center;padding:6px 2px"></div>';
+    });
+    if (TEN.sets.length < 5) h += '<button type="button" class="btn btn-g btn-sm" onclick="tenisLeer();TEN.sets.push({a:\'\',b:\'\'});tenisRender()">+ Set</button>';
+    h += '</div><div class="fr"><div class="fg"><label>Resultado</label><select class="ten-in" data-k="resultado" style="'+inS+'"><option value="">Según el marcador</option><option value="ganado"'+(TEN.resultado==='ganado'?' selected':'')+'>✅ Gané</option><option value="perdido"'+(TEN.resultado==='perdido'?' selected':'')+'>❌ Perdí</option><option value="sinterminar"'+(TEN.resultado==='sinterminar'?' selected':'')+'>⏸ Sin terminar</option><option value="wo"'+(TEN.resultado==='wo'?' selected':'')+'>W.O.</option></select></div><div class="fg" id="ten_auto" style="display:flex;align-items:flex-end;font-size:12px;font-weight:700;padding-bottom:14px"></div></div>';
+    h += '<div class="fg" style="margin:0"><label>Aspectos a mejorar</label><textarea class="ten-in" data-k="mejorar" style="'+inS+';min-height:50px">'+esc(TEN.mejorar||'')+'</textarea></div>';
+  }
+  box.innerHTML = h + '</div>';
+  box.querySelectorAll('.ten-in,.ten-set').forEach(function(el){ el.addEventListener('input', function(){ tenisLeer(); tenisAuto(); }); el.addEventListener('change', function(){ tenisLeer(); tenisAuto(); }); });
+  tenisLabels(true); tenisAuto();
+}
+function tenisSet(campo, val) { tenisLeer(); TEN[campo] = val; tenisRender(); }
+function tenisLeer() {
+  if (!TEN) return;
+  document.querySelectorAll('#free_tenis .ten-in').forEach(function(el){ TEN[el.getAttribute('data-k')] = el.value; });
+  document.querySelectorAll('#free_tenis .ten-set').forEach(function(el){ TEN.sets[+el.getAttribute('data-i')][el.getAttribute('data-k')] = el.value.replace(/\D/g, ''); });
+}
+function tenisSetsJugados(t) { return (t.sets||[]).filter(function(s){ return s.a !== '' && s.b !== '' && s.a != null && s.b != null; }); }
+function tenisMarcador(t) { return tenisSetsJugados(t).map(function(s){ return s.a+'-'+s.b; }).join(' '); }
+function tenisResultado(t) {
+  if (!t || t.clase !== 'partido') return '';
+  if (t.resultado) return t.resultado;
+  var g = 0, p = 0; tenisSetsJugados(t).forEach(function(s){ if (+s.a > +s.b) g++; else if (+s.b > +s.a) p++; });
+  return g > p ? 'ganado' : p > g ? 'perdido' : '';
+}
+function tenisAuto() { var el = document.getElementById('ten_auto'); if (!el || !TEN) return; var r = tenisResultado(Object.assign({}, TEN, { resultado:'' })); el.innerHTML = r === 'ganado' ? '<span style="color:#80d4a0">✅ Ganado '+tenisMarcador(TEN)+'</span>' : r === 'perdido' ? '<span style="color:#ff8080">❌ Perdido '+tenisMarcador(TEN)+'</span>' : ''; }
+var TIPO_PARTIDO = { torneo:'Torneo', practica:'Práctica', invitacion:'Invitación' };
+function tenisRivales(t) { return [t.rival1, t.rival2].filter(Boolean).join(' / '); }
+function tenisNombreAuto(t) {
+  if (t.clase === 'practica') return 'Práctica de tenis' + (t.proposito ? ': ' + t.proposito.split('\n')[0].slice(0, 40) : '');
+  return (t.modalidad === 'dobles' ? 'Dobles' : 'Partido') + ' vs ' + (tenisRivales(t) || 'rival') + (t.tipoPartido === 'torneo' && t.torneo ? ' · ' + t.torneo : '');
+}
+function tenisValidar(t) {
+  if (t.clase === 'practica') return t.proposito ? '' : 'Escribe el propósito de la práctica';
+  if (!t.rival1) return 'Escribe el nombre del contrincante';
+  if (t.tipoPartido === 'torneo' && !t.torneo) return 'Escribe el nombre del torneo';
+  return '';
+}
+function tenisPreparar(existing) {
+  TEN = existing ? JSON.parse(JSON.stringify(existing)) : null;
+  if (TEN && !TEN.sets) TEN.sets = [{a:'',b:''},{a:'',b:''},{a:'',b:''}];
+}
+// Línea corta para listas e historial
+function tenisResumenHtml(l) {
+  var t = l.tenis; if (!t) return '';
+  if (t.clase === 'practica') return '<div style="font-size:12px;margin-top:5px;line-height:1.55">🎯 <b>Propósito:</b> '+esc(t.proposito||'')+(t.bien?'<br>👍 '+esc(t.bien):'')+(t.mejorar?'<br>🔧 <b>Mejorar:</b> '+esc(t.mejorar):'')+'</div>';
+  var r = tenisResultado(t), col = r === 'ganado' ? '#80d4a0' : r === 'perdido' ? '#ff8080' : 'var(--gris)';
+  var rt = { ganado:'✅ Ganado', perdido:'❌ Perdido', sinterminar:'⏸ Sin terminar', wo:'W.O.' }[r] || '';
+  return '<div style="font-size:12px;margin-top:5px;line-height:1.55"><span style="font-weight:800;color:'+col+'">'+rt+' '+esc(tenisMarcador(t))+'</span> · '+(t.modalidad==='dobles'?'👥 Dobles':'👤 Sencillos')+' · '+(TIPO_PARTIDO[t.tipoPartido]||'')+(t.torneo?' «'+esc(t.torneo)+'»'+(t.ronda?' ('+esc(t.ronda)+')':''):'')
+    + '<br>vs <b>'+esc(tenisRivales(t))+'</b>'+(t.pareja?' · pareja: '+esc(t.pareja):'')+(t.mejorar?'<br>🔧 <b>Mejorar:</b> '+esc(t.mejorar):'')+'</div>';
+}
+// Resumen del deportista (lo ve el usuario en "Mi Tenis" y el coach/admin en un modal)
+function tenisResumenCompleto(uid) {
+  var logs = (db().logs||[]).filter(function(l){ return l.userId === uid && esTenis(l); }).sort(function(a,b){ return (b.fecha||'').localeCompare(a.fecha||''); });
+  var partidos = logs.filter(function(l){ return l.tenis.clase === 'partido'; }), practicas = logs.filter(function(l){ return l.tenis.clase === 'practica'; });
+  var gan = partidos.filter(function(l){ return tenisResultado(l.tenis) === 'ganado'; }).length, per = partidos.filter(function(l){ return tenisResultado(l.tenis) === 'perdido'; }).length;
+  var min = logs.reduce(function(a, l){ return a + (parseInt(l.duracion)||0); }, 0);
+  var rec = function(arr){ var g = arr.filter(function(l){ return tenisResultado(l.tenis) === 'ganado'; }).length, p = arr.filter(function(l){ return tenisResultado(l.tenis) === 'perdido'; }).length; return g+'G – '+p+'P'; };
+  var tile = function(l, v, c){ return '<div style="padding:10px;border-radius:10px;background:var(--s1);border:1px solid var(--brd)"><div style="font-size:10px;color:var(--gris);text-transform:uppercase">'+l+'</div><div style="font-size:20px;font-weight:800;'+(c?'color:'+c:'')+'">'+v+'</div></div>'; };
+  var h = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:12px">';
+  h += tile('🏆 Partidos', partidos.length) + tile('✅ Ganados', gan, '#80d4a0') + tile('❌ Perdidos', per, '#ff8080') + tile('% Victorias', (gan+per ? Math.round(gan*100/(gan+per)) : 0)+'%') + tile('🎯 Prácticas', practicas.length) + tile('⏱ Horas', Math.round(min/6)/10);
+  h += '</div>';
+  if (partidos.length) {
+    var sen = partidos.filter(function(l){ return l.tenis.modalidad !== 'dobles'; }), dob = partidos.filter(function(l){ return l.tenis.modalidad === 'dobles'; });
+    h += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;font-size:12px"><span class="chip">👤 Sencillos: '+rec(sen)+'</span><span class="chip">👥 Dobles: '+rec(dob)+'</span>';
+    ['torneo','practica','invitacion'].forEach(function(tp){ var a = partidos.filter(function(l){ return l.tenis.tipoPartido === tp; }); if (a.length) h += '<span class="chip">'+TIPO_PARTIDO[tp]+': '+rec(a)+'</span>'; });
+    h += '</div>';
+    var rv = {}; partidos.forEach(function(l){ [l.tenis.rival1, l.tenis.rival2].filter(Boolean).forEach(function(n){ var k = n.trim().toUpperCase(); var x = rv[k] || (rv[k] = { n:0, g:0, p:0 }); x.n++; var r = tenisResultado(l.tenis); if (r === 'ganado') x.g++; else if (r === 'perdido') x.p++; }); });
+    var top = Object.keys(rv).sort(function(a,b){ return rv[b].n - rv[a].n; }).slice(0, 5);
+    if (top.length) h += '<div style="font-size:11px;font-weight:700;color:var(--cyan);letter-spacing:1px;margin:6px 0">CONTRINCANTES FRECUENTES</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">'+top.map(function(k){ return '<span class="chip">'+esc(k)+' · '+rv[k].g+'G–'+rv[k].p+'P</span>'; }).join('')+'</div>';
+  }
+  var mej = logs.filter(function(l){ return l.tenis.mejorar; }).slice(0, 4);
+  if (mej.length) h += '<div style="padding:10px 12px;border-radius:10px;background:rgba(255,170,0,0.07);border:1px solid rgba(255,170,0,0.3);font-size:12px;line-height:1.6;margin-bottom:12px"><b style="color:#ffaa44">🔧 Aspectos a mejorar recientes</b><br>'+mej.map(function(l){ var p = dParts(l.fecha); return p.d+' '+p.m+': '+esc(l.tenis.mejorar); }).join('<br>')+'</div>';
+  h += '<div style="font-size:11px;font-weight:700;color:var(--cyan);letter-spacing:1px;margin:6px 0">HISTORIAL</div>';
+  if (!logs.length) h += '<div style="font-size:12px;color:var(--gris)">Aún no hay partidos ni prácticas registradas.</div>';
+  logs.slice(0, 40).forEach(function(l){
+    var p = dParts(l.fecha);
+    h += '<div style="display:flex;gap:10px;padding:10px 12px;border-radius:10px;background:var(--s1);border:1px solid var(--brd);margin-bottom:8px"><div style="flex:0 0 44px;text-align:center"><div style="font-size:18px;font-weight:800;line-height:1">'+p.d+'</div><div style="font-size:10px;color:var(--gris)">'+p.m+'</div></div><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">'+(l.tenis.clase==='practica'?'🎯 ':'🏆 ')+esc(l.actNombre||'')+(l.duracion?' <span style="font-weight:400;color:var(--gris);font-size:11px">· '+l.duracion+' min</span>':'')+'</div>'+tenisResumenHtml(l)+(l.comentario?'<div style="font-size:11px;color:var(--gris);margin-top:4px">💬 '+esc(l.comentario)+'</div>':'')+'</div>'
+      + (uid === CU.id ? '<button class="btn btn-g btn-sm" style="align-self:flex-start;font-size:10px" onclick="openFreeLog(\''+l.id+'\')">✎</button>' : '') + '</div>';
+  });
+  return h;
+}
+function pgMiTenis() {
+  if (!esDeportista(CU, 'tenis')) { nav('miRutina'); return; }
+  setMain('<div class="page-title">MI TENIS</div><div class="page-sub">Tus partidos y prácticas</div><button class="btn btn-p" style="margin-bottom:14px" onclick="openTenisLog()">+ Registrar partido o práctica</button>' + tenisResumenCompleto(CU.id));
+}
+function openTenisLog() { openFreeLog(); document.getElementById('free_act_tipo').value = 'Tenis'; TEN = null; tenisToggle(); }
+function openTenisModal(uid) {
+  var u = userById(uid); if (!u) return;
+  var ov = document.getElementById('m_tenis');
+  if (!ov) { ov = document.createElement('div'); ov.className = 'overlay'; ov.id = 'm_tenis'; document.body.appendChild(ov); }
+  ov.innerHTML = '<div class="modal" style="max-width:600px"><div class="modal-title"><span>🎾 TENIS · '+esc((u.name||'').toUpperCase())+'</span><button class="close-btn" onclick="closeModal(\'m_tenis\')">×</button></div>'+tenisResumenCompleto(uid)+'</div>';
+  openModal('m_tenis');
+}
+
 // ═══════════════════════════════════════════════════════════
 //  RESUMEN DE LOS ÚLTIMOS 7 DÍAS DE UN USUARIO (vista del coach)
 // ═══════════════════════════════════════════════════════════
@@ -5675,7 +5806,7 @@ function resumen7Html(uid) {
   for (var i = 6; i >= 0; i--) {
     var f = addDias(r.hoy, -i), p = dParts(f), items = [];
     r.sesiones.filter(function(l){ return l.fecha === f; }).forEach(function(l){ items.push('<span style="cursor:pointer;text-decoration:underline dotted" onclick="closeModal(\'m_res7\');showLogDetail(\''+l.id+'\')">🏋️ '+esc((l.dia||'').replace('dia','Día '))+(l.duracion?' '+l.duracion+'′':'')+(l.esfuerzo?' · '+l.esfuerzo+'/10':'')+'</span>'+(l.dolor&&l.dolor!=='no'?' <span style="color:#ff8080">dolor '+esc(l.dolor)+'</span>':'')); });
-    r.extras.filter(function(l){ return l.fecha === f; }).forEach(function(l){ items.push(actIcono(l.actTipo||l.actNombre)+' '+esc(l.actNombre||l.actTipo||'Actividad')+(l.duracion?' '+l.duracion+'′':'')); });
+    r.extras.filter(function(l){ return l.fecha === f; }).forEach(function(l){ var tr = l.tenis && l.tenis.clase === 'partido' ? tenisResultado(l.tenis) : ''; items.push(actIcono(l.actTipo||l.actNombre)+' '+esc(l.actNombre||l.actTipo||'Actividad')+(l.duracion?' '+l.duracion+'′':'')+(tr?' <b style="color:'+(tr==='ganado'?'#80d4a0':'#ff8080')+'">'+(tr==='ganado'?'G':'P')+' '+esc(tenisMarcador(l.tenis))+'</b>':'')); });
     var b = r.bien.filter(function(x){ return x.fecha === f; })[0];
     if (b) items.push('<span style="color:var(--gris)">'+[b.agua?'💧'+Math.round(b.agua)+'ml':'', b.sueno?'😴'+b.sueno+'h':'', b.estres?'🧠'+b.estres:'', b.pasos?'👟'+Math.round(b.pasos).toLocaleString('es-CO'):''].filter(Boolean).join(' ')+'</span>');
     var wd = dn[new Date(f+'T12:00:00').getDay()];
@@ -5857,7 +5988,7 @@ function tipoChip(t) {
   return '';
 }
 
-function populateLogDays(rutId) {
+function populateLogDays(rutId, sinDibujar) {
   var d = db();
   var r = null;
   for(var i=0;i<d.rutinas.length;i++){if(d.rutinas[i].id===rutId){r=d.rutinas[i];break;}}
@@ -5870,7 +6001,36 @@ function populateLogDays(rutId) {
   } else {
     sel.innerHTML = '<option value="dia1">Día 1</option>';
   }
+  if (!sinDibujar) loadLogExs();
+}
+// Prepara la ventana de registro con el plan y el día indicados (o el que se está viendo en Mi Rutina)
+function prepararLog(rutId, diaVal) {
+  var d = db();
+  var ruts = d.rutinas.filter(function(r){ return r.userId === CU.id && !rutCerrada(r); });
+  var sel = document.getElementById('log_rut');
+  sel.innerHTML = ruts.map(function(r){ return '<option value="'+r.id+'">'+esc(r.nombre||('Semana '+r.semana)||'Rutina')+'</option>'; }).join('');
+  var r = ruts.filter(function(x){ return x.id === rutId; })[0] || ruts.filter(function(x){ return x.id === MR_VIEW.rid; })[0] || ruts[0];
+  if (r) {
+    sel.value = r.id;
+    populateLogDays(r.id, true);
+    var dSel = document.getElementById('log_dia');
+    var dv = diaVal || ((r.dias||[])[MR_VIEW.rid === r.id ? MR_VIEW.idx : 0] || {}).dia;
+    if (dv && Array.prototype.some.call(dSel.options, function(o){ return o.value === dv; })) dSel.value = dv;
+  } else {
+    document.getElementById('log_dia').innerHTML = '';
+  }
+  document.getElementById('log_fecha').value = dateCOL();
+  document.getElementById('log_dur').value = '';
+  document.getElementById('log_peso').value = '';
+  var myMeds = (d.medidas||[]).filter(function(m){return m.userId===CU.id;}).sort(function(a,b){return b.fecha>a.fecha?1:-1;});
+  var lastWeightEl = document.getElementById('log_last_weight');
+  if (lastWeightEl) lastWeightEl.textContent = (myMeds.length && myMeds[0].peso) ? 'Tu último peso registrado: '+myMeds[0].peso+' kg ('+myMeds[0].fecha+')' : '';
+  document.getElementById('log_comment').value = '';
+  resetBienestar('log');
   loadLogExs();
+  if (!r) document.getElementById('log_exs_wrap').innerHTML = '<div style="padding:14px;border-radius:10px;border:1px dashed var(--brd);font-size:13px;line-height:1.6;margin-bottom:12px">📭 No tienes una rutina activa para registrar. Cuando tu coach la cargue aparecerán aquí sus días.<br><button class="btn btn-g btn-sm" style="margin-top:8px" onclick="closeModal(\'m_log\');openFreeLog()">🏃 Registrar una actividad extra</button></div>';
+  openModal('m_log');
+  var md = document.querySelector('#m_log .modal'); if (md) md.scrollTop = 0;
 }
 
 function getLastIntensidad(userId, exNombre) {
@@ -5904,6 +6064,7 @@ function loadLogExs() {
   for(var i=0;i<d.rutinas.length;i++){if(d.rutinas[i].id===rutId){r=d.rutinas[i];break;}}
   var dia = null;
   if(r){for(var i=0;i<(r.dias||[]).length;i++){if(r.dias[i].dia===diaVal){dia=r.dias[i];break;}}}
+  if(r && !dia && (r.dias||[]).length){ dia = r.dias[0]; var _ds = document.getElementById('log_dia'); if (_ds) _ds.value = dia.dia; }
   var wrap = document.getElementById('log_exs_wrap');
   LOG_EXS = [];
   if(!dia||!dia.ejercicios||!dia.ejercicios.length){wrap.innerHTML='';return;}
@@ -6003,7 +6164,8 @@ function saveLog() {
   var r = null;
   for(var i=0;i<d.rutinas.length;i++){if(d.rutinas[i].id===rutId){r=d.rutinas[i];break;}}
   var diaData = null;
-  if(r){for(var i=0;i<r.dias.length;i++){if(r.dias[i].dia===dia){diaData=r.dias[i];break;}}}
+  if(r){for(var i=0;i<(r.dias||[]).length;i++){if(r.dias[i].dia===dia){diaData=r.dias[i];break;}}}
+  if (!r) { toast('No tienes una rutina activa para registrar'); return; }
   // Ejercicios registrados (LOG_EXS lo arma loadLogExs en el mismo orden que la pantalla)
   var ejercicios = [], vueltasBloque = {};
   LOG_EXS.forEach(function(x, idx){
@@ -6248,6 +6410,7 @@ function pgMiHistorial() {
       if (l.duracion) html += '<span style="font-size:11px;color:var(--gris)">&#9201; ' + l.duracion + ' min</span>';
       if (l.esfuerzo) html += '<span style="font-size:11px;color:' + esfColor + '">Esfuerzo ' + l.esfuerzo + '/10</span>';
       html += '</div>';
+      if (l.tenis) html += tenisResumenHtml(l);
       if (l.comentario) html += '<div class="log-c" style="margin-top:6px">' + l.comentario + '</div>';
       html += '</div>';
       html += '<button class="btn btn-g btn-sm edit-free-btn" data-lid="' + l.id + '" style="font-size:10px;align-self:flex-start">&#9998;</button>';
@@ -6500,6 +6663,11 @@ function deleteLog() {
 // SESIONES LIBRES (actividad extra usuario)
 // ─────────────────────────────────────────
 function openFreeLog(existingId) {
+  // La opción Tenis solo aparece si el admin activó el módulo deportista
+  var _sel = document.getElementById('free_act_tipo'), _op = _sel.querySelector('option[value="Tenis"]');
+  if (esDeportista(CU, 'tenis') && !_op) { var o = document.createElement('option'); o.value = 'Tenis'; o.textContent = '🎾 Tenis (partido o práctica)'; _sel.insertBefore(o, _sel.options[1]); }
+  if (!esDeportista(CU, 'tenis') && _op) _op.remove();
+  tenisPreparar(null);
   if (existingId) {
     // Edit existing
     var d = db();
@@ -6516,6 +6684,9 @@ function openFreeLog(existingId) {
     document.getElementById('free_act_dur').value = l.duracion || '';
     document.getElementById('free_act_comment').value = l.comentario || '';
     document.getElementById('free_act_esf').value = l.esfuerzo || '';
+    tenisPreparar(l.tenis);
+    if (l.tenis && !_sel.querySelector('option[value="Tenis"]')) { var o2 = document.createElement('option'); o2.value = 'Tenis'; o2.textContent = '🎾 Tenis'; _sel.insertBefore(o2, _sel.options[1]); }
+    if (l.tenis) _sel.value = 'Tenis';
   } else {
     document.getElementById('m_free_log_title').textContent = 'REGISTRAR ACTIVIDAD';
     document.getElementById('free_log_id').value = '';
@@ -6526,6 +6697,7 @@ function openFreeLog(existingId) {
     document.getElementById('free_act_comment').value = '';
     document.getElementById('free_act_esf').value = '';
   }
+  tenisToggle();
   openModal('m_free_log');
 }
 
@@ -6538,6 +6710,16 @@ function saveFreeLog() {
   var dur     = parseInt(document.getElementById('free_act_dur').value) || null;
   var comment = document.getElementById('free_act_comment').value.trim();
   var esf     = document.getElementById('free_act_esf').value;
+  var tenis = null;
+  if (tipo === 'Tenis' && TEN && document.getElementById('free_tenis').innerHTML) {
+    tenisLeer(); tenis = JSON.parse(JSON.stringify(TEN));
+    tenis.sets = tenisSetsJugados(tenis);
+    if (tenis.clase === 'practica') { ['modalidad','tipoPartido','torneo','ronda','pareja','rival1','rival2','resultado'].forEach(function(k){ delete tenis[k]; }); tenis.sets = []; }
+    else { delete tenis.proposito; delete tenis.bien; if (tenis.modalidad !== 'dobles') { delete tenis.pareja; delete tenis.rival2; } if (tenis.tipoPartido !== 'torneo') { delete tenis.torneo; delete tenis.ronda; } }
+    var _err = tenisValidar(tenis); if (_err) { toast(_err); return; }
+    tenis.resultadoFinal = tenisResultado(tenis);
+    if (!nombre) nombre = tenisNombreAuto(tenis);
+  }
   if (!nombre && !tipo) { toast('Ingresa el nombre o tipo de actividad'); return; }
   if (!fecha) { toast('Selecciona la fecha'); return; }
   var actNombre = nombre || tipo;
@@ -6553,6 +6735,7 @@ function saveFreeLog() {
     esfuerzo: esf,
     semana: 0, dia: '', rutId: ''
   };
+  if (tenis) log.tenis = tenis;
   _saving['free_log'] = true;
   var btn = document.getElementById('free_log_save_btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
@@ -6561,7 +6744,7 @@ function saveFreeLog() {
     if (btn) { btn.disabled = false; btn.textContent = 'Guardar actividad'; }
     closeModal('m_free_log');
     toast(res && res.ok ? 'Actividad guardada en Drive' : 'Actividad guardada');
-    if (curPage === 'miBienestar') pgMiBienestar(); else pgMiHistorial();
+    if (curPage === 'miBienestar') pgMiBienestar(); else if (curPage === 'miTenis') pgMiTenis(); else pgMiHistorial();
   });
 }
 
