@@ -265,6 +265,7 @@ tr:hover td{background:var(--s1)}
 .cal-d.vacio{background:none;border:none}
 .cal-d.hoy{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan) inset}
 .cal-n{font-size:11px;font-weight:700;color:var(--gris);margin-bottom:2px}
+.cal-ev-l{font-size:12px!important;white-space:normal!important;padding:4px 8px!important}
 .cal-ev{font-size:9.5px;line-height:1.25;padding:2px 3px;margin-bottom:2px;border-left:3px solid;border-radius:3px;background:rgba(255,255,255,0.05);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .al-grp{border:1px solid rgba(255,170,0,0.25);background:rgba(255,170,0,0.05);border-radius:10px;margin-bottom:6px}
 .al-grp summary{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;cursor:pointer;font-size:13px;font-weight:700;list-style:none}
@@ -1038,7 +1039,7 @@ function db() {
         if (k >= 0) d.gym[k] = l; else d.gym.push(l);
         return false;
       });
-      try { localStorage.setItem(DB_KEY, JSON.stringify(d)); } catch(e) {}
+      try { localStorage.setItem(DB_KEY, JSON.stringify(d)); _dbv++; } catch(e) {}
     }
     // Cuentas iniciales de la marca (solo si no existen)
     var changed = false;
@@ -1053,7 +1054,15 @@ function db() {
   }
 }
 
-var _dbv = 0;
+var _dbv = 0, _dbrC = null, _dbrV = -1;
+// Solo lectura: no modificar lo que devuelve (para cambiar algo usar db() y save()).
+function dbR() {
+  if (_dbrC && _dbrV === _dbv) return _dbrC;
+  var v = _dbv; _dbrC = db(); _dbrV = (_dbv === v) ? v : _dbv;
+  return _dbrC;
+}
+// Otras pestañas del navegador o la sincronización pueden cambiar la base: se invalida la copia
+window.addEventListener('storage', function(e){ if (e.key === DB_KEY) _dbv++; });
 function save(d) {
   _bienCache = null; _dbv++;
   localStorage.setItem(DB_KEY, JSON.stringify(d));
@@ -1809,7 +1818,7 @@ function vdb() {
 }
 function coachNombre(id, d) {
   if (!id) return '';
-  var c = (d||db()).users.filter(function(u){ return u.id === id; })[0];
+  var c = (d||dbR()).users.filter(function(u){ return u.id === id; })[0];
   return c ? c.name : id;
 }
 function setCoachFilter(v) {
@@ -3163,7 +3172,7 @@ function ultimoIndex(uid) {
   var raw = localStorage.getItem(DB_KEY) || '', k = uid + ':' + _dbv + ':' + raw.length;
   if (_ultCache.k === k) return _ultCache.idx;
   var idx = { id:{}, nom:{} };
-  ses(db()).filter(function(l){ return l.userId === uid && l.tipo !== 'libre'; })
+  ses(dbR()).filter(function(l){ return l.userId === uid && l.tipo !== 'libre'; })
     .sort(function(a,b){ return (b.fecha||'').localeCompare(a.fecha||'') || String(b.id).localeCompare(String(a.id)); })
     .forEach(function(l){ (l.ejercicios||[]).forEach(function(e){
       if (e.completado === false && !e.repsReal && !e.cargaReal) return;
@@ -4645,11 +4654,11 @@ function dinero(v) { var t = String(v==null?'':v).replace(/[$\s.]/g, '').replace
 // ═══════════════════════════════════════════════════════════
 var GYM_TIPOS = ['cierre','cierredia','pago','membajuste','recordatorio','gymcfg','invmov','cumple','agenda'];
 function esGymRec(x) { return !!x && ['cierre','cierredia','pago','membajuste','recordatorio','gymcfg','invmov','cumple','agenda'].indexOf(x.tipo) >= 0; }
-function gymRecs(tipo) { return (db().gym || []).filter(function(x){ return x.tipo === tipo; }); }
+function gymRecs(tipo) { return (dbR().gym || []).filter(function(x){ return x.tipo === tipo; }); }
 function esRecepcion() { return CU && CU.role === 'recepcion'; }
 function puedeRecepcion() { return CU && (CU.role === 'recepcion' || CU.role === 'admin'); }
 function gymUsers() { return db().users.filter(function(u){ return u.role === 'user'; }).sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); }); }
-function userById(id) { return db().users.filter(function(u){ return u.id === id; })[0] || null; }
+function userById(id) { return dbR().users.filter(function(u){ return u.id === id; })[0] || null; }
 function gid(p) { return p + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 function horaCOL() { var x = new Date(); return ('0'+x.getHours()).slice(-2)+':'+('0'+x.getMinutes()).slice(-2); }
 function addMeses(f, n) {
@@ -5321,13 +5330,13 @@ function msgRutina(tpl, u, fecha) {
 }
 function agendasDe(uid) { return gymRecs('agenda').filter(function(a){ return a.uid === uid; }).sort(function(a,b){ return (b.creadoFecha||'').localeCompare(a.creadoFecha||'') || String(b.id).localeCompare(String(a.id)); }); }
 function rutinaActiva(uid) {
-  return db().rutinas.filter(function(r){ return r.userId === uid && !rutCerrada(r); }).sort(function(a,b){ return (b.fechaIni||'').localeCompare(a.fechaIni||'') || (b.semana - a.semana); })[0] || null;
+  return dbR().rutinas.filter(function(r){ return r.userId === uid && !rutCerrada(r); }).sort(function(a,b){ return (b.fechaIni||'').localeCompare(a.fechaIni||'') || (b.semana - a.semana); })[0] || null;
 }
 // Medidas: pendiente si llegó la fecha pedida en la rutina y no hay medidas tomadas desde 3 días antes
 function medidasPendiente(uid) {
   var r = rutinaActiva(uid); if (!r || !r.fechaMedidas || r.fechaMedidas > dateCOL()) return null;
   var desde = addDias(r.fechaMedidas, -3);
-  var hay = db().medidas.some(function(m){ return m.userId === uid && (m.fecha||'') >= desde; });
+  var hay = dbR().medidas.some(function(m){ return m.userId === uid && (m.fecha||'') >= desde; });
   return hay ? null : r.fechaMedidas;
 }
 function guardarAgenda(a, msg, cb) { saveAndSync('saveLog', a, function(){ if (msg) toast(msg); if (cb) cb(); else if (curPage === 'agenda') pgAgenda(AG_TAB); }); }
@@ -5366,16 +5375,27 @@ function pgAgenda(tab) {
   if (puedeReprogramar() || esGestor()) tabs.push(['mensajes','💬 Mensajes']);
   var h = '<div class="page-title">AGENDA DE RUTINAS</div><div class="page-sub">Fecha comprometida para cargar cada rutina, actualización de medidas y avisos</div>';
   h += '<div class="dia-tabs">'+tabs.map(function(t){ return '<button class="dia-tab'+(AG_TAB===t[0]?' active':'')+'" onclick="pgAgenda(\''+t[0]+'\')">'+t[1]+'</button>'; }).join('')+'</div>';
+  h += agendaAlcanceHtml();
   if (AG_TAB === 'calendario') h += agendaCalHtml();
   else if (AG_TAB === 'mensajes') h += agendaMsgHtml();
   else h += agendaUsersHtml();
   setMain(h);
 }
+var AG_ALCANCE = 'todos';
+function agendaUsuarios() {
+  var base = (CU.role === 'coach' && AG_ALCANCE === 'todos') ? dbR().users : vdb().users;
+  return base.filter(function(u){ return u.role === 'user' && (AG_ALCANCE !== 'mios' || CU.role !== 'coach' || u.coachId === CU.id); });
+}
+function agendaAlcanceHtml() {
+  if (CU.role !== 'coach') return '';
+  var b = function(v, t){ return '<button class="dia-tab'+(AG_ALCANCE===v?' active':'')+'" onclick="AG_ALCANCE=\''+v+'\';pgAgenda(AG_TAB)">'+t+'</button>'; };
+  return '<div class="dia-tabs" style="margin-bottom:10px">'+b('todos','👥 Todo el equipo')+b('mios','🙋 Mis '+T.usuarios)+'</div>';
+}
 function agendaUsersHtml() {
-  var us = vdb().users.filter(function(u){ return u.role === 'user' && rutModo(u) !== 'sin'; }).sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); });
+  var us = agendaUsuarios().filter(function(u){ return rutModo(u) !== 'sin'; }).sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); });
   if (!us.length) return '<div class="empty"><div class="empty-icon">👥</div><div class="empty-t">SIN '+T.Usuarios.toUpperCase()+'</div></div>';
   var hoy = dateCOL(), inS = 'padding:7px;background:var(--s1);border:1px solid var(--brd);border-radius:8px;color:var(--blanco);font-size:13px';
-  var orden = function(u){ var a = agendaActual(u.id), e = agendaEstado(a), r = rutinaActiva(u.id); return e === 'vencida' ? 0 : e === 'solicitada' ? 1 : (!r && !a) ? 2 : (r && rutVencida(r) && !a) ? 3 : e === 'pendiente' ? 4 : 5; };
+  var orden = function(u){ var a = agendaActual(u.id), e = agendaEstado(a), r = rutinaActiva(u.id), vp = vencePronto(u.id); return e === 'vencida' ? 0 : (vp && vp.vencio) ? 1 : e === 'solicitada' ? 2 : vp ? 3 : (!r && !a) ? 4 : (r && rutVencida(r) && !a) ? 5 : e === 'pendiente' ? 6 : 7; };
   us.sort(function(a,b){ return orden(a) - orden(b); });
   var h = '<div style="font-size:12px;color:var(--gris);margin-bottom:12px;line-height:1.6">Para cada '+T.usuario+' sin rutina o con la rutina por vencer, compromete la fecha en la que tendrá la nueva rutina cargada. <b>Solo se fija una vez</b>; si se vence sin cargarla, '+(hayAdmin()?'el administrador recibe la alerta y es quien habilita una fecha nueva.':'queda registrada como incumplida.')+'</div>';
   us.forEach(function(u){
@@ -5383,7 +5403,7 @@ function agendaUsersHtml() {
     var rTxt = r ? (r.fechaFin ? (rutVencida(r) ? '<span style="color:#ff8080">Rutina vencida el '+fDate(r.fechaFin)+'</span>' : 'Rutina vigente hasta '+fDate(r.fechaFin)) : 'Rutina vigente') : '<span style="color:#ffaa44">Aún sin rutina cargada</span>';
     var col = e === 'vencida' ? '#ff8080' : e === 'pendiente' ? '#ffaa44' : 'var(--brd)';
     h += '<div class="card" style="padding:12px;margin-bottom:10px;border-color:'+col+'"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div class="u-av">'+ini(u.name)+'</div><div style="flex:1;min-width:160px"><div style="font-weight:700">'+esc(u.name)+(inc?' <span class="badge" style="color:#ff8080;border:1px solid #ff808066">'+inc+' incumplida'+(inc===1?'':'s')+'</span>':'')+'</div>';
-    h += '<div style="margin:3px 0">'+modoBadge(u)+'</div>';
+    h += '<div style="margin:3px 0">'+modoBadge(u)+(u.coachId?' <span class="badge bo">🧑‍🏫 '+esc(coachNombre(u.coachId))+(u.coachId===CU.id?' (tú)':'')+'</span>':' <span class="badge bw">Sin coach</span>')+'</div>';
     h += '<div style="font-size:11px;color:var(--gris);line-height:1.6">'+rTxt+(r && r.fechaMedidas ? ' · 📏 medidas '+fDate(r.fechaMedidas) : r ? ' · <span style="color:#ffaa44">📏 sin fecha de medidas</span>' : '')+(coachNombre(u.coachId)&&esGestor()?' · coach '+esc(coachNombre(u.coachId)):'')+'</div>';
     if (mp) h += '<div style="font-size:11px;color:#ba68c8;margin-top:2px">📏 Medidas pendientes desde el '+fDate(mp)+' <button class="btn btn-g btn-sm" style="padding:2px 8px;font-size:10px" onclick="avisarMedidas(\''+u.id+'\')">💬 Avisar</button> <button class="btn btn-g btn-sm" style="padding:2px 8px;font-size:10px" onclick="openMedidasFor(\''+u.id+'\')">Tomar medidas</button></div>';
     h += '</div></div>';
@@ -5396,9 +5416,9 @@ function agendaUsersHtml() {
         h += '<div style="color:var(--cyan);font-weight:700;margin-bottom:6px">📋 '+(a.origen === 'usuario' ? 'Pidió rutina' : a.origen === 'nuevo' ? 'Nuevo · necesita su primera rutina' : 'Se le asignó rutina')+' el '+fDate(a.solicitadaFecha || a.creadoFecha)+'</div>'
           + '<div style="margin-bottom:6px;font-weight:700;color:'+(_dl<0?'#ff8080':_dl===0?'#ff9800':'#ffaa44')+'">⏰ '+(_dl<0?'Se pasó el plazo ('+fDate(_lim)+') · strike':'Plazo para comprometer la fecha y avisarle: '+(_dl===0?'HOY':'hasta el '+fDate(_lim)))+'</div>'; }
       var _vp = vencePronto(u.id);
-      if (!a && _vp) h += '<div style="margin-bottom:6px;font-weight:700;color:#ffaa44">⏳ Su rutina vence el '+fDate(_vp.fecha)+': compromete la fecha de la nueva antes, o será strike</div>';
+      if (!a && _vp) h += '<div style="margin-bottom:6px;font-weight:700;color:'+(_vp.dias<=1?'#ff8080':'#ffaa44')+'">'+(_vp.vencio ? '⛔ Su rutina venció el '+fDate(_vp.vencio)+': el coach asignado tiene plazo hasta el '+fDate(_vp.fecha)+' para comprometer la nueva fecha' : '⏳ Su rutina vence el '+fDate(_vp.fecha)+': compromete la fecha de la nueva antes')+', o será strike</div>';
       else if (!rutModo(u)) h += '<div style="color:#ffaa44;margin-bottom:6px">❓ Falta definir si tiene rutina (en su ficha)</div>';
-      h += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span style="color:var(--gris)">📅 Rutina lista a más tardar el</span><input type="date" id="ag_f_'+u.id+'" min="'+hoy+'" value="'+(r && r.fechaFin && r.fechaFin >= hoy ? r.fechaFin : addDias(hoy, 3))+'" style="'+inS+'">'+(CU.role === 'coach' || CU.role === 'admin' ? '<button class="btn btn-p btn-sm" onclick="comprometerFecha(\''+u.id+'\')">Comprometer</button>' : '')+'</div>';
+      h += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span style="color:var(--gris)">📅 Rutina lista a más tardar el</span><input type="date" id="ag_f_'+u.id+'" min="'+hoy+'" value="'+(r && r.fechaFin && r.fechaFin >= hoy ? r.fechaFin : addDias(hoy, 3))+'" style="'+inS+'">'+((CU.role === 'coach' && (!u.coachId || u.coachId === CU.id)) || CU.role === 'admin' ? '<button class="btn btn-p btn-sm" onclick="comprometerFecha(\''+u.id+'\')">Comprometer</button>' : '<span style="color:var(--gris)">· lo compromete '+esc(coachNombre(u.coachId)||'el coach asignado')+'</span>')+'</div>';
     } else {
       var av = (a.avisos||[]).slice(-1)[0];
       h += '<div><b style="color:'+(e==='vencida'?'#ff8080':'#ffaa44')+'">'+(e === 'vencida' ? '⛔ Vencida: ' : '📅 Comprometida para el ')+fDate(a.fecha)+'</b>'+(e==='vencida'?' — la rutina no se cargó a tiempo':'')+' · por '+esc(a.coachNombre||'')+'</div>';
@@ -5418,30 +5438,47 @@ function agendaUsersHtml() {
   });
   return h;
 }
+var CAL_EV = {};
+function calDia(f) {
+  var box = document.getElementById('cal_det'); if (!box) return;
+  box.innerHTML = '<div class="card" style="padding:12px;margin-top:10px"><div style="font-weight:800;margin-bottom:6px">'+fDate(f)+'</div><div style="display:flex;flex-direction:column;gap:3px">'+(CAL_EV[f]||[]).map(function(x){ return x.d; }).join('')+'</div></div>';
+  box.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
 function agendaCalHtml() {
   var hoy = dateCOL(), mes = AG_MES || hoy.slice(0,7), y = +mes.slice(0,4), m = +mes.slice(5,7);
   var meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   var prev = addMeses(mes+'-01', -1).slice(0,7), next = addMeses(mes+'-01', 1).slice(0,7);
-  var vis = {}; vdb().users.forEach(function(u){ if (u.role === 'user') vis[u.id] = u; });
+  var vis = {}; agendaUsuarios().forEach(function(u){ vis[u.id] = u; });
   var ev = {};
-  var add = function(f, html){ if (f && f.slice(0,7) === mes) (ev[f] = ev[f] || []).push(html); };
-  gymRecs('agenda').forEach(function(a){ var u = vis[a.uid]; if (!u) return; var e = agendaEstado(a); var c = e==='cumplida'?'#80d4a0':e==='vencida'?'#ff8080':'#ffaa44';
-    add(a.fecha, '<div class="cal-ev" style="border-left-color:'+c+'">'+(e==='cumplida'?'✓':e==='vencida'?'⛔':'📅')+' '+esc((u.name||'').split(' ')[0])+'</div>'); });
-  Object.keys(vis).forEach(function(uid){ var n = esc((vis[uid].name||'').split(' ')[0]);
-    agendasDe(uid).forEach(function(a){ if (agendaEstado(a) === 'solicitada') add(limiteSolicitud(a), '<div class="cal-ev" style="border-left-color:#ff9800">⏰ '+n+'</div>'); });
-    strikesDe(uid).forEach(function(x){ add(x.fecha, '<div class="cal-ev" style="border-left-color:#ff4d4d;color:#ff8080">⚠️ '+n+'</div>'); }); });
-  Object.keys(vis).forEach(function(uid){ var r = rutinaActiva(uid); if (!r) return; var n = esc((vis[uid].name||'').split(' ')[0]);
-    if (r.fechaFin) add(r.fechaFin, '<div class="cal-ev" style="border-left-color:var(--gris)">🔚 '+n+'</div>');
-    if (r.fechaMedidas) add(r.fechaMedidas, '<div class="cal-ev" style="border-left-color:#ba68c8">📏 '+n+'</div>'); });
+  // Cada evento: versión corta para la celda y versión completa para el detalle del día
+  var add = function(f, color, icon, u, txt, extra){
+    if (!f || f.slice(0,7) !== mes) return;
+    var corto = (u.name||'').split(' ')[0], cs = extra ? ';'+extra : '';
+    (ev[f] = ev[f] || []).push({
+      c:'<div class="cal-ev" style="border-left-color:'+color+cs+'">'+icon+' '+esc(corto)+'</div>',
+      d:'<div class="cal-ev cal-ev-l" style="border-left-color:'+color+cs+'" onclick="verComoUsuario(\''+u.id+'\')">'+icon+' <b>'+esc(u.name)+'</b> · '+txt+(u.coachId?' <span style="color:var(--gris)">· '+esc(coachNombre(u.coachId))+'</span>':'')+'</div>'
+    });
+  };
+  gymRecs('agenda').forEach(function(a){ var u = vis[a.uid]; if (!u) return; var e = agendaEstado(a); if (!a.fecha || e === 'cancelada') return;
+    add(a.fecha, e==='cumplida'?'#80d4a0':e==='vencida'?'#ff8080':'#ffaa44', e==='cumplida'?'✓':e==='vencida'?'⛔':'📅', u, e==='cumplida'?'rutina cargada':e==='vencida'?'fecha comprometida vencida':'fecha comprometida para la rutina'); });
+  Object.keys(vis).forEach(function(uid){ var u = vis[uid];
+    agendasDe(uid).forEach(function(a){ if (agendaEstado(a) === 'solicitada') add(limiteSolicitud(a), '#ff9800', '⏰', u, 'último día para comprometer la fecha y avisar'); });
+    var vp = vencePronto(uid); if (vp && vp.vencio) add(vp.fecha, '#ff9800', '⏰', u, 'rutina vencida el '+fDate(vp.vencio)+' · último día para comprometer la nueva');
+    strikesDe(uid).forEach(function(x){ add(x.fecha, '#ff4d4d', '⚠️', u, 'strike: '+esc(x.nota), 'color:#ff8080'); });
+    var r = rutinaActiva(uid); if (!r) return;
+    if (r.fechaFin) add(r.fechaFin, 'var(--gris)', '🔚', u, 'vence la rutina «'+esc(r.nombre||'')+'»');
+    if (r.fechaMedidas) add(r.fechaMedidas, '#ba68c8', '📏', u, 'actualización de medidas'); });
   var h = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><button class="btn btn-g btn-sm" onclick="AG_MES=\''+prev+'\';pgAgenda(\'calendario\')">‹</button><b style="font-size:16px">'+meses[m-1]+' '+y+'</b><button class="btn btn-g btn-sm" onclick="AG_MES=\''+next+'\';pgAgenda(\'calendario\')">›</button></div>';
   h += '<div class="cal">'+['L','M','M','J','V','S','D'].map(function(d){ return '<div class="cal-h">'+d+'</div>'; }).join('');
   var first = new Date(y, m-1, 1, 12), off = (first.getDay() + 6) % 7, dias = new Date(y, m, 0).getDate();
   for (var i = 0; i < off; i++) h += '<div class="cal-d vacio"></div>';
   for (var dd = 1; dd <= dias; dd++) {
     var f = mes+'-'+('0'+dd).slice(-2);
-    h += '<div class="cal-d'+(f===hoy?' hoy':'')+'"><div class="cal-n">'+dd+'</div>'+(ev[f]||[]).join('')+'</div>';
+    var evs = ev[f] || [];
+    h += '<div class="cal-d'+(f===hoy?' hoy':'')+'"'+(evs.length?' style="cursor:pointer" onclick="calDia(\''+f+'\')"':'')+'><div class="cal-n">'+dd+'</div>'+evs.slice(0,3).map(function(x){ return x.c; }).join('')+(evs.length>3?'<div class="cal-ev" style="border-left-color:transparent;color:var(--cyan)">+'+(evs.length-3)+' más</div>':'')+'</div>';
   }
-  h += '</div><div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--gris);margin-top:10px"><span>📅 Fecha comprometida</span><span style="color:#80d4a0">✓ Cumplida</span><span style="color:#ff8080">⛔ Vencida</span><span>🔚 Vence rutina</span><span style="color:#ba68c8">📏 Medidas</span><span style="color:#ff9800">⏰ Plazo para comprometer</span><span style="color:#ff8080">⚠️ Strike</span></div>';
+  CAL_EV = ev;
+  h += '</div><div id="cal_det"></div><div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--gris);margin-top:10px"><span>📅 Fecha comprometida</span><span style="color:#80d4a0">✓ Cumplida</span><span style="color:#ff8080">⛔ Vencida</span><span>🔚 Vence rutina</span><span style="color:#ba68c8">📏 Medidas</span><span style="color:#ff9800">⏰ Plazo para comprometer</span><span style="color:#ff8080">⚠️ Strike</span></div>';
   return h;
 }
 function agendaMsgHtml() {
@@ -5499,12 +5536,12 @@ function alertasExtra(alerts) {
   us.forEach(function(u){
     var a = agendaActual(u.id), e = agendaEstado(a), r = rutinaActiva(u.id);
     if (rutModo(u) === 'sin') return;
+    var _vp2 = vencePronto(u.id);
     if (e === 'solicitada' && CU.role !== 'recepcion') { var _l = limiteSolicitud(a), _d = diasEntre(dateCOL(), _l); alerts.push({ name:u.name, cat:'rutinas', label:'📋 '+(a.origen==='usuario'?'Pidió rutina':'Necesita rutina')+' — compromete la fecha y avísale '+(_d<0?'(plazo vencido: strike)':_d===0?'HOY (último día)':'antes del '+fDate(_l)), color:_d<=0?'#ff8080':'#ffaa44', action:"nav('agenda')" }); }
     else if (e === 'pendiente' && !(a.avisos||[]).length && CU.role !== 'recepcion') alerts.push({ name:u.name, cat:'rutinas', label:'💬 Fecha comprometida ('+fDate(a.fecha)+') pero aún no le has avisado', color:'#ffaa44', action:"nav('agenda')" });
-    var _vp2 = vencePronto(u.id);
-    if (_vp2 && !a && CU.role !== 'recepcion') alerts.push({ name:u.name, cat:'rutinas', label:'⏳ Su rutina vence '+(_vp2.dias===0?'HOY':'el '+fDate(_vp2.fecha))+' — compromete la fecha de la nueva antes del vencimiento o será strike', color:_vp2.dias<=1?'#ff8080':'#ffaa44', action:"nav('agenda')" });
+    if (_vp2 && !a && CU.role !== 'recepcion') alerts.push({ name:u.name, cat:'rutinas', label:(_vp2.vencio ? '⛔ Su rutina venció el '+fDate(_vp2.vencio)+' — compromete la fecha de la nueva a más tardar el '+fDate(_vp2.fecha) : '⏳ Su rutina vence '+(_vp2.dias===0?'HOY':'el '+fDate(_vp2.fecha))+' — compromete la fecha de la nueva antes del vencimiento')+' o será strike', color:_vp2.dias<=1?'#ff8080':'#ffaa44', action:"nav('agenda')" });
     else if (e === 'vencida') alerts.push({ name:u.name, label:'⛔ Rutina no cargada a tiempo (comprometida para el '+fDate(a.fecha)+')'+(esGestor()?' · coach '+(a.coachNombre||''):''), color:'#ff8080', action:"nav('agenda')" });
-    else if (!a && rutModo(u) === 'con' && (!r || rutVencida(r)) && CU.role === 'coach') alerts.push({ name:u.name, label:'📅 '+(r?'Rutina vencida':'Sin rutina cargada')+' y sin fecha comprometida', color:'#ffaa44', action:"nav('agenda')" });
+    else if (!a && !_vp2 && rutModo(u) === 'con' && (!r || rutVencida(r)) && CU.role === 'coach') alerts.push({ name:u.name, label:'📅 '+(r?'Rutina vencida':'Sin rutina cargada')+' y sin fecha comprometida', color:'#ffaa44', action:"nav('agenda')" });
     if (r && !r.fechaMedidas && CU.role !== 'recepcion') alerts.push({ name:u.name, label:'📏 Asigna en su rutina la fecha de actualización de medidas', color:'#ffaa44', action:"openEditRutina('"+r.id+"')" });
     var mp = medidasPendiente(u.id);
     if (mp) alerts.push({ name:u.name, label:'📏 Actualización de medidas pendiente desde el '+fDate(mp), color:'#ba68c8', action:"openMedidasFor('"+u.id+"')" });
@@ -5794,7 +5831,7 @@ function planMensual(u) {
 
 // ── Agenda: estados y strikes (incumplimientos que no se borran) ──
 function rutinaDeAgenda(a) {
-  return db().rutinas.filter(function(r){ return r.userId === a.uid && (r.fechaCarga || '') >= a.creadoFecha && (parseInt(String(r.id).replace(/\D/g, '')) || 0) >= (a.creadoTs || 0); })
+  return dbR().rutinas.filter(function(r){ return r.userId === a.uid && (r.fechaCarga || '') >= a.creadoFecha && (parseInt(String(r.id).replace(/\D/g, '')) || 0) >= (a.creadoTs || 0); })
     .sort(function(x,y){ return (x.fechaCarga||'').localeCompare(y.fechaCarga||''); })[0] || null;
 }
 function agendaCumplida(a) { return a.estado === 'cumplida' || !!rutinaDeAgenda(a); }
@@ -5813,7 +5850,32 @@ var PLAZO_COMPROMISO = 2;   // días que tiene el coach asignado para compromete
 function limiteSolicitud(a) { return addDias(a.solicitadaFecha || a.creadoFecha, PLAZO_COMPROMISO); }
 function primerAviso(a) { var f = ''; (a.avisos||[]).forEach(function(v){ if (!f || v.fecha < f) f = v.fecha; }); return f; }
 // Incumplimientos del coach asignado con un usuario. Se calculan de los registros y no se pueden borrar.
+// Rutinas que generan obligación de comprometer la siguiente:
+//  · las que vencen desde STRIKES_DESDE → plazo hasta el día del vencimiento
+//  · la última rutina de cada usuario si ya estaba vencida antes → plazo STRIKES_DESDE + 2 días
+function rutinasConPlazo(uid) {
+  var ruts = dbR().rutinas.filter(function(r){ return r.userId === uid && r.fechaFin; }), ags = agendasDe(uid), out = [];
+  var ultima = ruts.slice().sort(function(a,b){ return (b.fechaCarga||b.fechaIni||'').localeCompare(a.fechaCarga||a.fechaIni||'') || String(b.id).localeCompare(String(a.id)); })[0];
+  ruts.forEach(function(r){
+    var antigua = r.fechaFin < STRIKES_DESDE;
+    if (antigua && r !== ultima) return;
+    var limite = antigua ? addDias(STRIKES_DESDE, PLAZO_COMPROMISO) : r.fechaFin;
+    var ini = r.fechaCarga || r.fechaIni || '';
+    var nueva = ruts.some(function(r2){ var f2 = r2.fechaCarga || r2.fechaIni || ''; return r2.id !== r.id && f2 >= ini && f2 <= limite && String(r2.id) > String(r.id); });
+    if (nueva) return;
+    var comp = ags.some(function(a){ return a.comprometidaFecha && a.comprometidaFecha <= limite && (a.creadoFecha || '') >= ini && a.estado !== 'cancelada'; });
+    out.push({ r:r, limite:limite, antigua:antigua, comprometida:comp });
+  });
+  return out;
+}
+var _stkC = { k:'', m:{} };
 function strikesDe(uid) {
+  var ck = _dbv + '|' + dateCOL() + '|' + STRIKES_DESDE;
+  if (_stkC.k !== ck) _stkC = { k:ck, m:{} };
+  if (_stkC.m[uid]) return _stkC.m[uid];
+  return (_stkC.m[uid] = strikesCalc(uid));
+}
+function strikesCalc(uid) {
   var out = [], hoy = dateCOL(), u = userById(uid), ags = agendasDe(uid);
   var coachU = coachNombre(u && u.coachId) || '';
   ags.forEach(function(a){
@@ -5835,29 +5897,28 @@ function strikesDe(uid) {
       if (fc && fc > a.fecha && !(a.historial||[]).some(function(h){ return h.incumplida && h.nueva >= fc; })) out.push({ fecha:a.fecha, tipo:'fecha', nota:'Rutina cargada tarde ('+fDate(fc)+')', coach:coach });
     }
   });
-  // 3. Rutina que se venció sin que antes se comprometiera la fecha de la nueva
+  // 3. Rutina vencida sin fecha comprometida para la nueva dentro del plazo
   if (u && rutModo(u) === 'con') {
-    var ruts = db().rutinas.filter(function(r){ return r.userId === uid; });
-    ruts.forEach(function(r){
-      if (!r.fechaFin || r.fechaFin < STRIKES_DESDE || r.fechaFin >= hoy) return;
-      var ini = r.fechaCarga || r.fechaIni || '';
-      var nueva = ruts.some(function(r2){ return r2.id !== r.id && (r2.fechaCarga || r2.fechaIni || '') >= ini && (r2.fechaCarga || r2.fechaIni || '') <= r.fechaFin && String(r2.id) > String(r.id); });
-      var comp = ags.some(function(a){ return a.comprometidaFecha && a.comprometidaFecha <= r.fechaFin && (a.creadoFecha || '') >= ini; });
-      if (!nueva && !comp) out.push({ fecha:r.fechaFin, tipo:'vencimiento', nota:'La rutina «'+(r.nombre||'')+'» venció sin fecha comprometida para la nueva', coach:coachU });
+    rutinasConPlazo(uid).forEach(function(x){
+      if (!x.comprometida && hoy > x.limite) out.push({ fecha:x.limite, tipo:'vencimiento', nota:'La rutina «'+(x.r.nombre||'')+'» venció el '+fDate(x.r.fechaFin)+' y no se comprometió la fecha de la nueva '+(x.antigua?'(plazo hasta el '+fDate(x.limite)+')':'antes del vencimiento'), coach:coachU });
     });
   }
   return out.sort(function(x,y){ return (y.fecha||'').localeCompare(x.fecha||''); });
 }
 function incumplimientos(uid) { return strikesDe(uid).length; }
-// ¿La rutina vigente está por vencer sin fecha comprometida para la siguiente?
+// Rutina por vencer o vencida que aún está en plazo para comprometer la fecha de la nueva
 function vencePronto(uid) {
   var u = userById(uid); if (!u || rutModo(u) !== 'con') return null;
-  var r = rutinaActiva(uid); if (!r || !r.fechaFin) return null;
-  var d = diasEntre(dateCOL(), r.fechaFin); if (d < 0 || d > 5) return null;
-  var ini = r.fechaCarga || r.fechaIni || '';
-  if (agendasDe(uid).some(function(a){ return a.comprometidaFecha && (a.creadoFecha||'') >= ini && a.estado !== 'cancelada'; })) return null;
-  return { fecha:r.fechaFin, dias:d };
+  var hoy = dateCOL(), best = null;
+  rutinasConPlazo(uid).forEach(function(x){
+    if (x.comprometida || hoy > x.limite) return;
+    var d = diasEntre(hoy, x.limite);
+    if (!x.antigua && diasEntre(hoy, x.r.fechaFin) > 5) return;
+    if (!best || x.limite < best.fecha) best = { fecha:x.limite, dias:d, vencio:x.r.fechaFin < hoy ? x.r.fechaFin : '', antigua:x.antigua };
+  });
+  return best;
 }
+// ¿La rutina vigente está por vencer sin fecha comprometida para la siguiente?
 function crearSolicitud(u, origen) {
   if (agendaActual(u.id)) return;
   var a = { id:gid('ag_'), tipo:'agenda', userId:'__gym', uid:u.id, nombre:u.name, coachId:u.coachId||'', coachNombre:coachNombre(u.coachId)||'', fecha:'', origen:origen,
@@ -5982,7 +6043,7 @@ function capturarMiRutina(uid, rid) {
 var VR_MR = null;
 function vrBuscar(q) {
   var box = document.getElementById('vr_res'); if (!box) return;
-  var us = vdb().users.filter(function(u){ return u.role === 'user'; });
+  var us = (CU.role === 'coach' ? dbR() : vdb()).users.filter(function(u){ return u.role === 'user'; });
   var n = normTxt(q);
   var res = n ? us.filter(function(u){ return normTxt(u.name + ' ' + (u.username||'') + ' ' + (u.cedula||'')).indexOf(n) >= 0; }).slice(0, 10) : [];
   box.innerHTML = res.map(function(u){ return '<button class="btn btn-g btn-sm" onclick="pgVerRutina(\''+u.id+'\')">'+esc(u.name)+' · '+(RUT_MODOS[rutModo(u)]||'Por definir')+'</button>'; }).join('') || (n ? '<span style="font-size:12px;color:var(--gris)">Sin resultados</span>' : '');
@@ -5993,11 +6054,12 @@ function pgVerRutina(uid, rid) {
   var u = userById(uid);
   var h = '<div class="page-title">RUTINA DE '+T.Usuario.toUpperCase()+'</div><div class="page-sub">Ve la rutina tal como la ve '+(T.usuario==='usuaria'?'la usuaria':'el usuario')+' en su app</div>';
   h += '<div class="fg" style="margin-bottom:8px"><label>Buscar '+T.usuario+'</label><input id="vr_q" placeholder="Escribe el nombre…" autocomplete="off" oninput="vrBuscar(this.value)" style="width:100%"><div id="vr_res" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div></div>';
-  h += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">'+(u?'<div style="font-weight:800;font-size:15px;flex:1;min-width:160px">👤 '+esc(u.name)+'</div>':'');
+  h += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">'+(u?'<div style="font-weight:800;font-size:15px;flex:1;min-width:160px">👤 '+esc(u.name)+(u.coachId?' <span style="font-size:11px;font-weight:400;color:var(--gris)">· coach '+esc(coachNombre(u.coachId))+'</span>':'')+'</div>':'');
   if (u) {
     var ra = rutinaActiva(uid);
-    if (ra && CU.role !== 'recepcion') h += '<button class="btn btn-g btn-sm" onclick="openEditRutina(\''+ra.id+'\')">✏️ Editar rutina</button>';
-    if (CU.role !== 'recepcion') h += '<button class="btn btn-g btn-sm" onclick="openNuevaRutina(\''+uid+'\')">➕ Nueva rutina</button>';
+    var _puede = CU.role === 'admin' || (CU.role === 'coach' && (!u.coachId || u.coachId === CU.id));
+    if (ra && _puede) h += '<button class="btn btn-g btn-sm" onclick="openEditRutina(\''+ra.id+'\')">✏️ Editar rutina</button>';
+    if (_puede) h += '<button class="btn btn-g btn-sm" onclick="openNuevaRutina(\''+uid+'\')">➕ Nueva rutina</button>';
     h += '<button class="btn btn-g btn-sm" onclick="openDirigida(\''+uid+'\')">✅ Sesión dirigida</button>';
   }
   h += '</div>';
