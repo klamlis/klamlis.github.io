@@ -463,7 +463,7 @@ body.modal-open{overflow:hidden}
     <div class="fg" id="u_obj_wrap"><label>Objetivo</label><input type="text" id="u_obj" placeholder="EJ: GANAR MASA MUSCULAR" style="text-transform:uppercase"/></div>
   </div>
   <div class="fg" id="u_coach_wrap"><label>Asignar Coach</label><select id="u_coach" style="width:100%"><option value="">Sin asignar</option></select></div>
-  <div class="fg" id="u_modo_wrap"><label>Modalidad de entrenamiento *</label><select id="u_rutmodo" style="width:100%"><option value="">— Definir —</option><option value="con">🏋️ Con rutina (el coach la carga y se compromete con fechas)</option><option value="sin">🗓 Por sesión · sin rutina, el coach dirige y lleva las medidas</option></select></div>
+  <div class="fg" id="u_modo_wrap"><label>Modalidad de entrenamiento *</label><select id="u_rutmodo" style="width:100%"><option value="">— Definir —</option><option value="con">🏋️ Con rutina (el coach la carga y se compromete con fechas)</option><option value="sin">🗓 Por sesión · sin rutina, el coach dirige y lleva las medidas</option><option value="ind">🧍 Individual · sin coach, entrena por su cuenta</option><option value="acond">🌱 Nuevo · 3 semanas de acondicionamiento físico</option></select><div style="font-size:11px;color:var(--gris);margin-top:4px;line-height:1.5">🌱 Acondicionamiento: al terminar las 3 semanas el coach lo valida y la persona escoge en la app si quiere rutina o entrenar por sesión. 🧍 Individual puede cambiar de modalidad solo con plan mensual.</div></div>
   <div class="fg" id="u_dep_wrap" style="display:none"><label>Módulo deportista</label><label style="display:flex;gap:8px;align-items:center;font-size:13px;text-transform:none;letter-spacing:0;cursor:pointer"><input type="checkbox" id="u_dep_tenis" style="accent-color:var(--cyan);width:18px;height:18px"> 🎾 Es deportista · activar registro de <b>Tenis</b></label></div>
   <div id="u_user_only_wrap">
     <div class="fr"><div class="fg"><label>Contacto emergencia</label><input type="text" id="u_emerg_nom"/></div><div class="fg"><label>Tel. emergencia</label><input type="text" id="u_emerg_tel"/></div></div>
@@ -1933,6 +1933,11 @@ function pgDashboard() {
     var sinCoach = d.users.filter(function(u){ return u.role==='user' && !u.coachId; }).length;
     if (sinCoach) alerts.push({ name:'Gestión', label:'👥 '+sinCoach+' '+(sinCoach===1?T.usuario:T.usuarios)+' sin coach asignado', color:'#ffaa44', action:"setCoachFilter('__none');nav('usuarios')" });
   }
+  if (modulo('cierreDiario') && CU.role !== 'user') {
+    var dps = deudasPendientes();
+    if (dps.length) { var dpt = dps.reduce(function(a, x){ return a + deudaSaldo(x); }, 0), dpu = {}; dps.forEach(function(x){ dpu[x.uid] = 1; });
+      alerts.push({ name:'Tienda', cat:'membresias', label:'💸 '+Object.keys(dpu).length+' persona'+(Object.keys(dpu).length===1?'':'s')+' deben '+pesos(dpt)+' por productos sin pagar', color:'#ff8080', action:'openDeudasModal()' }); }
+  }
   if (modulo('cierreDiario') && puedeRecepcion()) {
     var pendRec = gymUsers().filter(function(u){ var e = etapaDe(u); return e && !recordatorioEnviado(u, e); }).length;
     if (pendRec) alerts.push({ name:'Recepción', label:'🔔 '+pendRec+' recordatorio'+(pendRec===1?'':'s')+' de pago por enviar', color:'#ffaa44', action:"nav('recepcion')" });
@@ -2009,7 +2014,7 @@ function pgUsuarios() {
   var usr = d.users.filter(function(u) { return u.role === 'user'; });
   var html = '<div class="page-title">MIS '+T.Usuarios.toUpperCase()+'</div><div class="page-sub">' + usr.length + ' '+T.usuarios+' '+T.registrados+'</div>';
   html += '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"><button class="btn btn-p" onclick="openNuevaUsuario()">+ '+T.nuevo+'</button>'+
-    '<select id="u_fmodo" onchange="filterUsuarios(document.getElementById(\'u_search\').value)" style="padding:9px 10px;background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);color:var(--blanco)"><option value="">Todos</option><option value="con">🏋️ Con rutina</option><option value="sin">🗓 Por sesión</option><option value="def">❓ Por definir</option></select>'+
+    '<select id="u_fmodo" onchange="filterUsuarios(document.getElementById(\'u_search\').value)" style="padding:9px 10px;background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);color:var(--blanco)"><option value="">Todos</option><option value="con">🏋️ Con rutina</option><option value="sin">🗓 Por sesión</option><option value="ind">🧍 Individual</option><option value="acond">🌱 Acondicionamiento</option><option value="def">❓ Por definir</option></select>'+
     '<input type="text" id="u_search" placeholder="Buscar '+T.usuario+'..." oninput="filterUsuarios(this.value)" style="flex:1;min-width:180px;padding:9px 13px;background:var(--s1);border:1px solid var(--brd);border-radius:var(--r);color:var(--blanco);font-family:var(--font-body);font-size:13px"></div>';
   html += '<div class="card" style="padding:0">';
   if (usr.length === 0) {
@@ -2030,6 +2035,7 @@ function pgUsuarios() {
       html += '<div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap">';
       if (esGestor() || hayAdmin()) html += u.coachId ? '<span class="badge bo">🧑‍🏫 '+esc(coachNombre(u.coachId))+'</span>' : '<span class="badge bw">Sin coach</span>';
       html += modoBadge(u);
+      if (modulo('cierreDiario')) html += deudaBadge(u);
       var _stk = incumplimientos(u.id); if (_stk) html += '<span class="badge" style="color:#ff8080;border:1px solid #ff808066">⚠️ '+_stk+' strike'+(_stk===1?'':'s')+'</span>';
       html += '<span class="badge bm">' + ruts + ' rutinas</span>';
       html += '<span class="badge bg">' + sesiones + ' sesiones</span>';
@@ -2043,6 +2049,7 @@ function pgUsuarios() {
       html += '<button class="btn btn-p btn-sm" data-uid="' + u.id + '" data-action="res7">📊 7 días</button>';
       html += '<button class="btn btn-g btn-sm" data-uid="' + u.id + '" data-action="vista">👁 Ver rutina</button>';
       if (rutModo(u) === 'sin') html += '<button class="btn btn-g btn-sm" data-uid="' + u.id + '" data-action="dirigida">✅ Sesión dirigida</button>';
+      if (rutModo(u) === 'acond' && acondEstado(u) !== 'validado' && CU.role !== 'recepcion') html += '<button class="btn btn-g btn-sm" data-uid="' + u.id + '" data-action="acond">🌱 Validar acondicionamiento</button>';
       if (esDeportista(u, 'tenis')) html += '<button class="btn btn-g btn-sm" data-uid="' + u.id + '" data-action="tenis">🎾 Tenis</button>';
       html += '<button class="btn btn-g btn-sm" data-uid="' + u.id + '" data-action="medidas">📏 Medidas</button>';
       html += '<button class="btn btn-g btn-sm" data-uid="' + u.id + '" data-action="rutina">🏋️ Rutina</button>';
@@ -2068,6 +2075,7 @@ function pgUsuarios() {
       if (action === 'res7') openResumen7(uid);
       else if (action === 'vista') verComoUsuario(uid);
       else if (action === 'dirigida') openDirigida(uid);
+      else if (action === 'acond') openValidarAcond(uid);
       else if (action === 'tenis') openTenisModal(uid);
       else if (action === 'medidas') openMedidasFor(uid);
       else if (action === 'rutina') { var _ra = rutinaActiva(uid); if (_ra) openEditRutina(_ra.id); else openNuevaRutina(uid); }
@@ -2218,6 +2226,7 @@ function saveUsuario() {
       nu.rutinaModo = document.getElementById('u_rutmodo').value;
       if (!nu.rutinaModo) { toast('Define si '+(T.usuario==='usuaria'?'la usuaria':'el usuario')+' tiene rutina o no'); document.getElementById('u_rutmodo').focus(); return; }
       nu.rutinaModoFecha = dateCOL(); nu.rutinaModoPor = CU.name;
+      if (nu.rutinaModo === 'acond') nu.acond = acondNuevo(nu.mem_start || dateCOL());
     }
     _saving['usuario'] = true;
     var btn = document.getElementById('u_save_btn');
@@ -2260,7 +2269,8 @@ function saveUsuario() {
     var _modoAntes = d.users[idx].rutinaModo || '', _modoNuevo = _e('u_rutmodo');
     if (d.users[idx].role === 'user') {
       if (!_modoNuevo) { toast('Define si '+(T.usuario==='usuaria'?'la usuaria':'el usuario')+' tiene rutina o no'); document.getElementById('u_rutmodo').focus(); return; }
-      if (_modoNuevo !== _modoAntes) { d.users[idx].rutinaModo = _modoNuevo; d.users[idx].rutinaModoFecha = dateCOL(); d.users[idx].rutinaModoPor = CU.name; }
+      if (_modoNuevo !== _modoAntes) { d.users[idx].rutinaModo = _modoNuevo; d.users[idx].rutinaModoFecha = dateCOL(); d.users[idx].rutinaModoPor = CU.name;
+        if (_modoNuevo === 'acond' && !(d.users[idx].acond && !d.users[idx].acond.validado)) d.users[idx].acond = acondNuevo(dateCOL()); }
     }
     d.users[idx].objetivo= _e('u_obj');
     d.users[idx].obs     = _e('u_obs');
@@ -4520,8 +4530,8 @@ function pgMiRutina(rid) {
       setMain('<div class="page-title">MI RUTINA</div>'+avisosRutinaUsuario()+miPlanEntrenoHtml()+'<div style="padding:14px 16px;border-radius:12px;border:1px dashed rgba(var(--acc-rgb),0.4);background:var(--s1);margin-bottom:8px"><div style="font-weight:700;margin-bottom:4px">🏁 Terminaste tu rutina anterior</div><div style="font-size:12px;color:var(--gris);line-height:1.6">'+BRAND.coachNombre.charAt(0).toUpperCase()+BRAND.coachNombre.slice(1)+' está preparando tu siguiente plan. Mientras tanto, revisa abajo tu resumen y la retroalimentación.</div></div>' + archivoBloque(abrirArchivo || archivo[0].id));
       return;
     }
-    if (rutModo(userById(CU.id)||CU) === 'sin') { setMain('<div class="page-title">MI RUTINA</div>'+avisoMembresiaHtml()+miPlanEntrenoHtml()); return; }
-    setMain('<div class="page-title">MI RUTINA</div>'+avisosRutinaUsuario()+miPlanEntrenoHtml()+'<div class="empty"><div class="empty-icon">🏋️</div><div class="empty-t">SIN RUTINA</div><div class="empty-s">Tu coach cargará tu plan pronto. ¡Prepárate! 💪</div></div>');
+    if (['sin','ind','acond'].indexOf(rutModo(userById(CU.id)||CU)) >= 0) { setMain('<div class="page-title">MI RUTINA</div>'+avisoMembresiaHtml()+miPlanEntrenoHtml()); return; }
+    setMain('<div class="page-title">MI RUTINA</div>'+avisoMembresiaHtml()+avisosRutinaUsuario()+miPlanEntrenoHtml()+'<div class="empty"><div class="empty-icon">🏋️</div><div class="empty-t">SIN RUTINA</div><div class="empty-s">Tu coach cargará tu plan pronto. ¡Prepárate! 💪</div></div>');
     return;
   }
   var r = ruts[0];
@@ -4645,15 +4655,15 @@ function bienestarPorDia(userId) {
   return Object.keys(dias).sort().map(function(k){ return dias[k]; });
 }
 
-function pesos(n) { n = Math.round(parseFloat(n)||0); return '$' + n.toLocaleString('es-CO'); }
+function pesos(n) { n = Math.round(parseFloat(n)||0); return (n < 0 ? '-$' : '$') + Math.abs(n).toLocaleString('es-CO'); }
 function dinero(v) { var t = String(v==null?'':v).replace(/[$\s.]/g, '').replace(',', '.'); var n = parseFloat(t); return isNaN(n) ? 0 : n; }
 // ═══════════════════════════════════════════════════════════
 //  MÓDULO GIMNASIO: planes, pagos, membresías, cierre por turnos,
 //  inventario, recordatorios de pago y cumpleaños.
 //  Todo se guarda en la hoja "logs" de Sheets (no hay que cambiar el Apps Script).
 // ═══════════════════════════════════════════════════════════
-var GYM_TIPOS = ['cierre','cierredia','pago','membajuste','recordatorio','gymcfg','invmov','cumple','agenda'];
-function esGymRec(x) { return !!x && ['cierre','cierredia','pago','membajuste','recordatorio','gymcfg','invmov','cumple','agenda'].indexOf(x.tipo) >= 0; }
+var GYM_TIPOS = ['cierre','cierredia','pago','membajuste','recordatorio','gymcfg','invmov','cumple','agenda','deuda','retiro'];
+function esGymRec(x) { return !!x && ['cierre','cierredia','pago','membajuste','recordatorio','gymcfg','invmov','cumple','agenda','deuda','retiro'].indexOf(x.tipo) >= 0; }
 function gymRecs(tipo) { return (dbR().gym || []).filter(function(x){ return x.tipo === tipo; }); }
 function esRecepcion() { return CU && CU.role === 'recepcion'; }
 function puedeRecepcion() { return CU && (CU.role === 'recepcion' || CU.role === 'admin'); }
@@ -4689,6 +4699,8 @@ var MENSAJES_BASE = {
   d1: 'Hola {nombre} 👋 Tu plan {plan} en {gimnasio} vence mañana ({fecha}). Te esperamos para renovarlo 💪',
   d0: 'Hola {nombre}, hoy ({fecha}) vence tu plan {plan} en {gimnasio}. Renueva hoy para seguir entrenando sin interrupciones.',
   vencida: 'Hola {nombre}, tu plan {plan} en {gimnasio} venció el {fecha}. Mientras no renueves no podrás ingresar al gimnasio. ¡Te esperamos! 🙌',
+  acond: '¡Bienvenid@ a {gimnasio}, {nombre}! 💪 Tus primeras 3 semanas son de acondicionamiento físico (hasta el {fin}). Al terminar, tu coach lo valida y desde la app podrás pedir tu rutina o escoger entrenar por sesión.',
+  deuda: 'Hola {nombre} 👋 Te recordamos que tienes pendiente {deuda} por compras en la tienda de {gimnasio} ({detalle}). Puedes pagar en recepción. ¡Gracias!',
   cumple: '¡Feliz cumpleaños {nombre}! 🎉 Todo el equipo de {gimnasio} te desea un día increíble. ¡Pásate hoy, tenemos una sorpresa para ti! 🎁'
 };
 function gymCfg() {
@@ -4743,6 +4755,7 @@ function openPago(preUid, fecha) {
   h += '<div class="fg"><label>Medio de pago</label><select id="pg_medio">'+MEDIOS_PAGO.map(function(m){ return '<option>'+m+'</option>'; }).join('')+'</select></div></div>';
   h += '<div class="fr" id="pg_dur_wrap"><div class="fg"><label>Duración</label><input type="number" min="1" id="pg_cant" oninput="pagoCalc()"></div><div class="fg"><label>Unidad</label><select id="pg_unidad" onchange="pagoCalc()"><option value="dias">Días</option><option value="meses">Meses</option></select></div></div>';
   h += '<div class="fg" id="pg_ini_wrap"><label>La membresía empieza</label><input type="date" id="pg_ini" onchange="PAGO_PRE.iniManual=true;pagoCalc()"><div style="font-size:11px;color:var(--gris);margin-top:4px">Si tiene la membresía activa, el plan nuevo empieza al día siguiente de su corte.</div></div>';
+  h += '<label id="pg_acond_wrap" style="display:none;align-items:center;gap:8px;font-size:12px;margin:-4px 0 10px;cursor:pointer"><input type="checkbox" id="pg_acond" checked style="accent-color:var(--cyan)"> 🌱 Es nuevo: inicia sus <b>3 semanas de acondicionamiento físico</b></label>';
   h += '<div class="fg"><label>Nota (opcional)</label><input id="pg_nota" placeholder="Ej: pagó con descuento, referido…"></div>';
   h += '<div id="pg_prev" style="margin:6px 0 12px"></div>';
   h += '<button class="btn btn-p btn-full" id="pg_save" onclick="guardarPago()">💾 Registrar pago y renovar</button></div>';
@@ -4791,6 +4804,8 @@ function pagoCalc() {
   var cant = document.getElementById('pg_cant').value, uni = document.getElementById('pg_unidad').value;
   var fin = corteDesde(iniEl.value || fecha, cant, uni);
   var box = document.getElementById('pg_prev');
+  var aw = document.getElementById('pg_acond_wrap');
+  if (aw) { var nuevo = uids.some(function(id){ var u = userById(id); return u && !u.mem_end && !pagosDe(id).length && !u.acond; }); aw.style.display = (!PAGO_PRE.ext && nuevo) ? 'flex' : 'none'; }
   if (!uids.length) { box.innerHTML = ''; return; }
   box.innerHTML = '<div style="padding:10px 12px;border-radius:10px;background:rgba(var(--acc-rgb),0.08);border:1px solid var(--brd);font-size:12px;line-height:1.7">'
     + uids.map(function(id){ var u = userById(id); return '<div>👤 <b>'+esc(u?u.name:'')+'</b>: '+(u&&u.mem_end?'corte actual '+fDate(u.mem_end)+' → ':'')+'<b style="color:var(--cyan)">nuevo corte '+fDate(fin)+'</b></div>'; }).join('')
@@ -4833,13 +4848,17 @@ function guardarPago() {
   var b = document.getElementById('pg_save'); if (b) { b.disabled = true; b.textContent = '⏳ Guardando…'; }
   saveAndSync('saveLog', pago, function(){
     _saving['pago'] = false;
+    var _ac = document.getElementById('pg_acond_wrap'), conAcond = _ac && _ac.style.display !== 'none' && document.getElementById('pg_acond').checked, avisar = [];
     cambios.forEach(function(c){
       var dd = db(), u = dd.users.filter(function(x){ return x.id === c.uid; })[0]; if (!u) return;
+      var eraNuevo = !c.antes.end && !u.acond;
       u.mem_start = c.despues.start; u.mem_end = c.despues.end; u.mem_plan = p.nombre;
+      if (conAcond && eraNuevo) { u.rutinaModo = 'acond'; u.rutinaModoFecha = dateCOL(); u.rutinaModoPor = CU.name; u.acond = acondNuevo(c.despues.start); avisar.push(u); }
       saveAndSync('saveUser', u, function(){});
     });
     closeModal('m_pago');
-    toast('✅ Pago registrado · nuevo corte '+fDate(fin));
+    toast('✅ Pago registrado · nuevo corte '+fDate(fin)+(avisar.length?' · 🌱 inicia acondicionamiento':''));
+    avisar.forEach(function(u){ if (u.tel && confirm('¿Avisarle a '+u.name+' por WhatsApp de sus 3 semanas de acondicionamiento?')) window.open(waLink(u.tel, llenarMensaje(gymCfg().mensajes.acond, u).replace(/\{fin\}/g, fDate(u.acond.fin))), '_blank'); });
     gymRefrescar();
   });
 }
@@ -4854,7 +4873,10 @@ function borrarPago(id) {
 }
 function gymRefrescar() {
   if (document.querySelector('.overlay.open#m_memb')) openMembresia(MEMB_UID);
-  if (curPage === 'cierre') pgCierre(CT && CT.fecha, CT && CT.coachId, CT_TAB);
+  if (curPage === 'cierre') {
+    if (CT && CT_TAB === 'turno' && turnoEditable() && document.querySelector('#main .ct-v')) { turnoLeer(); CT_KEEP = { id:CT.id, v:CT.ventas, c:CT.contado, o:CT.obs }; }
+    pgCierre(CT && CT.fecha, CT && CT.coachId, CT_TAB);
+  }
   else if (curPage === 'recepcion') pgRecepcion(REC_TAB);
   else if (curPage === 'usuarios') pgUsuarios();
 }
@@ -4869,6 +4891,7 @@ function openMembresia(uid) {
   if (!ov) { ov = document.createElement('div'); ov.className = 'overlay'; ov.id = 'm_memb'; document.body.appendChild(ov); }
   var h = '<div class="modal" style="max-width:560px"><div class="modal-title"><span>💳 MEMBRESÍA · '+esc((u.name||'').toUpperCase())+'</span><button class="close-btn" onclick="closeModal(\'m_memb\')">×</button></div>';
   h += membCardHtml(u);
+  if (deudaDe(uid)) h += '<div style="margin-top:10px;font-size:12px;font-weight:700;color:#ff8080">💸 Deuda en la tienda</div>' + deudasListaHtml(uid);
   h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0">';
   h += '<button class="btn btn-p btn-sm" onclick="openPago(\''+uid+'\')">+ Registrar pago</button>';
   if (rec) h += '<button class="btn btn-g btn-sm" onclick="membForm(\'incapacidad\')">🩹 Incapacidad</button><button class="btn btn-g btn-sm" onclick="membForm(\'manual\')">⚙️ Ajuste especial</button>';
@@ -4954,7 +4977,8 @@ function miMembresiaHtml() {
   if (ps.length) h += '<div style="margin-top:10px;font-size:12px;color:var(--gris);line-height:1.7">'+ps.map(function(p){ return '💳 '+fDate(p.fecha)+' · '+esc(p.plan)+' · vigencia hasta '+fDate(p.hasta); }).join('<br>')+'</div>';
   return h + '</div>';
 }
-function avisoMembresiaHtml() {
+function avisoMembresiaHtml() { return modulo('cierreDiario') ? avisoDeudaHtml() + avisoMembresiaBase() : ''; }
+function avisoMembresiaBase() {
   if (!modulo('cierreDiario')) return '';
   var u = userById(CU.id) || CU, mi = memInfo(u);
   if (mi.estado === 'vencida') return '<div style="padding:12px 14px;margin-bottom:12px;border-radius:var(--r);border:1px solid rgba(255,80,80,0.5);background:rgba(255,80,80,0.1);font-size:13px;color:#ff8080;line-height:1.5">🚫 <b>Tu membresía venció el '+fDate(u.mem_end)+'.</b> Renueva en recepción para poder ingresar al gimnasio.</div>';
@@ -4967,37 +4991,10 @@ function avisoMembresiaHtml() {
 // Recepción valida cada turno y luego valida el formato del día.
 var CT = null, CT_TAB = 'turno';
 function prodsActivos(cat) { return gymCfg().productos.filter(function(p){ return p.activo !== false && (!cat || p.cat === cat); }); }
-function stockDe(pid, excluirCierreId) {
-  var s = 0;
-  gymRecs('invmov').forEach(function(m){ if (m.pid === pid && m.ubic !== 'bodega') s += (parseFloat(m.cant)||0); });
-  gymRecs('cierre').forEach(function(c){ if (c.id !== excluirCierreId && c.ventas && c.ventas[pid]) s -= (parseFloat(c.ventas[pid])||0); });
-  return s;
-}
 function turnoId(fecha, coachId) { return 'cierre_'+fecha+'_'+coachId; }
 function turnoDe(fecha, coachId) { return gymRecs('cierre').filter(function(c){ return c.id === turnoId(fecha, coachId); })[0] || null; }
 function turnosDelDia(fecha) { return gymRecs('cierre').filter(function(c){ return c.fecha === fecha; }); }
 function pagosTurno(fecha, coachId) { return gymRecs('pago').filter(function(p){ return p.fecha === fecha && p.por === coachId; }); }
-function turnoTotales(c) {
-  var t = { pagos:0, efectivo:0, transf:0, bold:0, dia:0, quincena:0, mensual:0, ventas:0, n:0 };
-  if (c.version !== 2) {   // cierres del formato anterior
-    var o = c.totales || {}; t.legacy = true; t.pagos = (o.M||0); t.transf = o.B||0; t.efectivo = o.T||0; t.dia = o.dia||0; t.quincena = o.quincena||0;
-    t.C = o.C||0; t.esperado = o.esperado||0; t.contado = o.contado; t.dif = o.dif; t.T = o.T||0; return t;
-  }
-  pagosTurno(c.fecha, c.coachId).forEach(function(p){
-    var v = parseFloat(p.valor)||0; t.pagos += v; t.n++;
-    if (p.medio === 'Transferencia') t.transf += v; else if (p.medio === 'Bold') t.bold += v; else t.efectivo += v;
-    if (p.planId === 'dia') t.dia++; else if (p.planId === 'clase') t.clase = (t.clase||0) + 1; else if (p.planId === 'quincena') t.quincena++; else t.mensual += v;
-    if (p.externo) t.externos = (t.externos||0) + 1;
-  });
-  var prods = gymCfg().productos;
-  Object.keys(c.ventas||{}).forEach(function(pid){ var pr = prods.filter(function(p){ return p.id === pid; })[0]; t.ventas += (parseFloat(c.ventas[pid])||0) * (pr ? (parseFloat(pr.precio)||0) : 0); });
-  t.T = t.efectivo + t.ventas;
-  t.C = dinero(c.base); t.CM = dinero(c.cajaMenor);
-  t.esperado = t.C + t.T;
-  t.contado = (c.efectivoContado === '' || c.efectivoContado == null) ? null : dinero(c.efectivoContado);
-  t.dif = t.contado == null ? null : t.contado - t.esperado;
-  return t;
-}
 function estadoTurnoHtml(c) {
   if (!c) return '<span class="badge bw">Sin guardar</span>';
   if (c.estado === 'validado') return '<span class="badge bk">✅ Validado · '+esc(c.validadoPor||'')+'</span>';
@@ -5005,13 +5002,17 @@ function estadoTurnoHtml(c) {
   if (c.estado === 'devuelto') return '<span class="badge" style="color:#ff8080;border:1px solid #ff808066">↩ Devuelto para corregir</span>';
   return '<span class="badge bw">📝 Borrador</span>';
 }
+var CT_KEEP = null;
 function pgCierre(fecha, coachId, tab) {
   if (!modulo('cierreDiario')) { nav('dashboard'); return; }
   fecha = fecha || dateCOL();
   if (!coachId || (!puedeRecepcion() && coachId !== CU.id)) coachId = CU.id;
   CT_TAB = tab || (CT_TAB && CT && CT.fecha === fecha ? CT_TAB : 'turno');
   var ex = turnoDe(fecha, coachId), coach = userById(coachId) || CU;
-  CT = ex ? JSON.parse(JSON.stringify(ex)) : { id:turnoId(fecha, coachId), tipo:'cierre', version:2, userId:'__gym', fecha:fecha, coachId:coachId, coachNombre:coach.name, ventas:{}, base:'', cajaMenor:'', efectivoContado:'', obs:'', estado:'borrador' };
+  CT = ex ? JSON.parse(JSON.stringify(ex)) : { id:turnoId(fecha, coachId), tipo:'cierre', version:3, userId:'__gym', fecha:fecha, coachId:coachId, coachNombre:coach.name, ventas:{}, contado:{}, obs:'', estado:'borrador' };
+  if (CT_KEEP && CT_KEEP.id === CT.id) { CT.ventas = CT_KEEP.v; CT.contado = CT_KEEP.c; CT.obs = CT_KEEP.o; }
+  CT_KEEP = null;
+  if (CT.version === 2 && !CT.contado) CT.contado = { principal:CT.efectivoContado, menor:CT.cajaMenor, sachets:'' };
   var tabs = [['turno', coachId === CU.id ? '🧾 Mi turno' : '🧾 Turno de '+esc((coach.name||'').split(' ')[0])]];
   if (puedeRecepcion()) tabs.push(['dia', '✅ Validar el día']);
   tabs.push(['hist', '📚 Historial']);
@@ -5029,43 +5030,296 @@ function pgCierre(fecha, coachId, tab) {
   if (CT_TAB === 'turno') { document.querySelectorAll('#main .ct-in').forEach(function(el){ el.addEventListener('input', turnoLeer); }); turnoRenderTot(); }
 }
 function turnoEditable() { return CT.estado !== 'entregado' && CT.estado !== 'validado' && (CT.coachId === CU.id || puedeRecepcion()); }
+
+// ═══════════════════════════════════════════════════════════
+//  CIERRE v3 · TRES CAJAS (como el libro de recepción)
+//   💵 Caja principal (T/C): efectivo de membresías y pagos
+//   🥤 Caja menor (CM): efectivo de líquidos
+//   🧂 Caja sachets ($): efectivo de sachets
+//  + ventas en efectivo o transferencia, fiados (deudas) y retiros a banco
+// ═══════════════════════════════════════════════════════════
+var CAJAS = [['principal','💵 Caja principal','T / C · membresías'],['menor','🥤 Caja menor','CM · líquidos'],['sachets','🧂 Caja sachets','$ · sachets']];
+function cajaDeProducto(p) { return p && p.cat === 'sachet' ? 'sachets' : 'menor'; }
+function ventaQ(v) { if (v && typeof v === 'object') return { ef: parseFloat(v.ef)||0, tr: parseFloat(v.tr)||0 }; return { ef: parseFloat(v)||0, tr: 0 }; }
+function prodPorId(pid) { return gymCfg().productos.filter(function(p){ return p.id === pid; })[0] || null; }
+function stockDe(pid, excluirCierreId) {
+  var s = 0;
+  gymRecs('invmov').forEach(function(m){ if (m.pid === pid && m.ubic !== 'bodega') s += (parseFloat(m.cant)||0); });
+  gymRecs('cierre').forEach(function(c){ if (c.id !== excluirCierreId && c.ventas && c.ventas[pid] != null) { var q = ventaQ(c.ventas[pid]); s -= q.ef + q.tr; } });
+  gymRecs('deuda').forEach(function(d){ (d.items||[]).forEach(function(it){ if (it.pid === pid) s -= (parseFloat(it.cant)||0); }); });
+  return s;
+}
+// ── Deudas (ventas sin pagar asociadas a un usuario) ──
+function deudaSaldo(d) { return (parseFloat(d.valor)||0) - (d.abonos||[]).reduce(function(a, x){ return a + (parseFloat(x.valor)||0); }, 0); }
+function deudasPendientes() { return gymRecs('deuda').filter(function(d){ return deudaSaldo(d) > 0.5; }); }
+function deudaDe(uid) { return deudasPendientes().filter(function(d){ return d.uid === uid; }).reduce(function(a, d){ return a + deudaSaldo(d); }, 0); }
+function deudaDetalle(uid) { return deudasPendientes().filter(function(d){ return d.uid === uid; }).map(function(d){ return (d.items||[]).map(function(i){ return i.cant+' '+i.nombre; }).join(', ')+' ('+fDate(d.fecha)+')'; }).join('; '); }
+function avisoDeudaHtml() {
+  var u = userById(CU.id) || CU, t = deudaDe(u.id); if (!t) return '';
+  return '<div style="padding:12px 14px;margin-bottom:12px;border-radius:var(--r);border:1px solid rgba(255,80,80,0.45);background:rgba(255,80,80,0.08);font-size:13px;line-height:1.55">🛒 Compraste en la tienda del gym y tienes <b>pendiente '+pesos(t)+'</b>: '+esc(deudaDetalle(u.id))+'. Puedes pagarlo en recepción.</div>';
+}
+function deudaBadge(u) { var t = deudaDe(u.id); return t ? '<span class="badge" style="color:#ff8080;border:1px solid #ff808066">💸 Debe '+pesos(t)+'</span>' : ''; }
+function deudasListaHtml(soloUid) {
+  var ds = deudasPendientes().filter(function(d){ return !soloUid || d.uid === soloUid; }).sort(function(a,b){ return (a.fecha||'').localeCompare(b.fecha||''); });
+  if (!ds.length) return '<div style="font-size:12px;color:var(--gris)">Sin deudas pendientes.</div>';
+  var h = '';
+  ds.forEach(function(d){
+    var u = userById(d.uid) || { name:d.nombre }, abon = (d.abonos||[]).length;
+    h += '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;border-radius:8px;background:var(--s1);margin-bottom:6px"><div style="flex:1;min-width:160px;font-size:12px;line-height:1.5"><b>'+esc(u.name||'')+'</b> · '+fDate(d.fecha)+'<br><span style="color:var(--gris)">'+esc((d.items||[]).map(function(i){ return i.cant+' × '+i.nombre; }).join(', '))+' · vendió '+esc(d.porNombre||'')+(abon?' · abonó '+pesos(d.valor - deudaSaldo(d)):'')+'</span></div>'
+      + '<div style="font-weight:800;color:#ff8080">'+pesos(deudaSaldo(d))+'</div>'
+      + (CU.role !== 'user' ? '<button class="btn btn-p btn-sm" onclick="openPagarDeuda(\''+d.id+'\')">💵 Cobrar</button>' + (u.tel ? '<a class="btn btn-g btn-sm" target="_blank" href="'+waLink(u.tel, llenarMensaje(gymCfg().mensajes.deuda, u).replace(/\{deuda\}/g, pesos(deudaDe(d.uid))).replace(/\{detalle\}/g, deudaDetalle(d.uid)))+'">💬</a>' : '') : '') + '</div>';
+  });
+  return h;
+}
+function openDeudasModal() {
+  var ov = document.getElementById('m_deudas');
+  if (!ov) { ov = document.createElement('div'); ov.className = 'overlay'; ov.id = 'm_deudas'; document.body.appendChild(ov); }
+  var tot = deudasPendientes().reduce(function(a, d){ return a + deudaSaldo(d); }, 0);
+  ov.innerHTML = '<div class="modal" style="max-width:560px"><div class="modal-title"><span>💸 DEUDAS EN LA TIENDA · '+pesos(tot)+'</span><button class="close-btn" onclick="closeModal(\'m_deudas\')">×</button></div>'+deudasListaHtml()+'</div>';
+  openModal('m_deudas');
+}
+var FIADO = null;
+function openFiado() {
+  FIADO = { lineas:[{ pid:'', cant:1 }] };
+  var ov = document.getElementById('m_fiado');
+  if (!ov) { ov = document.createElement('div'); ov.className = 'overlay'; ov.id = 'm_fiado'; ov.style.zIndex = '2050'; document.body.appendChild(ov); }
+  ov.innerHTML = '<div class="modal" style="max-width:480px"><div class="modal-title"><span>🧾 VENTA SIN PAGAR</span><button class="close-btn" onclick="closeModal(\'m_fiado\')">×</button></div>'
+    + '<div style="font-size:12px;color:var(--gris);margin-bottom:10px">La persona se lleva el producto y queda debiendo. Se le avisa en su app y todo el equipo lo ve para cobrarlo. El producto se descuenta del inventario.</div>'
+    + '<div class="fg"><label>'+T.Usuario+' *</label><select id="fi_uid"><option value="">— Selecciona —</option>'+gymUsers().map(function(u){ return '<option value="'+u.id+'">'+esc(u.name)+'</option>'; }).join('')+'</select></div>'
+    + '<div id="fi_lineas"></div><button class="btn btn-g btn-sm" onclick="fiadoLeer();FIADO.lineas.push({pid:\'\',cant:1});fiadoRender()">+ Otro producto</button>'
+    + '<div id="fi_tot" style="font-size:15px;font-weight:800;margin:12px 0"></div>'
+    + '<button class="btn btn-p btn-full" onclick="guardarFiado()">💾 Registrar deuda</button></div>';
+  openModal('m_fiado'); fiadoRender();
+}
+function fiadoRender() {
+  var ps = prodsActivos(), box = document.getElementById('fi_lineas'); if (!box) return;
+  box.innerHTML = FIADO.lineas.map(function(l, i){
+    return '<div style="display:flex;gap:6px;margin-bottom:6px"><select class="fi-p" data-i="'+i+'" style="flex:1" onchange="fiadoLeer();fiadoTot()"><option value="">Producto…</option>'+ps.map(function(p){ return '<option value="'+p.id+'"'+(p.id===l.pid?' selected':'')+'>'+esc(p.nombre)+' · '+pesos(p.precio)+' (hay '+stockDe(p.id)+')</option>'; }).join('')+'</select><input class="fi-c" data-i="'+i+'" type="number" min="1" value="'+l.cant+'" style="width:70px" oninput="fiadoLeer();fiadoTot()"></div>';
+  }).join('');
+  fiadoTot();
+}
+function fiadoLeer() { document.querySelectorAll('#fi_lineas .fi-p').forEach(function(el){ FIADO.lineas[+el.getAttribute('data-i')].pid = el.value; }); document.querySelectorAll('#fi_lineas .fi-c').forEach(function(el){ FIADO.lineas[+el.getAttribute('data-i')].cant = parseFloat(el.value)||0; }); }
+function fiadoTot() { var t = 0; FIADO.lineas.forEach(function(l){ var p = prodPorId(l.pid); if (p) t += (parseFloat(p.precio)||0) * l.cant; }); var el = document.getElementById('fi_tot'); if (el) el.textContent = 'Total: ' + pesos(t); return t; }
+function guardarFiado() {
+  fiadoLeer();
+  var uid = document.getElementById('fi_uid').value, u = userById(uid);
+  if (!u) { toast('Selecciona la persona'); return; }
+  var items = FIADO.lineas.filter(function(l){ return l.pid && l.cant > 0; }).map(function(l){ var p = prodPorId(l.pid); return { pid:l.pid, nombre:p.nombre, cant:l.cant, precio:parseFloat(p.precio)||0, cat:p.cat }; });
+  if (!items.length) { toast('Agrega al menos un producto'); return; }
+  var valor = items.reduce(function(a, i){ return a + i.precio * i.cant; }, 0);
+  var d = { id:gid('deu_'), tipo:'deuda', userId:'__gym', uid:uid, nombre:u.name, items:items, valor:valor, fecha:(CT && CT.fecha) || dateCOL(), hora:horaCOL(),
+    caja: items.every(function(i){ return i.cat === 'sachet'; }) ? 'sachets' : 'menor', por:CU.id, porNombre:CU.name, abonos:[] };
+  saveAndSync('saveLog', d, function(){ closeModal('m_fiado'); toast('🧾 Deuda registrada: '+u.name+' debe '+pesos(valor)); gymRefrescar(); });
+}
+function openPagarDeuda(id) {
+  var d = gymRecs('deuda').filter(function(x){ return x.id === id; })[0]; if (!d) return;
+  var ov = document.getElementById('m_pdeuda');
+  if (!ov) { ov = document.createElement('div'); ov.className = 'overlay'; ov.id = 'm_pdeuda'; ov.style.zIndex = '2100'; document.body.appendChild(ov); }
+  ov.innerHTML = '<div class="modal" style="max-width:400px"><div class="modal-title"><span>💵 COBRAR DEUDA</span><button class="close-btn" onclick="closeModal(\'m_pdeuda\')">×</button></div>'
+    + '<div style="font-size:13px;margin-bottom:10px"><b>'+esc(d.nombre)+'</b> · '+esc((d.items||[]).map(function(i){ return i.cant+' × '+i.nombre; }).join(', '))+'<br>Saldo: <b style="color:#ff8080">'+pesos(deudaSaldo(d))+'</b></div>'
+    + '<div class="fr"><div class="fg"><label>Valor que paga</label><input id="pd_val" inputmode="numeric" value="'+deudaSaldo(d)+'"></div><div class="fg"><label>Medio</label><select id="pd_medio">'+MEDIOS_PAGO.map(function(m){ return '<option>'+m+'</option>'; }).join('')+'</select></div></div>'
+    + '<button class="btn btn-p btn-full" onclick="guardarAbono(\''+id+'\')">✅ Registrar pago</button></div>';
+  openModal('m_pdeuda');
+}
+function guardarAbono(id) {
+  var d = gymRecs('deuda').filter(function(x){ return x.id === id; })[0]; if (!d) return;
+  var v = dinero(document.getElementById('pd_val').value); if (!v) { toast('Escribe el valor'); return; }
+  var x = JSON.parse(JSON.stringify(d));
+  x.abonos = (x.abonos||[]).concat([{ fecha:dateCOL(), hora:horaCOL(), valor:Math.min(v, deudaSaldo(d)), medio:document.getElementById('pd_medio').value, por:CU.id, porNombre:CU.name }]);
+  if (deudaSaldo(x) <= 0.5) { x.pagadaFecha = dateCOL(); }
+  saveAndSync('saveLog', x, function(){ closeModal('m_pdeuda'); var md = document.getElementById('m_deudas'); if (md && md.classList.contains('open')) openDeudasModal(); toast(deudaSaldo(x) <= 0.5 ? '✅ Deuda pagada' : '✅ Abono registrado · queda '+pesos(deudaSaldo(x))); gymRefrescar(); });
+}
+// ── Retiros a banco (recepción) ──
+function tsDe(f, h) { h = h || '00:00'; return (f||'') + ' ' + (h.length === 5 ? h + ':00' : h); }
+function horaSeg() { var x = new Date(); return horaCOL() + ':' + ('0'+x.getSeconds()).slice(-2); }
+function turnoIni(c) { return tsDe(c.fecha, c.recibo && (c.recibo.hs || c.recibo.hora) || '00:00'); }
+function turnoFin(c) { return c.entregadoFecha ? tsDe(c.entregadoFecha, c.entregadoHs || c.entregadoHora) : tsDe(c.fecha, '23:59:59'); }
+function retirosEntre(desde, hasta, caja) { return gymRecs('retiro').filter(function(r){ var t = tsDe(r.fecha, r.hs || r.hora); return t > desde && t <= hasta && (!caja || r.caja === caja); }); }
+function ahoraTs() { return tsDe(dateCOL(), horaSeg()); }
+// Lo que debería haber en cada caja según el último turno entregado y los retiros posteriores
+function saldoSistema(fecha, coachId, hasta) {
+  var p = ultimoTurnoAntes(fecha, coachId); if (!p) return null;
+  var t = turnoTotales(p), out = { desde:p };
+  CAJAS.forEach(function(k){ var c = t.cajas[k[0]]; out[k[0]] = (c.contado != null ? c.contado : c.esperado) - retirosEntre(turnoFin(p), hasta || ahoraTs(), k[0]).reduce(function(a, r){ return a + (parseFloat(r.valor)||0); }, 0); });
+  return out;
+}
+function saldoAhora(caja) {
+  var hoy = dateCOL(), abiertos = gymRecs('cierre').filter(function(c){ return c.fecha === hoy && c.recibo && c.estado !== 'entregado' && c.estado !== 'validado'; });
+  if (abiertos.length) { var t = turnoTotales(abiertos.sort(function(a,b){ return turnoIni(b).localeCompare(turnoIni(a)); })[0], ahoraTs()); return t.cajas[caja].esperado; }
+  var s = saldoSistema(hoy, '__nadie__', ahoraTs()); return s ? s[caja] : 0;
+}
+function openRetiro() {
+  if (!puedeRecepcion()) return;
+  var ov = document.getElementById('m_retiro');
+  if (!ov) { ov = document.createElement('div'); ov.className = 'overlay'; ov.id = 'm_retiro'; document.body.appendChild(ov); }
+  ov.innerHTML = '<div class="modal" style="max-width:420px"><div class="modal-title"><span>🏦 RETIRAR A BANCO</span><button class="close-btn" onclick="closeModal(\'m_retiro\')">×</button></div>'
+    + '<div class="fg"><label>De qué caja</label><select id="rt_caja" onchange="retiroPrev()">'+CAJAS.map(function(c){ return '<option value="'+c[0]+'">'+c[1]+' ('+c[2]+')</option>'; }).join('')+'</select></div>'
+    + '<div id="rt_saldo" style="font-size:12px;color:var(--gris);margin:-4px 0 10px"></div>'
+    + '<div class="fg"><label>Valor que se lleva al banco</label><input id="rt_val" inputmode="numeric" oninput="retiroPrev()"></div>'
+    + '<div id="rt_queda" style="font-size:13px;font-weight:700;margin-bottom:10px"></div>'
+    + '<div class="fg"><label>Nota</label><input id="rt_nota" placeholder="Ej: consignación Bancolombia"></div>'
+    + '<button class="btn btn-p btn-full" onclick="guardarRetiro()">✅ Registrar retiro</button></div>';
+  openModal('m_retiro'); retiroPrev();
+}
+function retiroPrev() {
+  var c = document.getElementById('rt_caja').value, s = saldoAhora(c), v = dinero(document.getElementById('rt_val').value);
+  document.getElementById('rt_saldo').textContent = 'Según el sistema hay ahora: ' + pesos(s);
+  document.getElementById('rt_queda').innerHTML = v ? 'Queda de base en la caja: <span style="color:var(--cyan)">' + pesos(s - v) + '</span>' : '';
+}
+function guardarRetiro() {
+  var c = document.getElementById('rt_caja').value, v = dinero(document.getElementById('rt_val').value); if (!v) { toast('Escribe el valor'); return; }
+  var s = saldoAhora(c);
+  var r = { id:gid('ret_'), tipo:'retiro', userId:'__gym', caja:c, valor:v, fecha:dateCOL(), hora:horaCOL(), hs:horaSeg(), por:CU.name, porId:CU.id, nota:(document.getElementById('rt_nota').value||'').trim(), habia:s, queda:s - v };
+  saveAndSync('saveLog', r, function(){ closeModal('m_retiro'); toast('🏦 Retiro registrado · queda '+pesos(s - v)+' de base'); gymRefrescar(); });
+}
+// ── Totales de un turno ──
+function turnoTotales(c, hasta) {
+  var t = { pagos:0, efectivo:0, transf:0, bold:0, dia:0, diaValor:0, quincena:0, quincenaValor:0, clase:0, mensual:0, externos:0, ventas:0, n:0,
+    ventasEf:{ principal:0, menor:0, sachets:0 }, ventasTr:0, fiado:0, fiados:[], abonosEf:{ principal:0, menor:0, sachets:0 }, abonosTr:0, abonosBold:0, abonos:[], cajas:{} };
+  if (!c.version) {   // formato más antiguo (antes de los turnos)
+    var o = c.totales || {}; t.legacy = true; t.pagos = (o.M||0); t.transf = o.B||0; t.efectivo = o.T||0; t.dia = o.dia||0; t.quincena = o.quincena||0;
+    t.C = o.C||0; t.esperado = o.esperado||0; t.contado = o.contado; t.dif = o.dif; t.T = o.T||0;
+    CAJAS.forEach(function(k){ t.cajas[k[0]] = { rec:0, ent:0, ret:0, esperado:k[0]==='principal'?(o.esperado||0):0, contado:k[0]==='principal'?(o.contado==null?null:o.contado):null, dif:null }; });
+    return t;
+  }
+  pagosTurno(c.fecha, c.coachId).forEach(function(p){
+    var v = parseFloat(p.valor)||0; t.pagos += v; t.n++;
+    if (p.medio === 'Transferencia') t.transf += v; else if (p.medio === 'Bold') t.bold += v; else t.efectivo += v;
+    if (p.planId === 'dia') { t.dia++; t.diaValor += v; } else if (p.planId === 'clase') t.clase++; else if (p.planId === 'quincena') { t.quincena++; t.quincenaValor += v; } else t.mensual += v;
+    if (p.externo) t.externos++;
+  });
+  Object.keys(c.ventas||{}).forEach(function(pid){
+    var pr = prodPorId(pid), q = ventaQ(c.ventas[pid]), precio = pr ? (parseFloat(pr.precio)||0) : 0;
+    t.ventasEf[cajaDeProducto(pr)] += q.ef * precio; t.ventasTr += q.tr * precio; t.ventas += (q.ef + q.tr) * precio;
+  });
+  gymRecs('deuda').forEach(function(d){
+    if (d.fecha === c.fecha && d.por === c.coachId) { t.fiado += parseFloat(d.valor)||0; t.fiados.push(d); }
+    (d.abonos||[]).forEach(function(a){ if (a.fecha !== c.fecha || a.por !== c.coachId) return; var v = parseFloat(a.valor)||0; t.abonos.push({ d:d, a:a });
+      if (a.medio === 'Transferencia') t.abonosTr += v; else if (a.medio === 'Bold') t.abonosBold += v; else t.abonosEf[d.caja || 'menor'] += v; });
+  });
+  t.transfTotal = t.transf + t.ventasTr + t.abonosTr; t.boldTotal = t.bold + t.abonosBold;
+  // Cajas (normaliza cierres del formato anterior: base / caja menor / efectivo contado)
+  var rc = (c.recibo && c.recibo.cajas) || (c.version === 2 && (c.base || c.cajaMenor) ? { principal:dinero(c.base), menor:0, sachets:0 } : null);
+  if (!rc) { var pv = ultimoTurnoAntes(c.fecha, c.coachId); rc = {};
+    if (pv && pv.totales && pv.totales.C != null) CAJAS.forEach(function(k){ var tk = { principal:'C', menor:'CM', sachets:'S' }[k[0]]; rc[k[0]] = (pv.totales[tk]||0) - retirosEntre(turnoFin(pv), turnoIni(c), k[0]).reduce(function(a, r){ return a + (parseFloat(r.valor)||0); }, 0); });
+    else if (pv && pv.contado) CAJAS.forEach(function(k){ rc[k[0]] = dinero(pv.contado[k[0]]); }); }
+  var cont = c.contado || (c.version === 2 ? { principal:c.efectivoContado, menor:c.cajaMenor, sachets:'' } : {});
+  var fin = hasta || turnoFin(c), ini = turnoIni(c), difTot = null, espTot = 0;
+  CAJAS.forEach(function(k){
+    var key = k[0], rec = dinero(rc[key]);
+    var ent = key === 'principal' ? t.efectivo + t.abonosEf.principal : t.ventasEf[key] + t.abonosEf[key];
+    var rets = retirosEntre(ini, fin, key), ret = rets.reduce(function(a, r){ return a + (parseFloat(r.valor)||0); }, 0);
+    var esp = rec + ent - ret, ct = (cont[key] === '' || cont[key] == null) ? null : dinero(cont[key]);
+    var dif = ct == null ? null : ct - esp; if (dif != null) difTot = (difTot || 0) + dif; espTot += esp;
+    t.cajas[key] = { rec:rec, ent:ent, ret:ret, rets:rets, esperado:esp, contado:ct, dif:dif };
+  });
+  t.T = t.cajas.principal.rec + t.cajas.principal.ent; t.C = t.cajas.principal.contado != null ? t.cajas.principal.contado : t.cajas.principal.esperado;
+  t.CM = t.cajas.menor.contado != null ? t.cajas.menor.contado : t.cajas.menor.esperado;
+  t.S = t.cajas.sachets.contado != null ? t.cajas.sachets.contado : t.cajas.sachets.esperado;
+  t.esperado = espTot; t.dif = difTot;
+  t.contado = CAJAS.reduce(function(a, k){ return a + (t.cajas[k[0]].contado || 0); }, 0);
+  return t;
+}
+// Acumulados del mes hasta una fecha (como M, B, /Día y 15 días del libro)
+function acumMes(fecha) {
+  var mes = fecha.slice(0,7), a = { M:0, B:0, Bold:0, dia:0, quincena:0, retiros:0, pagos:0 };
+  gymRecs('pago').forEach(function(p){ if ((p.fecha||'').slice(0,7) !== mes || p.fecha > fecha) return; var v = parseFloat(p.valor)||0; a.pagos += v;
+    if (p.planId === 'dia') a.dia += v; else if (p.planId === 'quincena') a.quincena += v; else if (p.planId !== 'clase') a.M += v;
+    if (p.medio === 'Transferencia') a.B += v; else if (p.medio === 'Bold') a.Bold += v; });
+  gymRecs('cierre').forEach(function(c){ if ((c.fecha||'').slice(0,7) !== mes || c.fecha > fecha) return; Object.keys(c.ventas||{}).forEach(function(pid){ var pr = prodPorId(pid); a.B += ventaQ(c.ventas[pid]).tr * (pr ? parseFloat(pr.precio)||0 : 0); }); });
+  gymRecs('deuda').forEach(function(d){ (d.abonos||[]).forEach(function(x){ if ((x.fecha||'').slice(0,7) === mes && x.fecha <= fecha) { if (x.medio === 'Transferencia') a.B += parseFloat(x.valor)||0; else if (x.medio === 'Bold') a.Bold += parseFloat(x.valor)||0; } }); });
+  gymRecs('retiro').forEach(function(r){ if ((r.fecha||'').slice(0,7) === mes && r.fecha <= fecha) a.retiros += parseFloat(r.valor)||0; });
+  return a;
+}
+function ultimoTurnoAntes(fecha, coachId) {
+  return gymRecs('cierre').filter(function(c){ return c.version >= 2 && (c.fecha < fecha || (c.fecha === fecha && c.coachId !== coachId && c.estado && c.estado !== 'borrador')); })
+    .sort(function(a,b){ return turnoFin(b).localeCompare(turnoFin(a)); })[0] || null;
+}
+// ── Recibir turno: efectivo de las 3 cajas + inventario ──
+function reciboTurnoHtml() {
+  var prods = prodsActivos(), ed = turnoEditable() && CT.coachId === CU.id;
+  var rc = CT.recibo, ant = ultimoTurnoAntes(CT.fecha, CT.coachId), sis = saldoSistema(CT.fecha, CT.coachId);
+  var inS = 'width:100%;padding:7px;background:var(--s1);border:1px solid var(--brd);border-radius:8px;color:var(--blanco);font-size:13px;box-sizing:border-box';
+  var h = '<div class="card" style="padding:14px;margin-bottom:12px;border-color:'+(rc?(rc.descuadre?'rgba(255,80,80,0.5)':'rgba(80,200,120,0.5)'):'var(--cyan)')+'"><div class="card-title" style="padding:0 0 6px">📦 RECIBIR TURNO</div>';
+  h += '<div style="font-size:11px;color:var(--gris);margin-bottom:8px">'+(ant ? 'Turno anterior: <b>'+esc(ant.coachNombre||'')+'</b> · '+fDate(ant.fecha)+(ant.entregadoHora?' '+esc(ant.entregadoHora):'') : 'Primer turno registrado: escribe lo que hay')+'</div>';
+  if (rc) {
+    h += '<div style="font-size:12px;line-height:1.6">'+(rc.descuadre?'⚠️ Recibido con descuadre a las '+esc(rc.hora)+': <b>'+esc(rc.motivo||'')+'</b>':'✅ Recibido completo a las '+esc(rc.hora))+'</div>';
+    if (rc.cajas) h += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'+CAJAS.map(function(k){ var d = rc.cajasSistema && rc.cajasSistema[k[0]] != null ? dinero(rc.cajas[k[0]]) - rc.cajasSistema[k[0]] : 0; return '<span class="chip">'+k[1]+': <b>'+pesos(rc.cajas[k[0]])+'</b>'+(Math.abs(d)>=1?' <span style="color:#ff8080">('+(d>0?'+':'')+pesos(d)+')</span>':'')+'</span>'; }).join('')+'</div>';
+    if (rc.diferencias && Object.keys(rc.diferencias).length) h += '<div style="font-size:11px;color:var(--gris);margin-top:4px">'+Object.keys(rc.diferencias).map(function(pid){ var p = prodPorId(pid); return esc(p?p.nombre:pid)+': sistema '+rc.sistema[pid]+' · contado '+rc.contado[pid]; }).join(' · ')+'</div>';
+    return h + '</div>';
+  }
+  if (!ed) return h + '<div style="font-size:12px;color:var(--gris)">Aún no se ha recibido el turno.</div></div>';
+  h += '<div style="font-size:12px;margin-bottom:8px">Cuenta el <b>efectivo de cada caja</b> y el <b>inventario</b> que recibes. Si algo no cuadra con el sistema, explica por qué.</div>';
+  h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:10px">';
+  CAJAS.forEach(function(k){ var s = sis ? Math.round(sis[k[0]]) : ''; h += '<div><div style="font-size:11px;font-weight:700">'+k[1]+(sis?' <span style="color:var(--gris);font-weight:400">· sistema '+pesos(s)+'</span>':'')+'</div><input class="rc-caja" data-k="'+k[0]+'" data-sis="'+(sis?s:'')+'" inputmode="numeric" value="'+(sis?s:'')+'" oninput="reciboCheck()" style="'+inS+'"></div>'; });
+  h += '</div>';
+  if (prods.length) {
+    h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px">';
+    prods.forEach(function(p){ var st = stockDe(p.id, CT.id); h += '<div><div style="font-size:11px;font-weight:700">'+esc(p.nombre)+' <span style="color:var(--gris);font-weight:400">· sistema '+st+'</span></div><input class="rc-in" data-pid="'+p.id+'" data-sis="'+st+'" inputmode="numeric" value="'+st+'" oninput="reciboCheck()" style="'+inS+'"></div>'; });
+    h += '</div>';
+  }
+  h += '<div id="rc_mot_wrap" style="display:none;margin-top:8px"><div class="fg" style="margin:0"><label style="color:#ff8080">¿Por qué no cuadra? *</label><input id="rc_motivo" placeholder="Ej: faltaban 5.000 en caja menor, se dañó una botella…" style="'+inS+'"></div></div>';
+  return h + '<button class="btn btn-p btn-full" style="margin-top:10px" onclick="recibirTurno()">✅ Recibí el turno</button></div>';
+}
+function reciboCheck() {
+  var dif = false;
+  document.querySelectorAll('#main .rc-in').forEach(function(el){ if ((parseFloat(el.value)||0) !== parseFloat(el.getAttribute('data-sis'))) dif = true; });
+  document.querySelectorAll('#main .rc-caja').forEach(function(el){ var s = el.getAttribute('data-sis'); if (s !== '' && Math.abs(dinero(el.value) - parseFloat(s)) >= 1) dif = true; });
+  var w = document.getElementById('rc_mot_wrap'); if (w) w.style.display = dif ? '' : 'none';
+}
+function recibirTurno() {
+  var sis = {}, con = {}, difs = {}, movs = [], cajas = {}, cajasSis = {}, difCaja = false;
+  document.querySelectorAll('#main .rc-in').forEach(function(el){ var pid = el.getAttribute('data-pid'), s = parseFloat(el.getAttribute('data-sis')), c = parseFloat(el.value)||0; sis[pid] = s; con[pid] = c; if (c !== s) difs[pid] = c - s; });
+  document.querySelectorAll('#main .rc-caja').forEach(function(el){ var k = el.getAttribute('data-k'), s = el.getAttribute('data-sis'); cajas[k] = dinero(el.value); if (s !== '') { cajasSis[k] = parseFloat(s); if (Math.abs(cajas[k] - cajasSis[k]) >= 1) difCaja = true; } });
+  var motivo = ((document.getElementById('rc_motivo')||{}).value||'').trim(), desc = Object.keys(difs).length > 0 || difCaja;
+  if (desc && !motivo) { toast('Explica por qué no cuadra'); document.getElementById('rc_motivo').focus(); return; }
+  turnoLeer();
+  CT.recibo = { hora:horaCOL(), hs:horaSeg(), fecha:dateCOL(), por:CU.name, sistema:sis, contado:con, diferencias:difs, cajas:cajas, cajasSistema:cajasSis, descuadre:desc, motivo:motivo };
+  Object.keys(difs).forEach(function(pid){ movs.push({ id:gid('inv_'), tipo:'invmov', userId:'__gym', pid:pid, clase:'recibo', ubic:'stock', cant:difs[pid], nota:'Recibo de turno · '+motivo, fecha:dateCOL(), hora:horaCOL(), por:CU.name }); });
+  var x = JSON.parse(JSON.stringify(CT)); x.estado = x.estado || 'borrador';
+  movs.push(x);
+  var i = 0; (function next(){ if (i >= movs.length) { toast(desc ? '⚠️ Turno recibido con descuadre (recepción será notificada)' : '✅ Turno recibido'); pgCierre(CT.fecha, CT.coachId, 'turno'); return; } saveAndSync('saveLog', movs[i++], next); })();
+}
+// ── Pantalla del turno ──
 function turnoHtml(ex) {
-  var ed = turnoEditable(), dis = ed ? '' : ' disabled';
-  var inS = 'width:100%;padding:8px;background:var(--s1);border:1px solid var(--brd);border-radius:8px;color:var(--blanco);font-family:var(--font-body);font-size:13px;box-sizing:border-box';
-  var h = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px"><b>'+esc(CT.coachNombre||'')+'</b> '+estadoTurnoHtml(ex)+'</div>';
+  var ed = turnoEditable(), dis = ed ? '' : ' disabled', esMio = CT.coachId === CU.id;
+  var inS = 'width:100%;padding:7px;background:var(--s1);border:1px solid var(--brd);border-radius:8px;color:var(--blanco);font-family:var(--font-body);font-size:13px;box-sizing:border-box';
+  var h = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px"><b>'+esc(CT.coachNombre||'')+'</b> '+estadoTurnoHtml(ex)+(puedeRecepcion()?'<button class="btn btn-g btn-sm" style="margin-left:auto" onclick="openRetiro()">🏦 Retirar a banco</button>':'')+'</div>';
   if (ex && ex.estado === 'devuelto' && ex.notaValidacion) h += '<div style="padding:10px 12px;border-radius:10px;background:rgba(255,80,80,0.08);border:1px solid rgba(255,80,80,0.4);font-size:12px;margin-bottom:12px">↩ Recepción: '+esc(ex.notaValidacion)+'</div>';
   if (ex && ex.estado === 'validado') h += '<div style="padding:10px 12px;border-radius:10px;background:rgba(80,200,120,0.08);border:1px solid rgba(80,200,120,0.4);font-size:12px;margin-bottom:12px">✅ Validado por <b>'+esc(ex.validadoPor||'')+'</b> el '+fDate(ex.validadoFecha||ex.fecha)+' a las '+esc(ex.validadoHora||'')+(ex.notaValidacion?' · '+esc(ex.notaValidacion):'')+'</div>';
   h += reciboTurnoHtml();
-  // Pagos del turno
+  // Pagos
   var ps = pagosTurno(CT.fecha, CT.coachId);
-  h += '<div class="card" style="padding:14px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><div class="card-title" style="padding:0">👥 PAGOS DE '+T.Usuarios.toUpperCase()+'</div>'+(ed && CT.coachId===CU.id?'<button class="btn btn-p btn-sm" onclick="openPago(\'\',\''+CT.fecha+'\')">+ Registrar pago</button>':'')+'</div>';
+  h += '<div class="card" style="padding:14px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><div class="card-title" style="padding:0">👥 PAGOS DE '+T.Usuarios.toUpperCase()+'</div>'+(ed && esMio?'<button class="btn btn-p btn-sm" onclick="openPago(\'\',\''+CT.fecha+'\')">+ Registrar pago</button>':'')+'</div>';
   if (!ps.length) h += '<div style="font-size:12px;color:var(--gris)">Aún no hay pagos en este turno.</div>';
   ps.forEach(function(p){
-    h += '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:rgba(0,0,0,.15);margin-bottom:6px"><div style="flex:1;min-width:0;font-size:12px;line-height:1.5"><b>'+esc((p.nombres||[]).join(' + '))+'</b>'+(p.externo?' <span class="badge bw">no registrado</span>':'')+' · '+esc(p.plan)+'<br><span style="color:var(--gris)">'+(p.externo?'Válido hasta ':'Corte ')+fDate(p.hasta)+(p.nota?' · '+esc(p.nota):'')+'</span></div><div style="text-align:right"><div style="font-weight:800">'+pesos(p.valor)+'</div><div style="font-size:10px;color:'+(p.medio==='Efectivo'?'#80d4a0':'var(--cyan)')+'">'+esc(p.medio)+'</div></div>'+(ed?'<button onclick="borrarPago(\''+p.id+'\')" title="Anular" style="background:none;border:none;color:var(--gris);font-size:16px;cursor:pointer">×</button>':'')+'</div>';
+    h += '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:rgba(0,0,0,.15);margin-bottom:6px"><div style="flex:1;min-width:0;font-size:12px;line-height:1.5"><b>'+esc((p.nombres||[]).join(' + '))+'</b>'+(p.externo?' <span class="badge bw">no registrado</span>':'')+' · '+esc(p.plan)+'<br><span style="color:var(--gris)">'+(p.externo?'Válido hasta ':'Corte ')+fDate(p.hasta)+(p.nota?' · '+esc(p.nota):'')+'</span></div><div style="text-align:right"><div style="font-weight:800">'+pesos(p.valor)+'</div><div style="font-size:10px;color:'+(p.medio==='Efectivo'?'#80d4a0':'var(--cyan)')+'">'+esc(p.medio)+(p.medio==='Transferencia'?' (B)':'')+'</div></div>'+(ed?'<button onclick="borrarPago(\''+p.id+'\')" title="Anular" style="background:none;border:none;color:var(--gris);font-size:16px;cursor:pointer">×</button>':'')+'</div>';
   });
   h += '</div>';
-  // Ventas de inventario
-  [['liquido','🥤 LÍQUIDOS VENDIDOS'],['sachet','🧂 SACHETS VENDIDOS']].forEach(function(cat){
+  // Ventas de la tienda
+  h += '<div class="card" style="padding:14px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><div class="card-title" style="padding:0">🛒 VENTAS DE LA TIENDA</div>'+(ed?'<button class="btn btn-g btn-sm" onclick="openFiado()">🧾 Venta sin pagar</button>':'')+'</div>';
+  h += '<div style="font-size:11px;color:var(--gris);margin-bottom:8px">Escribe cuántas unidades se vendieron en <b>efectivo</b> y cuántas por <b>transferencia</b>. El efectivo de líquidos va a la caja menor y el de sachets a la caja sachets.</div>';
+  [['liquido','🥤 Líquidos'],['sachet','🧂 Sachets']].forEach(function(cat){
     var prods = prodsActivos(cat[0]); if (!prods.length) return;
-    h += '<div class="card" style="padding:14px;margin-bottom:12px"><div class="card-title" style="padding:0 0 8px">'+cat[1]+'</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px">';
+    h += '<div style="font-size:12px;font-weight:800;margin:8px 0 6px">'+cat[1]+'</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">';
     prods.forEach(function(p){
-      var st = stockDe(p.id, CT.id), v = (CT.ventas||{})[p.id] || '';
-      h += '<div style="padding:8px;border-radius:8px;background:rgba(0,0,0,.15)"><div style="font-weight:800;color:var(--cyan)">'+esc(p.nombre)+'</div><div style="font-size:10px;color:var(--gris);margin-bottom:4px">'+pesos(p.precio)+' c/u · disponibles: <b style="color:'+(st<=0?'#ff8080':'inherit')+'">'+st+'</b></div>'
-        + '<input class="ct-in ct-venta" data-pid="'+p.id+'" data-max="'+st+'" inputmode="numeric" placeholder="Vendidos" value="'+esc(v)+'" style="'+inS+'"'+dis+'><div class="ct-sub" data-pid="'+p.id+'" style="font-size:11px;color:var(--gris);margin-top:3px"></div></div>';
+      var st = stockDe(p.id, CT.id), q = ventaQ((CT.ventas||{})[p.id]);
+      h += '<div style="padding:8px;border-radius:8px;background:rgba(0,0,0,.15)"><div style="font-weight:800;color:var(--cyan)">'+esc(p.nombre)+'</div><div style="font-size:10px;color:var(--gris);margin-bottom:4px">'+pesos(p.precio)+' c/u · hay <b data-st="'+p.id+'" data-base="'+st+'" style="color:'+(st<=0?'#ff8080':'inherit')+'">'+st+'</b></div>'
+        + '<div style="display:flex;gap:4px"><input class="ct-in ct-v" data-pid="'+p.id+'" data-m="ef" inputmode="numeric" placeholder="Efect." value="'+(q.ef||'')+'" style="'+inS+'"'+dis+'><input class="ct-in ct-v" data-pid="'+p.id+'" data-m="tr" inputmode="numeric" placeholder="Transf." value="'+(q.tr||'')+'" style="'+inS+'"'+dis+'></div><div class="ct-sub" data-pid="'+p.id+'" style="font-size:11px;color:var(--gris);margin-top:3px"></div></div>';
     });
-    h += '</div></div>';
+    h += '</div>';
   });
-  // Caja
-  h += '<div class="card" style="padding:14px;margin-bottom:12px"><div class="card-title" style="padding:0 0 8px">💵 CAJA DEL TURNO</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">';
-  h += '<div class="fg" style="margin:0"><label>C · Base caja</label><input class="ct-in" id="ct_base" inputmode="numeric" value="'+esc(CT.base||'')+'" style="'+inS+'"'+dis+'></div>';
-  h += '<div class="fg" style="margin:0"><label>CM · Caja menor</label><input class="ct-in" id="ct_cm" inputmode="numeric" value="'+esc(CT.cajaMenor||'')+'" style="'+inS+'"'+dis+'></div>';
-  h += '<div class="fg" style="margin:0"><label>Efectivo contado</label><input class="ct-in" id="ct_contado" inputmode="numeric" value="'+esc(CT.efectivoContado||'')+'" style="'+inS+'"'+dis+'></div>';
+  var tt = turnoTotales(CT);
+  if (tt.fiados.length) h += '<div style="font-size:12px;font-weight:800;margin:12px 0 6px;color:#ff8080">🧾 Vendido sin pagar en este turno</div>' + tt.fiados.map(function(d){ return '<div style="font-size:12px;padding:6px 10px;border-radius:8px;background:rgba(255,80,80,0.07);margin-bottom:4px"><b>'+esc(d.nombre)+'</b> · '+esc((d.items||[]).map(function(i){ return i.cant+' × '+i.nombre; }).join(', '))+' · '+pesos(d.valor)+(deudaSaldo(d)<=0.5?' · ✅ pagado':'')+'</div>'; }).join('');
+  if (tt.abonos.length) h += '<div style="font-size:12px;font-weight:800;margin:12px 0 6px;color:#80d4a0">💵 Deudas cobradas en este turno</div>' + tt.abonos.map(function(x){ return '<div style="font-size:12px;padding:6px 10px;border-radius:8px;background:rgba(80,200,120,0.07);margin-bottom:4px"><b>'+esc(x.d.nombre)+'</b> · '+pesos(x.a.valor)+' · '+esc(x.a.medio)+'</div>'; }).join('');
+  h += '</div>';
+  // Cajas
+  h += '<div class="card" style="padding:14px;margin-bottom:12px"><div class="card-title" style="padding:0 0 8px">💵 CAJAS DEL TURNO</div><div id="ct_cajas"></div>';
+  h += '<div style="font-size:11px;color:var(--gris);margin:8px 0 6px">Al entregar, cuenta lo que queda en cada caja:</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">';
+  CAJAS.forEach(function(k){ var v = (CT.contado||{})[k[0]]; h += '<div class="fg" style="margin:0"><label>'+k[1]+' · contado</label><input class="ct-in ct-cont" data-k="'+k[0]+'" inputmode="numeric" value="'+esc(v==null?'':v)+'" style="'+inS+'"'+dis+'></div>'; });
   h += '</div><div class="fg" style="margin:10px 0 0"><label>Observaciones</label><textarea class="ct-in" id="ct_obs" style="'+inS+';height:52px"'+dis+'>'+esc(CT.obs||'')+'</textarea></div></div>';
   h += '<div class="card" id="ct_tot" style="padding:14px;margin-bottom:12px"></div>';
-  // Acciones
-  if (ed) {
-    h += '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-g" style="flex:1" onclick="guardarTurno(\'borrador\')">💾 Guardar borrador</button><button class="btn btn-p" style="flex:1" onclick="guardarTurno(\'entregado\')">📤 Entregar a recepción</button></div>';
-  }
+  if (ed) h += '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-g" style="flex:1" onclick="guardarTurno(\'borrador\')">💾 Guardar borrador</button><button class="btn btn-p" style="flex:1" onclick="guardarTurno(\'entregado\')">📤 Entregar a recepción</button></div>';
   if (esRecepcion() && ex && ex.estado === 'entregado') {
     h += '<div class="card" style="padding:14px;margin-top:12px;border-color:var(--cyan)"><div class="card-title" style="padding:0 0 8px">✅ VALIDACIÓN DE RECEPCIÓN</div><div class="fg"><label>Nota (opcional)</label><input id="ct_nota_val" placeholder="Ej: recibido completo"></div>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-p" style="flex:1" onclick="validarTurno(\'validado\')">✅ Recibí y valido</button><button class="btn btn-g" style="flex:1" onclick="validarTurno(\'devuelto\')">↩ Devolver para corregir</button></div></div>';
@@ -5074,52 +5328,62 @@ function turnoHtml(ex) {
 }
 function turnoLeer() {
   var v = {};
-  document.querySelectorAll('#main .ct-venta').forEach(function(el){ if (el.value) v[el.getAttribute('data-pid')] = el.value; });
+  document.querySelectorAll('#main .ct-v').forEach(function(el){ var pid = el.getAttribute('data-pid'), m = el.getAttribute('data-m'), n = parseFloat(el.value)||0; if (!n) return; v[pid] = v[pid] || { ef:0, tr:0 }; v[pid][m] = n; });
   CT.ventas = v;
-  var g = function(id){ var el = document.getElementById(id); return el ? el.value : ''; };
-  CT.base = g('ct_base'); CT.cajaMenor = g('ct_cm'); CT.efectivoContado = g('ct_contado'); CT.obs = g('ct_obs');
+  var c = {}; document.querySelectorAll('#main .ct-cont').forEach(function(el){ c[el.getAttribute('data-k')] = el.value; });
+  if (document.querySelector('#main .ct-cont')) CT.contado = c;
+  var ob = document.getElementById('ct_obs'); if (ob) CT.obs = ob.value;
   turnoRenderTot();
 }
 function turnoRenderTot() {
-  var prods = gymCfg().productos;
   document.querySelectorAll('#main .ct-sub').forEach(function(el){
-    var pid = el.getAttribute('data-pid'), q = parseFloat((CT.ventas||{})[pid])||0, pr = prods.filter(function(p){ return p.id === pid; })[0];
-    var inp = document.querySelector('#main .ct-venta[data-pid="'+pid+'"]'), max = parseFloat(inp && inp.getAttribute('data-max'));
-    el.innerHTML = q ? '= '+pesos(q * (pr ? pr.precio : 0)) + (q > max ? ' <span style="color:#ff8080">· supera el inventario</span>' : ' · quedan '+(max - q)) : '';
+    var pid = el.getAttribute('data-pid'), q = ventaQ((CT.ventas||{})[pid]), pr = prodPorId(pid), n = q.ef + q.tr;
+    var b = document.querySelector('#main [data-st="'+pid+'"]'), base = b ? parseFloat(b.getAttribute('data-base')) : 0;
+    el.innerHTML = n ? '= '+pesos(n * (pr ? pr.precio : 0)) + (n > base ? ' <span style="color:#ff8080">· supera el inventario</span>' : ' · quedan '+(base - n)) : '';
   });
+  var t = turnoTotales(CT, CT.estado === 'entregado' || CT.estado === 'validado' ? null : (CT.fecha === dateCOL() ? ahoraTs() : null)), m = acumMes(CT.fecha);
+  var cb = document.getElementById('ct_cajas');
+  if (cb) cb.innerHTML = '<div style="overflow-x:auto"><table style="min-width:520px;font-size:12px"><thead><tr><th>Caja</th><th>Recibió</th><th>+ Entró en efectivo</th><th>− Retiros</th><th>= Debe haber</th><th>Contado</th><th>Diferencia</th></tr></thead><tbody>'
+    + CAJAS.map(function(k){ var c = t.cajas[k[0]]; return '<tr><td><b>'+k[1]+'</b><div style="font-size:10px;color:var(--gris)">'+k[2]+'</div></td><td>'+pesos(c.rec)+'</td><td>'+pesos(c.ent)+'</td><td>'+(c.ret?'<span style="color:var(--cyan)">'+pesos(c.ret)+'</span>':'—')+'</td><td><b>'+pesos(c.esperado)+'</b></td><td>'+(c.contado==null?'—':pesos(c.contado))+'</td><td style="font-weight:800;color:'+(c.dif==null?'var(--gris)':Math.abs(c.dif)<1?'#80d4a0':'#ff8080')+'">'+(c.dif==null?'—':Math.abs(c.dif)<1?'✅ Cuadra':(c.dif>0?'+':'')+pesos(c.dif))+'</td></tr>'; }).join('')
+    + '</tbody></table></div>' + (CAJAS.some(function(k){ return t.cajas[k[0]].ret; }) ? '<div style="font-size:11px;color:var(--gris);margin-top:6px">🏦 '+CAJAS.map(function(k){ return (t.cajas[k[0]].rets||[]).map(function(r){ return k[1]+': '+pesos(r.valor)+' a banco ('+esc(r.hora)+', '+esc(r.por)+')'; }).join(' · '); }).filter(Boolean).join(' · ')+'</div>' : '');
   var box = document.getElementById('ct_tot'); if (!box) return;
-  var t = turnoTotales(CT);
-  var row = function(k, l, v, sub, col){ return '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.06)"><span style="flex:0 0 40px;font-weight:800;color:var(--oro)">'+k+'</span><span style="flex:1;font-size:12px">'+l+(sub?'<div style="font-size:10px;color:var(--gris)">'+sub+'</div>':'')+'</span><span style="font-weight:800;font-size:15px;'+(col?'color:'+col:'')+'">'+v+'</span></div>'; };
-  var h = '<div class="card-title" style="padding:0 0 4px">🧾 TOTALES DEL TURNO</div>';
-  h += row('M', 'Total pagos de membresía', pesos(t.pagos), t.n+' pago'+(t.n===1?'':'s')+' · planes mensuales o más: '+pesos(t.mensual));
-  h += row('E', 'Pagos en efectivo', pesos(t.efectivo));
-  h += row('B', 'Transferencias a banco', pesos(t.transf));
-  h += row('Bold', 'Pagos con Bold', pesos(t.bold));
-  h += row('$', 'Ventas líquidos y sachets', pesos(t.ventas));
-  h += row('T', 'Total efectivo del turno', pesos(t.T), 'Efectivo de pagos + ventas');
-  h += row('/Día', 'Conteo # usuarios por día', t.dia);
-  h += row('/Clase', 'Conteo # pagos por clase', t.clase||0);
-  h += row('/15d', 'Conteo # usuarios quincena', t.quincena);
-  if (t.externos) h += row('Ext', 'Personas no registradas en la app', t.externos);
-  h += row('C', 'Base caja', pesos(t.C));
-  h += row('CM', 'Caja menor', pesos(t.CM));
-  h += row('=', 'Efectivo que debe haber', pesos(t.esperado), 'Base + efectivo del turno');
-  if (t.dif != null) h += row('±', 'Diferencia con lo contado', (t.dif>0?'+':'')+pesos(t.dif), Math.abs(t.dif)<1?'✅ Cuadra':(t.dif>0?'Sobra dinero':'Falta dinero'), Math.abs(t.dif)<1?'#80d4a0':'#ff8080');
+  var row = function(k, l, v, sub, col){ return '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.06)"><span style="flex:0 0 46px;font-weight:800;color:var(--oro)">'+k+'</span><span style="flex:1;font-size:12px">'+l+(sub?'<div style="font-size:10px;color:var(--gris)">'+sub+'</div>':'')+'</span><span style="font-weight:800;font-size:15px;'+(col?'color:'+col:'')+'">'+v+'</span></div>'; };
+  var inv = prodsActivos().map(function(p){ return esc(p.nombre)+'='+(stockDe(p.id, CT.id) - (function(){ var q = ventaQ((CT.ventas||{})[p.id]); return q.ef + q.tr; })()); }).join(' · ');
+  var h = '<div class="card-title" style="padding:0 0 4px">🧾 RESUMEN DEL TURNO</div>';
+  h += row('T', 'Total efectivo caja principal', pesos(t.T), 'Recibió '+pesos(t.cajas.principal.rec)+' + pagos en efectivo '+pesos(t.efectivo)+(t.abonosEf.principal?' + deudas '+pesos(t.abonosEf.principal):''));
+  h += row('C', 'Queda en caja principal', pesos(t.C), t.cajas.principal.ret ? 'Después de retirar '+pesos(t.cajas.principal.ret)+' a banco' : 'Base para el siguiente turno');
+  h += row('CM', 'Caja menor (líquidos)', pesos(t.CM));
+  h += row('$', 'Caja sachets', pesos(t.S));
+  h += row('🛒', 'Ventas de la tienda', pesos(t.ventas), 'Efectivo '+pesos(t.ventasEf.menor + t.ventasEf.sachets)+' · Transferencia '+pesos(t.ventasTr));
+  if (t.fiado) h += row('🧾', 'Vendido sin pagar (fiado)', pesos(t.fiado), t.fiados.length+' persona'+(t.fiados.length===1?'':'s'), '#ff8080');
+  h += row('B·t', 'Transferencias del turno', pesos(t.transfTotal), 'Pagos '+pesos(t.transf)+' · ventas '+pesos(t.ventasTr)+(t.abonosTr?' · deudas '+pesos(t.abonosTr):''));
+  if (t.boldTotal) h += row('Bold', 'Pagos con Bold', pesos(t.boldTotal));
+  h += row('#', 'Conteos', t.dia+' día · '+t.clase+' clase · '+t.quincena+' quincena'+(t.externos?' · '+t.externos+' no registrados':''));
+  if (t.dif != null) h += row('±', 'Diferencia total con lo contado', (t.dif>0?'+':'')+pesos(t.dif), Math.abs(t.dif)<1?'✅ Cuadra':(t.dif>0?'Sobra dinero':'Falta dinero'), Math.abs(t.dif)<1?'#80d4a0':'#ff8080');
+  h += '<div class="card-title" style="padding:12px 0 4px">📅 ACUMULADO DEL MES</div>';
+  h += row('M', 'Total mensualidades', pesos(m.M));
+  h += row('B', 'Total transferencias a banco', pesos(m.B), m.retiros ? 'Retiros de efectivo a banco: '+pesos(m.retiros) : '');
+  h += row('/Día', 'Ingresos por día', pesos(m.dia));
+  h += row('15d', 'Ingresos 15 días', pesos(m.quincena));
+  if (m.Bold) h += row('Bold', 'Total Bold', pesos(m.Bold));
+  h += '<div style="font-size:11px;color:var(--gris);margin-top:8px;line-height:1.6">📦 Inventario al cerrar: '+inv+'</div>';
   box.innerHTML = h;
 }
 function guardarTurno(estado) {
   turnoLeer();
-  var malos = []; document.querySelectorAll('#main .ct-venta').forEach(function(el){ if ((parseFloat(el.value)||0) > (parseFloat(el.getAttribute('data-max'))||0)) malos.push(el); });
-  if (malos.length && !confirm('Hay ventas que superan el inventario disponible. ¿Guardar de todas formas?')) return;
-  if (estado === 'entregado' && !CT.recibo && prodsActivos().length && !confirm('No has marcado «Recibí el turno» (conteo de inventario al empezar). ¿Entregar de todas formas?')) return;
+  var malo = false; document.querySelectorAll('#main .ct-sub').forEach(function(el){ if (el.innerHTML.indexOf('supera') >= 0) malo = true; });
+  if (malo && !confirm('Hay ventas que superan el inventario disponible. ¿Guardar de todas formas?')) return;
+  if (estado === 'entregado' && !CT.recibo && !confirm('No has marcado «Recibí el turno» (efectivo e inventario al empezar). ¿Entregar de todas formas?')) return;
+  if (estado === 'entregado' && CAJAS.some(function(k){ var v = (CT.contado||{})[k[0]]; return v === '' || v == null; }) && !confirm('No escribiste el efectivo contado de todas las cajas. ¿Entregar de todas formas?')) return;
   if (estado === 'entregado' && !confirm('¿Entregar el cierre a recepción? Ya no podrás editarlo, a menos que recepción te lo devuelva.')) return;
   var x = JSON.parse(JSON.stringify(CT));
-  x.estado = estado; x.actualizado = new Date().toISOString(); x.actualizadoPor = CU.name;
-  if (estado === 'entregado') { x.entregadoHora = horaCOL(); x.entregadoFecha = dateCOL(); }
-  x.totales = turnoTotales(x);
+  x.version = 3; x.estado = estado; x.actualizado = new Date().toISOString(); x.actualizadoPor = CU.name;
+  if (estado === 'entregado') { x.entregadoHora = horaCOL(); x.entregadoHs = horaSeg(); x.entregadoFecha = dateCOL(); }
+  var tt = turnoTotales(x); x.totales = { T:tt.T, C:tt.C, CM:tt.CM, S:tt.S, pagos:tt.pagos, efectivo:tt.efectivo, transf:tt.transfTotal, bold:tt.boldTotal, ventas:tt.ventas, fiado:tt.fiado, dif:tt.dif };
   x.pagosIds = pagosTurno(x.fecha, x.coachId).map(function(p){ return p.id; });
-  saveAndSync('saveLog', x, function(res){ toast(estado === 'entregado' ? '📤 Cierre entregado a recepción' : '💾 Borrador guardado'); pgCierre(x.fecha, x.coachId, 'turno'); });
+  saveAndSync('saveLog', x, function(){ toast(estado === 'entregado' ? '📤 Cierre entregado a recepción' : '💾 Borrador guardado'); pgCierre(x.fecha, x.coachId, 'turno'); });
 }
+
 function validarTurno(estado, id) {
   if (!esRecepcion()) { toast('Solo recepción puede validar'); return; }
   var c = id ? gymRecs('cierre').filter(function(x){ return x.id === id; })[0] : turnoDe(CT.fecha, CT.coachId); if (!c) return;
@@ -5127,7 +5391,7 @@ function validarTurno(estado, id) {
   if (estado === 'devuelto' && !nota) { nota = prompt('¿Qué debe corregir?') || ''; if (!nota) return; }
   var x = JSON.parse(JSON.stringify(c));
   x.estado = estado; x.notaValidacion = nota; x.validadoPor = CU.name; x.validadoPorId = CU.id; x.validadoFecha = dateCOL(); x.validadoHora = horaCOL();
-  if (x.version === 2) x.totales = turnoTotales(x);
+  if (x.version >= 2) { var tt = turnoTotales(x); x.totales = { T:tt.T, C:tt.C, CM:tt.CM, S:tt.S, pagos:tt.pagos, efectivo:tt.efectivo, transf:tt.transfTotal, bold:tt.boldTotal, ventas:tt.ventas, fiado:tt.fiado, dif:tt.dif }; }
   saveAndSync('saveLog', x, function(){ toast(estado === 'validado' ? '✅ Turno validado' : '↩ Turno devuelto'); pgCierre(x.fecha, id ? CU.id : x.coachId, id ? 'dia' : 'turno'); });
 }
 function cierreDiaHtml(fecha) {
@@ -5138,21 +5402,46 @@ function cierreDiaHtml(fecha) {
   var tot = { pagos:0, efectivo:0, transf:0, bold:0, ventas:0, T:0, dif:0, dia:0, quincena:0 };
   h += '<div class="card" style="padding:0;margin-bottom:12px"><div style="overflow-x:auto"><table style="min-width:620px"><thead><tr><th>Turno</th><th>Estado</th><th>Pagos</th><th>Efectivo</th><th>Transf.</th><th>Bold</th><th>Ventas</th><th>Diferencia</th><th></th></tr></thead><tbody>';
   ts.forEach(function(c){
-    var t = turnoTotales(c); ['pagos','efectivo','transf','bold','ventas','T','dia','quincena'].forEach(function(k){ tot[k] += t[k]||0; }); tot.dif += t.dif||0;
+    var t = turnoTotales(c); if (!t.legacy) { t.transf = t.transfTotal; t.bold = t.boldTotal; } ['pagos','efectivo','transf','bold','ventas','T','dia','quincena'].forEach(function(k){ tot[k] += t[k]||0; }); tot.dif += t.dif||0;
     h += '<tr><td><b>'+esc(c.coachNombre||c.responsable||'')+'</b>'+(c.entregadoHora?'<div style="font-size:10px;color:var(--gris)">entregó '+esc(c.entregadoHora)+'</div>':'')+'</td><td>'+estadoTurnoHtml(c)+'</td><td>'+pesos(t.pagos)+'</td><td>'+pesos(t.efectivo)+'</td><td>'+pesos(t.transf)+'</td><td>'+pesos(t.bold)+'</td><td>'+pesos(t.ventas)+'</td><td style="color:'+(t.dif==null?'var(--gris)':Math.abs(t.dif)<1?'#80d4a0':'#ff8080')+'">'+(t.dif==null?'—':(t.dif>0?'+':'')+pesos(t.dif))+'</td><td style="white-space:nowrap"><button class="btn btn-g btn-sm" onclick="pgCierre(\''+fecha+'\',\''+c.coachId+'\',\'turno\')">Ver</button>'+(esRecepcion() && c.estado==='entregado'?' <button class="btn btn-p btn-sm" onclick="validarTurno(\'validado\',\''+c.id+'\')">✅ Validar</button>':'')+'</td></tr>';
   });
   h += '<tr style="font-weight:800"><td>TOTAL DÍA</td><td></td><td>'+pesos(tot.pagos)+'</td><td>'+pesos(tot.efectivo)+'</td><td>'+pesos(tot.transf)+'</td><td>'+pesos(tot.bold)+'</td><td>'+pesos(tot.ventas)+'</td><td>'+(tot.dif>0?'+':'')+pesos(tot.dif)+'</td><td></td></tr></tbody></table></div></div>';
+  h += cajasDiaHtml(fecha, ts);
   var pend = ts.filter(function(c){ return c.estado !== 'validado'; }).length;
   if (esRecepcion() && !dia) {
     h += '<div class="card" style="padding:14px"><div class="card-title" style="padding:0 0 8px">📋 VALIDAR FORMATO DEL DÍA</div>'+(pend?'<div style="font-size:12px;color:#ffaa44;margin-bottom:8px">⚠️ Hay '+pend+' turno'+(pend===1?'':'s')+' sin validar.</div>':'')+'<div class="fg"><label>Nota del día (opcional)</label><input id="cd_nota"></div><button class="btn btn-p btn-full" onclick="validarDia(\''+fecha+'\')">✅ Validar formato del día</button></div>';
   }
   return h;
 }
+function retirosHistHtml() {
+  var mes = dateCOL().slice(0,7), rs = gymRecs('retiro').filter(function(r){ return (r.fecha||'').slice(0,7) === mes; }).sort(function(a,b){ return tsDe(b.fecha,b.hora).localeCompare(tsDe(a.fecha,a.hora)); });
+  var h = '<div style="font-size:11px;font-weight:700;color:var(--cyan);letter-spacing:1px;margin:16px 0 6px">🏦 RETIROS A BANCO DEL MES</div>';
+  if (!rs.length) return h + '<div style="font-size:12px;color:var(--gris)">Sin retiros este mes.</div>';
+  var nom = {}; CAJAS.forEach(function(k){ nom[k[0]] = k[1]; });
+  return h + rs.map(function(r){ return '<div style="font-size:12px;padding:6px 10px;border-radius:8px;background:var(--s1);margin-bottom:4px">'+fDate(r.fecha)+' '+esc(r.hora)+' · '+esc(nom[r.caja]||r.caja)+' · <b>'+pesos(r.valor)+'</b> · quedó base '+pesos(r.queda)+' · '+esc(r.por)+(r.nota?' · '+esc(r.nota):'')+'</div>'; }).join('');
+}
+function cajasDiaHtml(fecha, ts) {
+  var v3 = ts.filter(function(c){ return c.version >= 2; }).sort(function(a,b){ return turnoFin(a).localeCompare(turnoFin(b)); });
+  var h = '<div class="card" style="padding:14px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><div class="card-title" style="padding:0">💵 CAJAS DEL DÍA</div>'+(puedeRecepcion()?'<button class="btn btn-g btn-sm" onclick="openRetiro()">🏦 Retirar a banco</button>':'')+'</div>';
+  if (v3.length) {
+    h += '<div style="overflow-x:auto"><table style="min-width:480px;font-size:12px"><thead><tr><th>Turno</th>'+CAJAS.map(function(k){ return '<th>'+k[1]+'</th>'; }).join('')+'</tr></thead><tbody>';
+    v3.forEach(function(c){ var t = turnoTotales(c); h += '<tr><td><b>'+esc(c.coachNombre||'')+'</b></td>'+CAJAS.map(function(k){ var x = t.cajas[k[0]]; return '<td>recibió '+pesos(x.rec)+'<br>entregó <b>'+pesos(x.contado!=null?x.contado:x.esperado)+'</b>'+(x.ret?'<br><span style="color:var(--cyan)">banco '+pesos(x.ret)+'</span>':'')+(x.dif!=null&&Math.abs(x.dif)>=1?'<br><span style="color:#ff8080">'+(x.dif>0?'+':'')+pesos(x.dif)+'</span>':'')+'</td>'; }).join('')+'</tr>'; });
+    h += '</tbody></table></div>';
+  }
+  var rs = gymRecs('retiro').filter(function(r){ return r.fecha === fecha; });
+  if (rs.length) h += '<div style="font-size:12px;margin-top:8px">🏦 Retiros del día: '+rs.map(function(r){ return '<b>'+pesos(r.valor)+'</b> ('+esc(r.hora)+', '+esc(r.por)+', quedó '+pesos(r.queda)+')'; }).join(' · ')+'</div>';
+  var fi = gymRecs('deuda').filter(function(d){ return d.fecha === fecha; });
+  if (fi.length) h += '<div style="font-size:12px;margin-top:6px;color:#ff8080">🧾 Vendido sin pagar: '+fi.map(function(d){ return esc(d.nombre)+' '+pesos(d.valor); }).join(' · ')+'</div>';
+  var m = acumMes(fecha);
+  h += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px"><span class="chip">M mensualidades: <b>'+pesos(m.M)+'</b></span><span class="chip">B transferencias: <b>'+pesos(m.B)+'</b></span><span class="chip">/Día: <b>'+pesos(m.dia)+'</b></span><span class="chip">15 días: <b>'+pesos(m.quincena)+'</b></span>'+(m.retiros?'<span class="chip">🏦 Retirado a banco: <b>'+pesos(m.retiros)+'</b></span>':'')+'</div>';
+  return h + '</div>';
+}
+
 function validarDia(fecha) {
   var ts = turnosDelDia(fecha), pend = ts.filter(function(c){ return c.estado !== 'validado'; }).length;
   if (pend && !confirm('Hay '+pend+' turno(s) sin validar. ¿Validar el día de todas formas?')) return;
   var tot = { pagos:0, efectivo:0, transf:0, bold:0, ventas:0 };
-  ts.forEach(function(c){ var t = turnoTotales(c); Object.keys(tot).forEach(function(k){ tot[k] += t[k]||0; }); });
+  ts.forEach(function(c){ var t = turnoTotales(c); if (!t.legacy) { t.transf = t.transfTotal; t.bold = t.boldTotal; } Object.keys(tot).forEach(function(k){ tot[k] += t[k]||0; }); });
   var x = { id:'cierredia_'+fecha, tipo:'cierredia', userId:'__gym', fecha:fecha, por:CU.name, porId:CU.id, hora:horaCOL(), nota:(document.getElementById('cd_nota')||{value:''}).value.trim(), turnos:ts.map(function(c){ return c.id; }), totales:tot };
   saveAndSync('saveLog', x, function(){ toast('✅ Día validado'); pgCierre(fecha, CU.id, 'dia'); });
 }
@@ -5176,16 +5465,16 @@ function cierreHistHtml() {
   }
   if (!list.length) return h + '<div class="empty"><div class="empty-icon">📚</div><div class="empty-t">SIN CIERRES EN ESTE MES</div></div>';
   h += '<div class="card" style="padding:0"><div style="overflow-x:auto"><table style="min-width:640px"><thead><tr><th>Fecha</th><th>Turno</th><th>Pagos</th><th>Efectivo</th><th>Transf.</th><th>Bold</th><th>Diferencia</th><th>Estado</th><th></th></tr></thead><tbody>';
-  list.forEach(function(c){ var t = turnoTotales(c);
-    h += '<tr><td>'+fDate(c.fecha)+'</td><td>'+esc(c.coachNombre||c.responsable||'')+(t.legacy?'<div style="font-size:10px;color:var(--gris)">formato anterior</div>':'')+'</td><td>'+pesos(t.pagos)+'</td><td>'+pesos(t.T)+'</td><td>'+pesos(t.transf)+'</td><td>'+pesos(t.bold)+'</td><td style="color:'+(t.dif==null?'var(--gris)':Math.abs(t.dif)<1?'#80d4a0':'#ff8080')+'">'+(t.dif==null?'—':(t.dif>0?'+':'')+pesos(t.dif))+'</td><td>'+estadoTurnoHtml(c)+'</td><td>'+(c.version===2?'<button class="btn btn-g btn-sm" onclick="pgCierre(\''+c.fecha+'\',\''+c.coachId+'\',\'turno\')">Ver</button>':'')+'</td></tr>'; });
+  list.forEach(function(c){ var t = turnoTotales(c); if (!t.legacy) { t.transf = t.transfTotal; t.bold = t.boldTotal; }
+    h += '<tr><td>'+fDate(c.fecha)+'</td><td>'+esc(c.coachNombre||c.responsable||'')+(t.legacy?'<div style="font-size:10px;color:var(--gris)">formato anterior</div>':'')+'</td><td>'+pesos(t.pagos)+'</td><td>'+pesos(t.T)+'</td><td>'+pesos(t.transf)+'</td><td>'+pesos(t.bold)+'</td><td style="color:'+(t.dif==null?'var(--gris)':Math.abs(t.dif)<1?'#80d4a0':'#ff8080')+'">'+(t.dif==null?'—':(t.dif>0?'+':'')+pesos(t.dif))+'</td><td>'+estadoTurnoHtml(c)+'</td><td>'+(c.version>=2?'<button class="btn btn-g btn-sm" onclick="pgCierre(\''+c.fecha+'\',\''+c.coachId+'\',\'turno\')">Ver</button>':'')+'</td></tr>'; });
   return h + '</tbody></table></div></div>';
 }
 function exportCierresMes() {
   var mes = CH_FILTRO.mes || dateCOL().slice(0,7);
-  var rows = [['Fecha','Turno','Estado','Validado por','Pagos','Efectivo pagos','Transferencias','Bold','Ventas','Total efectivo','Base','Caja menor','Contado','Diferencia','/Día','/Quincena','Pagos (detalle)','Observaciones']];
+  var rows = [['Fecha','Turno','Estado','Validado por','Pagos','Efectivo pagos','Transferencias (B)','Bold','Ventas tienda','Ventas transf.','Fiado','T total efectivo','Retiros a banco','C queda caja principal','CM caja menor','$ caja sachets','Diferencia','/Día','/Quincena','Pagos (detalle)','Observaciones']];
   gymRecs('cierre').filter(function(c){ return (c.fecha||'').slice(0,7) === mes && (puedeRecepcion() || c.coachId === CU.id); }).sort(function(a,b){ return a.fecha.localeCompare(b.fecha); }).forEach(function(c){
-    var t = turnoTotales(c), ps = c.version === 2 ? pagosTurno(c.fecha, c.coachId) : [];
-    rows.push([c.fecha, c.coachNombre||c.responsable||'', c.estado||'', c.validadoPor||'', t.pagos, t.efectivo, t.transf, t.bold||0, t.ventas||0, t.T||0, t.C||0, t.CM||0, t.contado==null?'':t.contado, t.dif==null?'':t.dif, t.dia, t.quincena,
+    var t = turnoTotales(c), ps = c.version >= 2 ? pagosTurno(c.fecha, c.coachId) : [], ret = t.legacy ? 0 : CAJAS.reduce(function(a, k){ return a + t.cajas[k[0]].ret; }, 0);
+    rows.push([c.fecha, c.coachNombre||c.responsable||'', c.estado||'', c.validadoPor||'', t.pagos, t.efectivo, t.legacy ? t.transf : t.transfTotal, t.legacy ? 0 : t.boldTotal, t.ventas||0, t.ventasTr||0, t.fiado||0, t.T||0, ret, t.C||0, t.CM||0, t.S||0, t.dif==null?'':t.dif, t.dia, t.quincena,
       ps.map(function(p){ return (p.nombres||[]).join('+')+' · '+p.plan+' · '+p.valor+' ('+p.medio+')'; }).join(' | '), c.obs||'']);
   });
   var csv = rows.map(function(r){ return r.map(function(v){ v = String(v==null?'':v); return /[",;\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }).join(';'); }).join('\n');
@@ -5198,11 +5487,12 @@ var REC_TAB = 'recordatorios';
 function pgRecepcion(tab) {
   if (!modulo('cierreDiario') || !puedeRecepcion()) { nav('dashboard'); return; }
   REC_TAB = tab || REC_TAB;
-  var tabs = [['recordatorios','🔔 Recordatorios de pago'],['cumple','🎂 Cumpleaños'],['inventario','📦 Inventario'],['planes','⚙️ Planes y mensajes']];
+  var tabs = [['recordatorios','🔔 Recordatorios de pago'],['cumple','🎂 Cumpleaños'],['deudas','💸 Deudas'+(deudasPendientes().length?' ('+deudasPendientes().length+')':'')],['inventario','📦 Inventario'],['planes','⚙️ Planes y mensajes']];
   var h = '<div class="page-title">RECEPCIÓN</div><div class="page-sub">Membresías, recordatorios, cumpleaños e inventario</div>';
   h += '<div class="dia-tabs">'+tabs.map(function(t){ return '<button class="dia-tab'+(REC_TAB===t[0]?' active':'')+'" onclick="pgRecepcion(\''+t[0]+'\')">'+t[1]+'</button>'; }).join('')+'</div>';
   if (REC_TAB === 'cumple') h += cumpleHtml();
   else if (REC_TAB === 'inventario') h += inventarioHtml();
+  else if (REC_TAB === 'deudas') h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn btn-p btn-sm" onclick="openFiado()">🧾 Registrar venta sin pagar</button><button class="btn btn-g btn-sm" onclick="openRetiro()">🏦 Retirar a banco</button></div>' + deudasListaHtml() + retirosHistHtml();
   else if (REC_TAB === 'planes') h += planesHtml();
   else h += recordatoriosHtml();
   setMain(h);
@@ -5293,7 +5583,7 @@ function planesHtml() {
   });
   h += '</tbody></table></div><div style="padding:12px 14px"><button class="btn btn-p" onclick="guardarPlanes()">💾 Guardar valores</button></div></div>';
   h += '<div class="card" style="padding:14px"><div class="card-title" style="padding:0 0 6px">💬 MENSAJES DE WHATSAPP</div><div style="font-size:11px;color:var(--gris);margin-bottom:10px;line-height:1.6">Puedes usar: <b>{nombre}</b> · <b>{fecha}</b> (corte) · <b>{dias}</b> · <b>{plan}</b> · <b>{gimnasio}</b></div>';
-  [['d5','📅 Vence en 2 a 5 días'],['d1','⏰ Vence mañana'],['d0','❗ Vence hoy'],['vencida','🚫 Vencida (no puede ingresar)'],['cumple','🎂 Cumpleaños']].forEach(function(m){
+  [['d5','📅 Vence en 2 a 5 días'],['d1','⏰ Vence mañana'],['d0','❗ Vence hoy'],['vencida','🚫 Vencida (no puede ingresar)'],['acond','🌱 Bienvenida · acondicionamiento ({fin} = fecha final)'],['deuda','💸 Deuda en la tienda ({deuda} y {detalle})'],['cumple','🎂 Cumpleaños']].forEach(function(m){
     h += '<div class="fg"><label>'+m[1]+'</label><textarea class="msg-in" data-k="'+m[0]+'" style="'+inS+';height:64px">'+esc(cfg.mensajes[m[0]])+'</textarea></div>';
   });
   return h + '<button class="btn btn-p" onclick="guardarMensajes()">💾 Guardar mensajes</button></div>';
@@ -5392,7 +5682,7 @@ function agendaAlcanceHtml() {
   return '<div class="dia-tabs" style="margin-bottom:10px">'+b('todos','👥 Todo el equipo')+b('mios','🙋 Mis '+T.usuarios)+'</div>';
 }
 function agendaUsersHtml() {
-  var us = agendaUsuarios().filter(function(u){ return rutModo(u) !== 'sin'; }).sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); });
+  var us = agendaUsuarios().filter(function(u){ return modoConObligacion(u) || rutModo(u) === 'acond'; }).sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); });
   if (!us.length) return '<div class="empty"><div class="empty-icon">👥</div><div class="empty-t">SIN '+T.Usuarios.toUpperCase()+'</div></div>';
   var hoy = dateCOL(), inS = 'padding:7px;background:var(--s1);border:1px solid var(--brd);border-radius:8px;color:var(--blanco);font-size:13px';
   var orden = function(u){ var a = agendaActual(u.id), e = agendaEstado(a), r = rutinaActiva(u.id), vp = vencePronto(u.id); return e === 'vencida' ? 0 : (vp && vp.vencio) ? 1 : e === 'solicitada' ? 2 : vp ? 3 : (!r && !a) ? 4 : (r && rutVencida(r) && !a) ? 5 : e === 'pendiente' ? 6 : 7; };
@@ -5407,6 +5697,11 @@ function agendaUsersHtml() {
     h += '<div style="font-size:11px;color:var(--gris);line-height:1.6">'+rTxt+(r && r.fechaMedidas ? ' · 📏 medidas '+fDate(r.fechaMedidas) : r ? ' · <span style="color:#ffaa44">📏 sin fecha de medidas</span>' : '')+(coachNombre(u.coachId)&&esGestor()?' · coach '+esc(coachNombre(u.coachId)):'')+'</div>';
     if (mp) h += '<div style="font-size:11px;color:#ba68c8;margin-top:2px">📏 Medidas pendientes desde el '+fDate(mp)+' <button class="btn btn-g btn-sm" style="padding:2px 8px;font-size:10px" onclick="avisarMedidas(\''+u.id+'\')">💬 Avisar</button> <button class="btn btn-g btn-sm" style="padding:2px 8px;font-size:10px" onclick="openMedidasFor(\''+u.id+'\')">Tomar medidas</button></div>';
     h += '</div></div>';
+    if (rutModo(u) === 'acond') {
+      var _ae2 = acondEstado(u); if (!u.acond) u = Object.assign({}, u, { acond: acondNuevo(u.rutinaModoFecha || dateCOL()) });
+      h += '<div style="margin-top:10px;padding:10px;border-radius:8px;background:rgba(255,170,0,0.07);font-size:12px">🌱 <b>Acondicionamiento</b> '+fDate(u.acond.inicio)+' → '+fDate(u.acond.fin)+(_ae2==='validado'?' · ✅ validado, esperando que escoja su modalidad':_ae2==='terminado'?' · <b style="color:#ffaa44">terminó: valídalo</b>':' · quedan '+diasEntre(dateCOL(), u.acond.fin)+' días')+(_ae2!=='validado' && (!u.coachId || u.coachId === CU.id || CU.role === 'admin') ? ' <button class="btn btn-p btn-sm" style="margin-left:6px" onclick="openValidarAcond(\''+u.id+'\')">✅ Validar</button>' : '')+'</div></div>';
+      return;
+    }
     var stk = strikesDe(u.id);
     if (stk.length) h += '<details style="margin-top:8px;font-size:11px"><summary style="cursor:pointer;color:#ff8080;font-weight:700">⚠️ '+stk.length+' incumplimiento'+(stk.length===1?'':'s')+' (no se borran)</summary><div style="padding:6px 0 0 12px;color:var(--gris);line-height:1.6">'+stk.map(function(x){ return '• '+fDate(x.fecha)+' · '+esc(x.nota)+(x.coach?' · coach '+esc(x.coach):''); }).join('<br>')+'</div></details>';
     // Estado de la fecha comprometida
@@ -5500,7 +5795,7 @@ function guardarMsgRutina() {
 // Avisos para la propia persona (Mi Rutina)
 function avisosRutinaUsuario() {
   var h = '', a = agendaActual(CU.id), mp = medidasPendiente(CU.id);
-  if (a && agendaEstado(a) !== 'cumplida') h += '<div style="padding:12px 14px;margin-bottom:12px;border-radius:var(--r);border:1px solid rgba(var(--acc-rgb),0.45);background:rgba(var(--acc-rgb),0.07);font-size:13px">📅 Tu nueva rutina estará cargada a más tardar el <b>'+fDate(a.fecha)+'</b>.</div>';
+  if (a && a.fecha && ['cumplida','cancelada','solicitada'].indexOf(agendaEstado(a)) < 0) h += '<div style="padding:12px 14px;margin-bottom:12px;border-radius:var(--r);border:1px solid rgba(var(--acc-rgb),0.45);background:rgba(var(--acc-rgb),0.07);font-size:13px">📅 Tu nueva rutina estará cargada a más tardar el <b>'+fDate(a.fecha)+'</b>.</div>';
   if (mp) h += '<div style="padding:12px 14px;margin-bottom:12px;border-radius:var(--r);border:1px solid rgba(186,104,200,0.5);background:rgba(186,104,200,0.08);font-size:13px">📏 Tienes pendiente la <b>actualización de tus medidas</b> (desde el '+fDate(mp)+'). Acércate a tu coach para tomarlas.</div>';
   return h;
 }
@@ -5535,7 +5830,12 @@ function alertasExtra(alerts) {
   if (porDefinir && CU.role !== 'user') alerts.push({ name:'Gestión', cat:'gestion', label:'❓ '+porDefinir+' '+(porDefinir===1?T.usuario:T.usuarios)+' sin definir si tienen rutina', color:'#ffaa44', action:"nav('usuarios');setTimeout(function(){var s=document.getElementById('u_fmodo');if(s){s.value='def';filterUsuarios('');}},50)" });
   us.forEach(function(u){
     var a = agendaActual(u.id), e = agendaEstado(a), r = rutinaActiva(u.id);
-    if (rutModo(u) === 'sin') return;
+    if (rutModo(u) === 'acond' && CU.role !== 'recepcion') {
+      var _ae = acondEstado(u);
+      if (_ae === 'terminado' && (!u.coachId || u.coachId === CU.id || CU.role === 'admin')) alerts.push({ name:u.name, cat:'rutinas', label:'🌱 Terminó sus 3 semanas de acondicionamiento ('+fDate(u.acond.fin)+') — valídalo', color:'#ffaa44', action:"openValidarAcond('"+u.id+"')" });
+    }
+    if (!modoConObligacion(u)) return;
+    if (rutModo(u) === 'con' && !u.coachId && CU.role !== 'user') alerts.push({ name:u.name, cat:'gestion', label:'🧑‍🏫 Tiene rutina pero no tiene coach asignado', color:'#ff8080', action:"editUsuario('"+u.id+"')" });
     var _vp2 = vencePronto(u.id);
     if (e === 'solicitada' && CU.role !== 'recepcion') { var _l = limiteSolicitud(a), _d = diasEntre(dateCOL(), _l); alerts.push({ name:u.name, cat:'rutinas', label:'📋 '+(a.origen==='usuario'?'Pidió rutina':'Necesita rutina')+' — compromete la fecha y avísale '+(_d<0?'(plazo vencido: strike)':_d===0?'HOY (último día)':'antes del '+fDate(_l)), color:_d<=0?'#ff8080':'#ffaa44', action:"nav('agenda')" }); }
     else if (e === 'pendiente' && !(a.avisos||[]).length && CU.role !== 'recepcion') alerts.push({ name:u.name, cat:'rutinas', label:'💬 Fecha comprometida ('+fDate(a.fecha)+') pero aún no le has avisado', color:'#ffaa44', action:"nav('agenda')" });
@@ -5561,7 +5861,7 @@ function alertasExtra(alerts) {
 function bodegaDe(pid) { var s = 0; gymRecs('invmov').forEach(function(m){ if (m.pid === pid && m.ubic === 'bodega') s += (parseFloat(m.cant)||0); }); return s; }
 function inventarioHtml() {
   var cfg = gymCfg(), mes = dateCOL().slice(0,7);
-  var vendidosMes = {}; gymRecs('cierre').forEach(function(c){ if ((c.fecha||'').slice(0,7) === mes) Object.keys(c.ventas||{}).forEach(function(pid){ vendidosMes[pid] = (vendidosMes[pid]||0) + (parseFloat(c.ventas[pid])||0); }); });
+  var vendidosMes = {}; gymRecs('cierre').forEach(function(c){ if ((c.fecha||'').slice(0,7) === mes) Object.keys(c.ventas||{}).forEach(function(pid){ var q = ventaQ(c.ventas[pid]); vendidosMes[pid] = (vendidosMes[pid]||0) + q.ef + q.tr; }); });
   var inS = 'width:100%;padding:7px;background:var(--s1);border:1px solid var(--brd);border-radius:8px;color:var(--blanco);font-size:13px;box-sizing:border-box';
   var h = '<div style="font-size:12px;color:var(--gris);margin-bottom:12px;line-height:1.6"><b>Bodega</b> es el inventario global guardado. <b>Stock</b> es lo que está disponible para vender en el turno. Las ventas de cada cierre se descuentan del stock. Pon un <b>mínimo</b> para recibir alertas cuando falte algo.</div>';
   [['liquido','🥤 LÍQUIDOS'],['sachet','🧂 SACHETS']].forEach(function(cat){
@@ -5619,44 +5919,6 @@ function invMov(pid, clase) {
   var i = 0; (function next(){ if (i >= movs.length) { toast('📦 Inventario actualizado'); pgRecepcion('inventario'); return; } saveAndSync('saveLog', movs[i++], next); })();
 }
 // Recibir turno: el coach cuenta el stock que le entregan y explica si no cuadra
-function ultimoTurnoAntes(fecha, coachId) {
-  return gymRecs('cierre').filter(function(c){ return c.version === 2 && (c.fecha < fecha || (c.fecha === fecha && c.coachId !== coachId && c.estado && c.estado !== 'borrador')); })
-    .sort(function(a,b){ return ((b.fecha||'')+(b.entregadoHora||'')).localeCompare((a.fecha||'')+(a.entregadoHora||'')); })[0] || null;
-}
-function reciboTurnoHtml() {
-  var prods = prodsActivos(), ed = turnoEditable() && CT.coachId === CU.id;
-  if (!prods.length) return '';
-  var rc = CT.recibo, ant = ultimoTurnoAntes(CT.fecha, CT.coachId);
-  var inS = 'width:100%;padding:7px;background:var(--s1);border:1px solid var(--brd);border-radius:8px;color:var(--blanco);font-size:13px;box-sizing:border-box';
-  var h = '<div class="card" style="padding:14px;margin-bottom:12px;border-color:'+(rc?(rc.descuadre?'rgba(255,80,80,0.5)':'rgba(80,200,120,0.5)'):'var(--cyan)')+'"><div class="card-title" style="padding:0 0 6px">📦 RECIBIR TURNO</div>';
-  h += '<div style="font-size:11px;color:var(--gris);margin-bottom:8px">'+(ant ? 'Turno anterior: <b>'+esc(ant.coachNombre||'')+'</b> · '+fDate(ant.fecha)+(ant.entregadoHora?' '+esc(ant.entregadoHora):'') : 'Primer turno registrado')+'</div>';
-  if (rc) {
-    h += '<div style="font-size:12px;line-height:1.6">'+(rc.descuadre?'⚠️ Recibido con descuadre a las '+esc(rc.hora)+': <b>'+esc(rc.motivo||'')+'</b>':'✅ Recibido completo a las '+esc(rc.hora))+'</div>';
-    if (rc.descuadre) h += '<div style="font-size:11px;color:var(--gris);margin-top:4px">'+Object.keys(rc.diferencias||{}).map(function(pid){ var p = prods.filter(function(x){ return x.id === pid; })[0]; return esc(p?p.nombre:pid)+': sistema '+rc.sistema[pid]+' · contado '+rc.contado[pid]; }).join(' · ')+'</div>';
-    return h + '</div>';
-  }
-  if (!ed) return h + '<div style="font-size:12px;color:var(--gris)">Aún no se ha recibido el turno.</div></div>';
-  h += '<div style="font-size:12px;margin-bottom:8px">Cuenta lo que hay en stock y escríbelo. Si no cuadra con el sistema, explica el motivo.</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px">';
-  prods.forEach(function(p){ var st = stockDe(p.id, CT.id); h += '<div><div style="font-size:11px;font-weight:700">'+esc(p.nombre)+' <span style="color:var(--gris);font-weight:400">· sistema '+st+'</span></div><input class="rc-in" data-pid="'+p.id+'" data-sis="'+st+'" inputmode="numeric" value="'+st+'" oninput="reciboCheck()" style="'+inS+'"></div>'; });
-  h += '</div><div id="rc_mot_wrap" style="display:none;margin-top:8px"><div class="fg" style="margin:0"><label style="color:#ff8080">¿Por qué no cuadra? *</label><input id="rc_motivo" placeholder="Ej: se dañaron 2, faltó registrar una venta…" style="'+inS+'"></div></div>';
-  return h + '<button class="btn btn-p btn-full" style="margin-top:10px" onclick="recibirTurno()">✅ Recibí el turno</button></div>';
-}
-function reciboCheck() {
-  var dif = false; document.querySelectorAll('#main .rc-in').forEach(function(el){ if ((parseFloat(el.value)||0) !== parseFloat(el.getAttribute('data-sis'))) dif = true; });
-  var w = document.getElementById('rc_mot_wrap'); if (w) w.style.display = dif ? '' : 'none';
-}
-function recibirTurno() {
-  var sis = {}, con = {}, difs = {}, movs = [];
-  document.querySelectorAll('#main .rc-in').forEach(function(el){ var pid = el.getAttribute('data-pid'), s = parseFloat(el.getAttribute('data-sis')), c = parseFloat(el.value)||0; sis[pid] = s; con[pid] = c; if (c !== s) difs[pid] = c - s; });
-  var motivo = ((document.getElementById('rc_motivo')||{}).value||'').trim(), desc = Object.keys(difs).length > 0;
-  if (desc && !motivo) { toast('Explica por qué no cuadra el inventario'); document.getElementById('rc_motivo').focus(); return; }
-  turnoLeer();
-  CT.recibo = { hora:horaCOL(), fecha:dateCOL(), por:CU.name, sistema:sis, contado:con, diferencias:difs, descuadre:desc, motivo:motivo };
-  Object.keys(difs).forEach(function(pid){ movs.push({ id:gid('inv_'), tipo:'invmov', userId:'__gym', pid:pid, clase:'recibo', ubic:'stock', cant:difs[pid], nota:'Recibo de turno · '+motivo, fecha:dateCOL(), hora:horaCOL(), por:CU.name }); });
-  var x = JSON.parse(JSON.stringify(CT)); x.estado = x.estado || 'borrador';
-  movs.push(x);
-  var i = 0; (function next(){ if (i >= movs.length) { toast(desc ? '⚠️ Turno recibido con descuadre (recepción será notificada)' : '✅ Turno recibido'); pgCierre(CT.fecha, CT.coachId, 'turno'); return; } saveAndSync('saveLog', movs[i++], next); })();
-}
 
 
 // ═══════════════════════════════════════════════════════════
@@ -5812,13 +6074,25 @@ function openTenisModal(uid) {
 //  · sin  → no pide rutina: solo control de medidas y sesiones dirigidas por el coach
 //  · ''   → por definir (admin / recepción / coach deben definirla)
 // ═══════════════════════════════════════════════════════════
-var RUT_MODOS = { con:'🏋️ Con rutina', sin:'🗓 Por sesión' };
+var RUT_MODOS = { con:'🏋️ Con rutina', sin:'🗓 Por sesión', ind:'🧍 Individual', acond:'🌱 Acondicionamiento' };
+var ACOND_DIAS = 21;   // 3 semanas de acondicionamiento físico para usuarios nuevos
+// Modalidades que generan compromiso de rutina para el coach
+function modoConObligacion(u) { var m = rutModo(u); return m === 'con' || m === ''; }
+function enAcond(u) { var x = u && (userById(u.id) || u); return !!(x && x.rutinaModo === 'acond' && x.acond); }
+function acondEstado(u) {
+  var x = userById(u.id) || u; if (!x || !x.acond) return null;
+  var a = x.acond, hoy = dateCOL();
+  if (a.validado) return 'validado';
+  return hoy >= a.fin ? 'terminado' : 'en_curso';
+}
 function rutModo(u) { var x = u && (userById(u.id) || u); return (x && x.rutinaModo) || ''; }
 function conRutina(u) { return rutModo(u) === 'con'; }
 function modoBadge(u) {
   var m = rutModo(u);
   if (m === 'con') return '<span class="badge bk">🏋️ Con rutina</span>';
   if (m === 'sin') return '<span class="badge bg">🗓 Por sesión</span>';
+  if (m === 'ind') return '<span class="badge bm">🧍 Individual</span>';
+  if (m === 'acond') { var ae = acondEstado(u); return '<span class="badge bo">🌱 Acondicionamiento'+(ae==='terminado'?' · por validar':ae==='validado'?' · validado':'')+'</span>'; }
   return '<span class="badge bw">❓ Rutina por definir</span>';
 }
 // Solo con plan mensual (o más) puede pedir rutina. En la versión sin membresías, siempre.
@@ -5960,35 +6234,79 @@ function marcarAgendaCumplida(uid, rutId) {
 }
 
 // ── Usuario: pedir rutina / no querer rutina ──
-function userPedirRutina() {
+function userPedirRutina(trasAcond) {
   var u = userById(CU.id) || CU;
-  if (!planMensual(u)) { toast('Para pedir rutina necesitas un plan mensual activo'); return; }
+  if (!trasAcond && !planMensual(u)) { toast('Para pedir rutina necesitas un plan mensual activo'); return; }
   if (!confirm('¿Quieres que tu coach te prepare una rutina? Te avisará la fecha en la que la tendrás cargada.')) return;
   cambiarModo(u, 'con', 'usuario');
   toast('📋 Listo, tu coach te avisará cuándo tendrás tu rutina');
   setTimeout(function(){ nav(curPage || 'miRutina'); }, 300);
+}
+function userPorSesion() {
+  var u = userById(CU.id) || CU;
+  if (rutModo(u) === 'ind' && !planMensual(u)) { toast('Para cambiar necesitas un plan mensual activo'); return; }
+  if (!confirm('¿Quieres entrenar por sesión? Un coach dirigirá tus sesiones y llevará el control de tus medidas.')) return;
+  cambiarModo(u, 'sin', 'usuario'); toast('Listo, ahora entrenas por sesión'); setTimeout(function(){ nav(curPage || 'miRutina'); }, 300);
+}
+function userIndividual() {
+  if (!confirm('¿Prefieres entrenar de forma individual, por tu cuenta?')) return;
+  cambiarModo(userById(CU.id) || CU, 'ind', 'usuario'); toast('Listo, entrenas de forma individual'); setTimeout(function(){ nav(curPage || 'miRutina'); }, 300);
+}
+function miPlanEntrenoHtml() {
+  var u = userById(CU.id) || CU, m = rutModo(u), a = agendaActual(u.id), e = agendaEstado(a), pm = planMensual(u);
+  var h = '<div class="card" style="padding:14px;margin-bottom:14px"><div class="card-title" style="padding:0 0 8px">🏋️ MI PLAN DE ENTRENAMIENTO</div>';
+  var btns = function(arr){ return '<div style="display:flex;gap:8px;flex-wrap:wrap">'+arr.join('')+'</div>'; };
+  if (m === 'acond') {
+    var ae = acondEstado(u), ac = u.acond || {};
+    if (ae === 'validado') {
+      var op = ac.opciones || ['con','sin'];
+      h += '<div style="font-size:13px;line-height:1.6;margin-bottom:10px">🎉 <b>¡Terminaste tu acondicionamiento físico!</b> '+esc(ac.validadoPor||'Tu coach')+' lo validó'+(ac.nota?': «'+esc(ac.nota)+'»':'')+'.<br>Ahora escoge cómo quieres seguir entrenando:</div>';
+      h += btns([op.indexOf('con')>=0?'<button class="btn btn-p btn-sm" onclick="userPedirRutina(true)">📋 Quiero rutina</button>':'', op.indexOf('sin')>=0?'<button class="btn btn-g btn-sm" onclick="userPorSesion()">🗓 Por sesión</button>':'', op.indexOf('ind')>=0?'<button class="btn btn-g btn-sm" onclick="userIndividual()">🧍 Individual</button>':'']);
+    } else {
+      var q = diasEntre(dateCOL(), ac.fin||dateCOL());
+      h += '<div style="font-size:13px;line-height:1.6">🌱 Estás en tus <b>3 semanas de acondicionamiento físico</b> ('+fDate(ac.inicio)+' → '+fDate(ac.fin)+').<br>'+(ae==='terminado'?'Ya terminaste: tu coach lo validará pronto.':'Te quedan <b>'+q+' día'+(q===1?'':'s')+'</b>.')+' Cuando tu coach lo valide podrás pedir tu rutina o escoger entrenar por sesión desde aquí.</div>';
+    }
+  } else if (m === 'ind') {
+    h += '<div style="font-size:13px;line-height:1.6;margin-bottom:10px">Entrenas de forma <b>individual</b>, por tu cuenta y a la hora que quieras.</div>';
+    h += pm ? btns(['<button class="btn btn-p btn-sm" onclick="userPedirRutina()">📋 Quiero rutina</button>','<button class="btn btn-g btn-sm" onclick="userPorSesion()">🗓 Quiero sesiones dirigidas</button>']) : '<div style="font-size:11px;color:var(--gris)">Con un plan mensual puedes pedir rutina o sesiones dirigidas por un coach.</div>';
+  } else if (m === 'sin') {
+    h += '<div style="font-size:13px;line-height:1.6;margin-bottom:10px">Entrenas <b>por sesión</b>: tu coach dirige tus sesiones y lleva el control de tus medidas.</div>';
+    h += btns(['<button class="btn btn-p btn-sm" onclick="openDirigida()">✅ Registrar sesión dirigida</button>', pm ? '<button class="btn btn-g btn-sm" onclick="userPedirRutina()">📋 Quiero rutina</button>' : '<span style="font-size:11px;color:var(--gris);align-self:center">Con plan mensual puedes pedir rutina</span>']);
+  } else if (m === 'con') {
+    h += '<div style="font-size:13px;line-height:1.6;margin-bottom:8px">Tienes <b>rutina</b> con tu coach.'+(e === 'solicitada' ? ' Ya la pediste: tu coach te avisará la fecha en la que la tendrás.' : e === 'pendiente' || e === 'vencida' ? ' Tu nueva rutina estará a más tardar el <b>'+fDate(a.fecha)+'</b>.' : '')+'</div>';
+    h += '<button class="btn btn-g btn-sm" onclick="userNoRutina()">Prefiero entrenar por sesión</button>';
+  } else {
+    h += '<div style="font-size:13px;line-height:1.6;margin-bottom:8px">Tu coach aún no ha definido tu modalidad de entrenamiento.</div>' + (pm ? '<button class="btn btn-p btn-sm" onclick="userPedirRutina()">📋 Quiero rutina</button>' : '');
+  }
+  return h + '</div>';
+}
+// ── Acondicionamiento físico (usuarios nuevos) ──
+function acondNuevo(ini) { return { inicio:ini, fin:addDias(ini, ACOND_DIAS - 1), validado:false, creadoPor:CU.name }; }
+function openValidarAcond(uid) {
+  var u = userById(uid); if (!u || !u.acond) return;
+  var ov = document.getElementById('m_acond');
+  if (!ov) { ov = document.createElement('div'); ov.className = 'overlay'; ov.id = 'm_acond'; document.body.appendChild(ov); }
+  var ck = function(v, t, on){ return '<label style="display:flex;gap:8px;align-items:center;font-size:13px;margin-bottom:6px;cursor:pointer"><input type="checkbox" class="ac-op" value="'+v+'"'+(on?' checked':'')+' style="accent-color:var(--cyan);width:17px;height:17px"> '+t+'</label>'; };
+  ov.innerHTML = '<div class="modal" style="max-width:440px"><div class="modal-title"><span>🌱 VALIDAR ACONDICIONAMIENTO</span><button class="close-btn" onclick="closeModal(\'m_acond\')">×</button></div>'
+    + '<div style="font-size:13px;margin-bottom:10px"><b>'+esc(u.name)+'</b> · '+fDate(u.acond.inicio)+' → '+fDate(u.acond.fin)+'</div>'
+    + '<div style="font-size:12px;color:var(--gris);margin-bottom:6px">¿Qué puede escoger ahora en la app?</div>'
+    + ck('con','📋 Pedir rutina', true) + ck('sin','🗓 Entrenar por sesión', true) + ck('ind','🧍 Individual', false)
+    + '<div class="fg" style="margin-top:8px"><label>Comentario para '+(T.usuario==='usuaria'?'ella':'él')+'</label><textarea id="ac_nota" style="min-height:60px" placeholder="Ej: muy buen avance, ya está lista para su rutina"></textarea></div>'
+    + '<button class="btn btn-p btn-full" onclick="guardarAcond(\''+uid+'\')">✅ Validar</button></div>';
+  openModal('m_acond');
+}
+function guardarAcond(uid) {
+  var ops = []; document.querySelectorAll('#m_acond .ac-op').forEach(function(c){ if (c.checked) ops.push(c.value); });
+  if (!ops.length) { toast('Escoge al menos una opción'); return; }
+  var d = db(), x = d.users.filter(function(y){ return y.id === uid; })[0]; if (!x) return;
+  x.acond = Object.assign({}, x.acond, { validado:true, validadoPor:CU.name, validadoFecha:dateCOL(), opciones:ops, nota:document.getElementById('ac_nota').value.trim() });
+  saveAndSync('saveUser', x, function(){ closeModal('m_acond'); toast('✅ Acondicionamiento validado · '+x.name+' ya puede escoger en la app'); nav(curPage || 'dashboard'); });
 }
 function userNoRutina() {
   if (!confirm('¿Prefieres entrenar por sesión (sin rutina) por ahora? Tu coach seguirá dirigiendo tus sesiones y llevando tus medidas.')) return;
   cambiarModo(userById(CU.id) || CU, 'sin', 'usuario');
   toast('Listo, ahora entrenas por sesión');
   setTimeout(function(){ nav(curPage || 'miRutina'); }, 300);
-}
-function miPlanEntrenoHtml() {
-  var u = userById(CU.id) || CU, m = rutModo(u), a = agendaActual(u.id), e = agendaEstado(a);
-  var h = '<div class="card" style="padding:14px;margin-bottom:14px"><div class="card-title" style="padding:0 0 8px">🏋️ MI PLAN DE ENTRENAMIENTO</div>';
-  if (m === 'sin') {
-    h += '<div style="font-size:13px;line-height:1.6;margin-bottom:10px">Entrenas <b>por sesión</b>: tu coach dirige tus sesiones y lleva el control de tus medidas.</div>';
-    h += '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-p btn-sm" onclick="openDirigida()">✅ Registrar sesión dirigida</button>'
-      + (planMensual(u) ? '<button class="btn btn-g btn-sm" onclick="userPedirRutina()">📋 Quiero rutina</button>' : '<span style="font-size:11px;color:var(--gris);align-self:center">Con plan mensual puedes pedir rutina</span>') + '</div>';
-  } else if (m === 'con') {
-    h += '<div style="font-size:13px;line-height:1.6;margin-bottom:8px">Tienes <b>rutina</b> con tu coach.'+(e === 'solicitada' ? ' Ya la pediste: tu coach te avisará la fecha en la que la tendrás.' : e === 'pendiente' || e === 'vencida' ? ' Tu nueva rutina estará a más tardar el <b>'+fDate(a.fecha)+'</b>.' : '')+'</div>';
-    h += '<button class="btn btn-g btn-sm" onclick="userNoRutina()">Prefiero entrenar por sesión</button>';
-  } else {
-    h += '<div style="font-size:13px;line-height:1.6;margin-bottom:8px">Tu coach aún no ha definido si trabajarás con rutina.</div>'
-      + (planMensual(u) ? '<button class="btn btn-p btn-sm" onclick="userPedirRutina()">📋 Quiero rutina</button>' : '');
-  }
-  return h + '</div>';
 }
 
 // ── Sesión dirigida por el coach (usuarios sin rutina) ──
