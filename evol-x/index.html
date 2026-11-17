@@ -384,6 +384,7 @@ body.modal-open{overflow:hidden}
     <div id="li_status" style="font-size:11px;color:var(--gris);text-align:center;margin-top:10px;min-height:16px"></div>
     <div class="hr"></div>
     <div style="text-align:center;font-size:12px;color:var(--gris)">¿Primera vez? <span style="color:var(--cyan);cursor:pointer" onclick="showRegister()">Regístrate aquí</span></div>
+    <div style="text-align:center;font-size:11px;margin-top:12px"><span style="color:var(--gris);cursor:pointer;text-decoration:underline" onclick="openHabeas()">🔒 Política de tratamiento de datos personales (Habeas Data)</span></div>
   </div>
 </div>
 </div>
@@ -796,6 +797,8 @@ var BRANDS = {
     icono: '⚡',
     frase: 'Hasta el viaje más largo comienza con un solo paso',
     aceptoTexto: 'He leído y acepto la metodología de trabajo de evol-x GYM.',
+    // HABEAS DATA: datos del responsable que salen en la política de datos (completa NIT, dirección, correo y teléfono)
+    habeas: { responsable:'evol-x GYM', nit:'', direccion:'', ciudad:'', correo:'', telefono:'' },
     coachNombre: 'el coach',
     metodologia: [
       'Seguir los videos de ejecución. Dudas → video corto de máx 1 min al coach.',
@@ -844,6 +847,7 @@ var BRANDS = {
     icono: '🦋',
     frase: 'Hasta el viaje más largo comienza con un solo paso',
     aceptoTexto: 'He leído y acepto la metodología de trabajo de Ivonne Wellness Coach.',
+    habeas: { responsable:'Ivonne Wellness Coach', nit:'', direccion:'', ciudad:'', correo:'', telefono:'' },
     coachNombre: 'Ivonne',
     whatsapp: '573012834234',   // celular de Ivonne (+57 301 283 4234)
     metodologia: [
@@ -1549,6 +1553,7 @@ function obStep3() {
     '<div style="font-family:var(--font-head);font-weight:var(--head-w);font-size:20px;letter-spacing:3px;margin-bottom:10px">¡CASI LISTA!</div>' +
     '<div style="font-size:12px;color:var(--gris);line-height:1.8">Yo, <strong style="color:var(--blanco)">'+(CU.name||'_____')+'</strong>, confirmo que mis respuestas son verídicas y me comprometo a informar cualquier cambio en mi estado de salud.</div>' +
     '</div>' +
+    '<div style="display:flex;align-items:flex-start;gap:10px;padding:12px;background:rgba(var(--acc-rgb),0.06);border-radius:var(--r);margin-bottom:14px;text-align:left"><input type="checkbox" id="ob_habeas" style="margin-top:3px;accent-color:var(--cyan)"/><label for="ob_habeas" style="font-size:12px;color:var(--gris);cursor:pointer;line-height:1.6">'+habeasTextoAut()+'</label></div>' +
     '<div class="fg"><label>Firma (escribe tu nombre completo)</label><input type="text" id="ob_firma" value="'+(CU.name||'')+'" placeholder="Tu nombre completo"/></div>' +
     '<div class="fg"><label>Fecha</label><input type="date" id="ob_fecha_diag" value="'+dateCOL()+'"/></div>' +
     '<div style="display:flex;gap:10px;margin-top:16px"><button class="btn btn-g" onclick="obPrev()">← Atrás</button><button class="btn btn-gold btn-full" onclick="finishOb()">🎉 ¡Comenzar mi transformación!</button></div>';
@@ -1653,6 +1658,9 @@ function obPrev() { obStep = Math.max(obStep - 1, 0); renderOb(); }
 function finishOb() {
   var firma = (document.getElementById('ob_firma') || {}).value || '';
   if (!firma.trim()) { toast('Firma con tu nombre completo'); return; }
+  var hbx = document.getElementById('ob_habeas');
+  if (hbx && !hbx.checked) { toast('Debes autorizar el tratamiento de datos (Habeas Data) para continuar'); return; }
+  if (hbx) CU.habeas = habeasRegistro();
   var d = db();
   if (!CU.diagnostico) CU.diagnostico = {};
   CU.diagnostico.firma = firma.trim();
@@ -1674,6 +1682,51 @@ function finishOb() {
 // ═══════════════════════════════════════════════════════════
 var curPage = '';
 
+// ═══════════════════════════════════════════════════════════
+//  HABEAS DATA · Política de tratamiento de datos personales
+//  (Ley 1581 de 2012 y Decreto 1377 de 2013, compilado en el Decreto 1074 de 2015)
+//  Completa los datos del responsable en BRANDS → habeas.
+// ═══════════════════════════════════════════════════════════
+var HABEAS_VER = '2026-11-17';
+function habeasHtml() {
+  var hb = BRAND.habeas || {}, resp = hb.responsable || BRAND.nombre;
+  var ident = [hb.nit ? 'NIT/C.C. '+esc(hb.nit) : '', hb.direccion ? esc(hb.direccion) : '', hb.ciudad ? esc(hb.ciudad) : ''].filter(Boolean).join(' · ');
+  var cont = [hb.correo ? 'correo <b>'+esc(hb.correo)+'</b>' : '', hb.telefono ? 'teléfono/WhatsApp <b>'+esc(hb.telefono)+'</b>' : ''].filter(Boolean).join(' o ');
+  var H = function(t){ return '<div style="font-weight:800;color:var(--cyan);font-size:12px;letter-spacing:.5px;margin:14px 0 4px">'+t+'</div>'; };
+  return '<div style="font-size:12px;line-height:1.65;color:var(--blanco)">'
+    + '<div style="color:var(--gris);font-size:11px">Versión '+HABEAS_VER+'</div>'
+    + H('1. RESPONSABLE DEL TRATAMIENTO') + '<b>'+esc(resp)+'</b>'+(ident?' · '+ident:'')+'. Contacto para temas de datos personales: '+(cont || 'recepción del '+(BRAND.tipoApp==='gimnasio'?'gimnasio':'servicio')+' o el WhatsApp oficial')+'.'
+    + H('2. MARCO LEGAL') + 'Esta política se rige por el artículo 15 de la Constitución Política, la Ley 1581 de 2012, el Decreto 1377 de 2013 (compilado en el Decreto 1074 de 2015) y demás normas que las modifiquen.'
+    + H('3. DATOS QUE RECOLECTAMOS') + 'Identificación y contacto (nombre, usuario, teléfono, correo, fecha de nacimiento, género); datos del plan (membresía, pagos y asistencia); datos de entrenamiento (rutinas, cargas, sesiones, bienestar, actividades deportivas) y medidas corporales (peso, talla, perímetros, IMC y % de grasa).'
+    + H('4. DATOS SENSIBLES') + 'Algunos datos son <b>sensibles</b>: información de salud (condiciones médicas, lesiones, medicamentos, embarazo, valoración física y medidas corporales). Responder preguntas sobre datos sensibles es <b>facultativo</b>: no estás obligado/a a hacerlo. Se usan solo para diseñar un entrenamiento seguro y no se usan para otros fines.'
+    + H('5. FINALIDADES') + 'a) Prestar el servicio de entrenamiento y hacer seguimiento a tu progreso; b) diseñar y ajustar tus rutinas de forma segura; c) gestionar tu membresía, pagos, recordatorios de vencimiento y cobros; d) comunicarnos contigo por WhatsApp, llamada o correo sobre tu plan, rutinas, citas y novedades del servicio; e) cumplir obligaciones legales y contables; f) estadísticas internas sin identificarte.'
+    + H('6. MENORES DE EDAD') + 'Los datos de niños, niñas y adolescentes solo se tratan con autorización de su padre, madre o representante legal, respetando su interés superior y sus derechos fundamentales.'
+    + H('7. TUS DERECHOS') + 'Como titular puedes: conocer, actualizar y rectificar tus datos; solicitar prueba de la autorización; ser informado/a sobre el uso que se les ha dado; presentar quejas ante la Superintendencia de Industria y Comercio (SIC); revocar la autorización y/o pedir la supresión de tus datos cuando no exista un deber legal o contractual de conservarlos; y acceder gratuitamente a tus datos.'
+    + H('8. CÓMO EJERCER TUS DERECHOS') + '<b>Consultas:</b> se responden en máximo 10 días hábiles (prorrogables 5 días hábiles más, informándote el motivo). <b>Reclamos</b> (corrección, actualización, supresión o incumplimiento): se responden en máximo 15 días hábiles (prorrogables 8 días hábiles más). Escríbenos por los canales del punto 1 indicando tu nombre, documento, lo que solicitas y cómo contactarte.'
+    + H('9. ALMACENAMIENTO, ENCARGADOS Y SEGURIDAD') + 'La información se guarda en la aplicación y en servicios en la nube (Google Sheets / Google Drive), que actúan como encargados del tratamiento y pueden almacenar datos fuera de Colombia. Los mensajes se envían por WhatsApp. Solo acceden el personal autorizado (administración, recepción y coaches) según su rol, con usuario y contraseña. No vendemos ni cedemos tus datos a terceros para fines comerciales.'
+    + H('10. VIGENCIA') + 'Esta política rige desde su publicación. Tus datos se conservan mientras tengas relación con nosotros y durante el tiempo que exijan las normas contables o legales. Cualquier cambio sustancial se te informará y, si aplica, se pedirá una nueva autorización.'
+    + '</div>';
+}
+function habeasTextoAut() { return 'Autorizo de manera previa, expresa e informada a <b>'+esc((BRAND.habeas||{}).responsable || BRAND.nombre)+'</b> para tratar mis datos personales, incluidos mis <b>datos sensibles de salud y medidas corporales</b>, según la <a href="#" onclick="openHabeas();return false" style="color:var(--cyan)">Política de tratamiento de datos (Habeas Data)</a>. Sé que responder sobre datos sensibles es facultativo y que puedo consultar, corregir o pedir la supresión de mis datos.'; }
+function openHabeas(conAceptar) {
+  var ov = document.getElementById('m_habeas');
+  if (!ov) { ov = document.createElement('div'); ov.className = 'overlay'; ov.id = 'm_habeas'; ov.style.zIndex = '3000'; document.body.appendChild(ov); }
+  ov.innerHTML = '<div class="modal" style="max-width:620px"><div class="modal-title"><span>🔒 POLÍTICA DE TRATAMIENTO DE DATOS PERSONALES</span>'+(conAceptar?'':'<button class="close-btn" onclick="closeModal(\'m_habeas\')">×</button>')+'</div>'
+    + '<div style="max-height:'+(conAceptar?'46vh':'70vh')+';overflow-y:auto;padding-right:6px">'+habeasHtml()+'</div>'
+    + (conAceptar ? '<div style="display:flex;align-items:flex-start;gap:10px;padding:12px;margin-top:12px;background:rgba(var(--acc-rgb),0.06);border-radius:var(--r)"><input type="checkbox" id="hb_ok" style="margin-top:3px;accent-color:var(--cyan)"><label for="hb_ok" style="font-size:12px;color:var(--gris);line-height:1.6;cursor:pointer">'+habeasTextoAut()+'</label></div>'
+      + '<div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-g" onclick="closeModal(\'m_habeas\');logout()">Salir</button><button class="btn btn-p" style="flex:1" onclick="habeasAceptar()">✅ Acepto y continúo</button></div>' : '<button class="btn btn-g btn-full" style="margin-top:12px" onclick="closeModal(\'m_habeas\')">Cerrar</button>')
+    + '</div>';
+  openModal('m_habeas');
+}
+function habeasRegistro() { return { acepto:true, version:HABEAS_VER, fecha:dateCOL(), hora:horaCOL(), ua:(navigator.userAgent||'').slice(0,120) }; }
+function habeasAceptar() {
+  if (!document.getElementById('hb_ok').checked) { toast('Marca la casilla de autorización para continuar'); return; }
+  var u = JSON.parse(JSON.stringify(userById(CU.id) || CU)); u.habeas = habeasRegistro(); CU.habeas = u.habeas;
+  saveAndSync('saveUser', u, function(){});
+  closeModal('m_habeas'); toast('🔒 Autorización registrada. ¡Gracias!');
+}
+function habeasCheck() { if (CU && CU.id && !(CU.habeas && CU.habeas.acepto)) openHabeas(true); }
+
 function showApp() {
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('obScreen').classList.add('hidden');
@@ -1687,6 +1740,7 @@ function showApp() {
   buildSidebar();
   buildMobNav();
   nav(CU.role==='admin'||CU.role==='coach'||CU.role==='recepcion' ? 'dashboard' : 'miRutina');
+  setTimeout(habeasCheck, 400);
 }
 
 var COACH_MENU = [
@@ -5059,7 +5113,7 @@ function ultimoTurnoAntes(fecha, coachId) {
 }
 function saldoAhora(caja) {
   var hoja = turnoDe(dateCOL(), HOJA);
-  if (hoja && hoja.recibo && hoja.estado !== 'validado') return turnoTotales(CT && CT.id === hoja.id ? CT : hoja, ahoraTs()).cajas[caja].esperado;
+  if (hoja && hoja.recibo && hoja.estado !== 'validado') { var cx = turnoTotales(hojaNorm(JSON.parse(JSON.stringify(CT && CT.id === hoja.id ? CT : hoja))), ahoraTs()).cajas[caja]; return cx.real != null ? cx.real : cx.esperado; }
   var s = saldoSistema(dateCOL(), HOJA, ahoraTs()); return s ? s[caja] : 0;
 }
 var CT_KEEP = null;
@@ -5140,7 +5194,7 @@ function _turnoHtmlLegacyFn(ex) {
   var eds = Object.keys(CT.editores||{});
   var h = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px"><b>'+(hoja?'Hoja del '+fDate(CT.fecha):esc(CT.coachNombre||''))+'</b> '+(CT.estado==='validado'?'<span class="badge bk">✅ Validado · '+esc(CT.validadoPor||'')+'</span>':hoja?'<span class="badge bw">📝 Abierta</span>':estadoTurnoHtml(ex))
     + (ed?'<span id="hoja_st" style="font-size:11px;color:var(--gris)">'+(HOJA_ULT?'✅ Guardado '+HOJA_ULT:'Se guarda sola al escribir')+'</span>':'')
-    + (puedeRecepcion()?'<button class="btn btn-g btn-sm" style="margin-left:auto" onclick="openRetiro()">🏦 Retirar a banco</button>':'')+'</div>';
+    + (esRecepcion()?'<button class="btn btn-g btn-sm" style="margin-left:auto" onclick="openRetiro()">🏦 Retirar a banco</button>':'')+'</div>';
   if (eds.length) h += '<div style="font-size:11px;color:var(--gris);margin:-6px 0 12px">Han escrito en esta hoja: '+eds.map(function(n){ return esc(n)+' ('+esc(CT.editores[n])+')'; }).join(' · ')+'</div>';
   if (CT.estado === 'validado') h += '<div style="padding:10px 12px;border-radius:10px;background:rgba(80,200,120,0.08);border:1px solid rgba(80,200,120,0.4);font-size:12px;margin-bottom:12px">✅ Validado por <b>'+esc(CT.validadoPor||'')+'</b> el '+fDate(CT.validadoFecha||CT.fecha)+' a las '+esc(CT.validadoHora||'')+(CT.notaValidacion?' · '+esc(CT.notaValidacion):'')+(hoja && esRecepcion()?' <button class="btn btn-g btn-sm" style="margin-left:8px" onclick="reabrirHoja()">🔓 Reabrir</button>':'')+'</div>';
   if (!hoja) h += '<div style="padding:10px 12px;border-radius:10px;background:var(--s1);border:1px solid var(--brd);font-size:12px;margin-bottom:12px">Turno guardado con el formato anterior (solo lectura).</div>';
@@ -5205,9 +5259,32 @@ function hojaNorm(x) {
     (x.relevos||[]).forEach(function(r, i){ var k = r.hora+'|'+r.por+'|'+JSON.stringify(r.cajas||{}); if (vistos[k]) return; vistos[k] = 1; x.segs.push(segDeRecibo(r, 'segL'+i, 'relevo')); });
     if (x.relevos) { x.relevosAnteriores = x.relevos; delete x.relevos; }
   }
-  x.segs.forEach(function(s){ if (s.ventas) { delete s.ventas; delete s.ventasMeta; } });
+  if (x.segs.length && !x.ventasPorTurno) {   // reparte lo vendido antes entre los turnos (según la hora en que se escribió)
+    x.segs.forEach(function(s){ s.ventas = {}; });
+    Object.keys(x.ventas||{}).forEach(function(pid){ var m = (x.ventasMeta||{})[pid], idx = 0; if (m && m.hora) x.segs.forEach(function(s, i){ if ((s.hora||'') <= m.hora) idx = i; }); x.segs[idx].ventas[pid] = ventaQ(x.ventas[pid]); });
+    x.ventasPorTurno = true;
+  }
+  if (x.ventasPorTurno) { x.segs.forEach(function(s){ s.ventas = s.ventas || {}; }); hojaSumVentas(x); }
   if (x.segs.length) { var s0 = x.segs[0]; x.recibo = { hora:s0.hora, hs:s0.hs, fecha:s0.fecha, por:s0.por, cajas:s0.cajas, cajasSistema:s0.cajasSistema, sistema:s0.inv.sis, contado:s0.inv.con, diferencias:s0.inv.difs, descuadre:s0.descuadre, motivo:s0.motivo }; }
   return x;
+}
+function hojaSumVentas(x) { var v = {}; (x.segs||[]).forEach(function(s){ Object.keys(s.ventas||{}).forEach(function(pid){ var q = ventaQ(s.ventas[pid]), o = v[pid] || { ef:0, tr:0 }; o.ef += q.ef; o.tr += q.tr; v[pid] = o; }); }); Object.keys(v).forEach(function(pid){ if (!v[pid].ef && !v[pid].tr) delete v[pid]; }); x.ventas = v; return v; }
+// Lo que se suma o resta en el total del día queda en el turno actual (si se resta más de lo que tiene, sale de los turnos anteriores)
+function ventaDelta(x, pid, m, d) {
+  for (var i = x.segs.length - 1; i >= 0 && d !== 0; i--) {
+    var s = x.segs[i]; s.ventas = s.ventas || {}; var q = ventaQ(s.ventas[pid]);
+    if (d > 0) { q[m] += d; d = 0; } else { var t = Math.min(q[m], -d); q[m] -= t; d += t; }
+    if (q.ef || q.tr) s.ventas[pid] = q; else delete s.ventas[pid];
+  }
+}
+function segVentasTot(s) { var t = 0; Object.keys(s.ventas||{}).forEach(function(pid){ var pr = prodPorId(pid), q = ventaQ(s.ventas[pid]); t += (q.ef + q.tr) * (pr ? parseFloat(pr.precio)||0 : 0); }); return t; }
+function pagosDeSeg(x, i) {
+  var ids = (x.segs||[]).map(function(z){ return z.id; }), s = x.segs[i], nx = x.segs[i+1];
+  var ini = i === 0 ? tsDe(x.fecha, '00:00') : tsDe(s.fecha||x.fecha, s.hs||s.hora), fin = nx ? tsDe(nx.fecha||x.fecha, nx.hs||nx.hora) : tsDe(x.fecha, '23:59:59');
+  return pagosTurno(x.fecha, HOJA).filter(function(p){
+    if (p.turnoSeg && ids.indexOf(p.turnoSeg) >= 0) return p.turnoSeg === s.id;
+    var ts = tsDe(p.fecha, p.hs || p.hora || '00:00'); return i === 0 ? ts <= fin : (ts > ini && ts <= fin);
+  });
 }
 function segIdx(id) { var r = -1; (CT.segs||[]).forEach(function(s, i){ if (s.id === id) r = i; }); return r; }
 function turnoTotales(c, hasta) {
@@ -5234,7 +5311,21 @@ function hojaGuardarYa(cb, extra) {
   var segX = function(id){ return x.segs.filter(function(s){ return s.id === id; })[0]; }, segC = function(id){ return (CT.segs||[]).filter(function(s){ return s.id === id; })[0]; };
   Object.keys(dirty).forEach(function(k){
     var p = k.split(':');
-    if (p[0] === 'v') { var q = ventaQ(CT.ventas[p[1]]), pr = prodPorId(p[1]); if (q.ef || q.tr) x.ventas[p[1]] = q; else delete x.ventas[p[1]]; x.ventasMeta[p[1]] = { por:CU.name, hora:hora }; cambios.push((pr?pr.nombre:p[1])+' '+(q.ef||0)+' ef / '+(q.tr||0)+' tr'); }
+    if (p[0] === 'v') { var q = ventaQ(CT.ventas[p[1]]), pr = prodPorId(p[1]);
+      if (x.segs.length) { x.ventasPorTurno = true; hojaSumVentas(x); var vj = ventaQ(x.ventas[p[1]]); ventaDelta(x, p[1], 'ef', q.ef - vj.ef); ventaDelta(x, p[1], 'tr', q.tr - vj.tr); hojaSumVentas(x); }
+      else { if (q.ef || q.tr) x.ventas[p[1]] = q; else delete x.ventas[p[1]]; }
+      x.ventasMeta[p[1]] = { por:CU.name, hora:hora }; cambios.push((pr?pr.nombre:p[1])+' total del día '+(q.ef||0)+' ef / '+(q.tr||0)+' tr'); }
+    else if (p[0] === 'tv') { var sv = segX(p[1]), scv = segC(p[1]); if (!sv || !scv) return; var qn = ventaQ((scv.ventas||{})[p[2]]), prv = prodPorId(p[2]);
+      sv.ventas = sv.ventas || {}; if (qn.ef || qn.tr) sv.ventas[p[2]] = qn; else delete sv.ventas[p[2]]; x.ventasPorTurno = true; hojaSumVentas(x);
+      cambios.push('✏️ corrigió ventas del turno '+(x.segs.indexOf(sv)+1)+': '+(prv?prv.nombre:p[2])+' '+qn.ef+' ef / '+qn.tr+' tr'); }
+    else if (p[0] === 'si' || p[0] === 'ei') { var sI = segX(p[1]), cI = segC(p[1]); if (!sI || !cI) return;
+      var dI = p[0] === 'si' ? sI : sI.entrega, oI = p[0] === 'si' ? cI : cI.entrega; if (!dI || !oI || !oI.inv) return;
+      dI.inv = dI.inv || { sis:{}, con:{}, difs:{} }; var antes = parseFloat((dI.inv.con||{})[p[2]]), nuevo = parseFloat(oI.inv.con[p[2]]);
+      if (isNaN(nuevo) || antes === nuevo) return;
+      dI.inv.con[p[2]] = nuevo; var sisI = parseFloat((dI.inv.sis||{})[p[2]]); if (!isNaN(sisI)) { if (nuevo !== sisI) dI.inv.difs[p[2]] = nuevo - sisI; else delete dI.inv.difs[p[2]]; }
+      dI.corregido = { por:CU.name, hora:hora }; var prI = prodPorId(p[2]);
+      (x._invAdj = x._invAdj || []).push({ pid:p[2], cant:nuevo - (isNaN(antes) ? (isNaN(sisI) ? nuevo : sisI) : antes) });
+      cambios.push('✏️ corrigió el inventario '+(p[0]==='si'?'recibido':'entregado')+' en el turno '+(x.segs.indexOf(sI)+1)+': '+(prI?prI.nombre:p[2])+' '+nuevo); }
     else if (p[0] === 'sc' || p[0] === 'se') {
       var sx = segX(p[1]), sc = segC(p[1]); if (!sx || !sc) return;
       var dst = p[0] === 'sc' ? sx : sx.entrega, src = p[0] === 'sc' ? sc : sc.entrega; if (!dst || !src) return;
@@ -5251,9 +5342,10 @@ function hojaGuardarYa(cb, extra) {
   x.editores[CU.name] = hora; x.version = 6; x.actualizado = new Date().toISOString(); x.actualizadoPor = CU.name;
   var tt = turnoTotales(x); x.totales = { T:tt.T, C:tt.C, CM:tt.CM, S:tt.S, pagos:tt.pagos, efectivo:tt.efectivo, transf:tt.transfTotal, bold:tt.boldTotal, ventas:tt.ventas, fiado:tt.fiado, dif:tt.dif };
   var marcar = (!cur && x.fusionados) ? x.fusionados.map(function(id){ var o = gymRecs('cierre').filter(function(c){ return c.id === id; })[0]; if (!o) return null; o = JSON.parse(JSON.stringify(o)); o.fusionado = x.id; return o; }).filter(Boolean) : [];
+  var adj = (x._invAdj || []).filter(function(a){ return a.cant; }).map(function(a){ return { id:gid('inv_'), tipo:'invmov', userId:'__gym', pid:a.pid, clase:'recibo', ubic:'stock', cant:a.cant, nota:'Corrección de conteo en la hoja del '+x.fecha, fecha:dateCOL(), hora:hora, hs:horaSeg(), por:CU.name }; }); delete x._invAdj;
   CT = JSON.parse(JSON.stringify(x)); HOJA_ULT = hora;
   var st = document.getElementById('hoja_st'); if (st) st.innerHTML = '✅ Guardado '+hora;
-  var todo = [x].concat(marcar), faltan = todo.length;
+  var todo = [x].concat(marcar).concat(adj), faltan = todo.length;
   todo.forEach(function(o){ saveAndSync('saveLog', o, function(){ if (--faltan === 0 && cb) cb(); }); });
 }
 // ── Conteo de cajas e inventario (al recibir y al cerrar) ──
@@ -5318,7 +5410,8 @@ function guardarConteo(modo, btn) {
       }
       if (modo === 'apertura' && x.segs.length) return;
       if (u && u.por === cn.por && JSON.stringify(u.cajas) === JSON.stringify(cn.cajas) && (Date.now() - new Date(x.fecha+'T'+(u.hs||'00:00')).getTime()) < 180000) return;   // doble clic
-      var seg = Object.assign({ id:gid('seg_'), tipo:x.segs.length ? 'relevo' : 'apertura' }, cn);
+      var seg = Object.assign({ id:gid('seg_'), tipo:x.segs.length ? 'relevo' : 'apertura', ventas:{} }, cn);
+      if (!x.segs.length) { seg.ventas = JSON.parse(JSON.stringify(x.ventas || {})); x.ventasPorTurno = true; }
       if (u && !u.entrega) { u.entrega = Object.assign({}, cn, { porRecibio:true }); }
       x.segs.push(seg);
       CAJAS.forEach(function(k){ x.contado[k[0]] = cn.cajas[k[0]]; });
@@ -5345,13 +5438,71 @@ function chipsConteo(c, editar, segId, tipo) {
   return '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">'+CAJAS.map(function(k){ var dd = d[k[0]];
     return '<span class="chip">'+k[1]+': '+(editar ? '<input class="ct-in ct-'+(tipo==='rec'?'sc':'se')+'" data-seg="'+segId+'" data-k="'+k[0]+'" inputmode="numeric" value="'+dinero((c.cajas||{})[k[0]])+'" style="'+inS+'">' : '<b>'+pesos((c.cajas||{})[k[0]])+'</b>')
       +(c.cajasSistema && c.cajasSistema[k[0]] != null ? ' <span style="color:'+(dd != null && Math.abs(dd) >= 1 ? '#ff8080' : 'var(--gris)')+'">'+(dd != null && Math.abs(dd) >= 1 ? '('+(dd>0?'+':'')+pesos(dd)+')' : '✓')+'</span>' : '')+'</span>'; }).join('')+'</div>'
+    + (editar && c.inv && c.inv.con && Object.keys(c.inv.con).length ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'+prodsActivos().filter(function(p){ return c.inv.con[p.id] != null; }).map(function(p){ return '<span class="chip">📦 '+esc(p.nombre)+': <input class="ct-in ct-'+(tipo==='rec'?'si':'ei')+'" data-seg="'+segId+'" data-pid="'+p.id+'" inputmode="numeric" value="'+c.inv.con[p.id]+'" style="width:52px;padding:3px 5px;background:var(--s1);border:1px solid var(--brd);border-radius:6px;color:var(--blanco);font-size:12px"></span>'; }).join('')+'</div>' : '')
     + (c.inv && c.inv.difs && Object.keys(c.inv.difs).length ? '<div style="font-size:11px;margin-top:4px;color:#ff8080">📦 '+Object.keys(c.inv.difs).map(function(pid){ var p = prodPorId(pid), v = c.inv.difs[pid]; return esc(p?p.nombre:pid)+' '+(v<0?'falta '+(-v):'sobra '+v)+(c.inv.sis&&c.inv.sis[pid]!=null?' (sistema '+c.inv.sis[pid]+', hay '+c.inv.con[pid]+')':''); }).join(' · ')+'</div>' : '')
     + (c.descuadre && c.motivo ? '<div style="font-size:11px;color:var(--gris);margin-top:2px">Motivo: '+esc(c.motivo)+'</div>' : '')
     + (c.corregido ? '<div style="font-size:10px;color:var(--cyan);margin-top:2px">✏️ corregido por '+esc(c.corregido.por)+' '+esc(c.corregido.hora)+'</div>' : '');
 }
+function segDetalleHtml(s, i, edit) {
+  var ps = pagosDeSeg(CT, i), totP = ps.reduce(function(a, p){ return a + (parseFloat(p.valor)||0); }, 0), nVal = ps.filter(function(p){ return p.validadoTurno; }).length;
+  var h = '<details style="margin-top:8px"'+(CT_EDIT?' open':'')+'><summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--cyan)">👥 Pagos del turno: '+ps.length+' · '+pesos(totP)+(ps.length?' · '+nVal+'/'+ps.length+' validados':'')+'</summary><div style="margin-top:6px">';
+  if (!ps.length) h += '<div style="font-size:12px;color:var(--gris)">Sin pagos en este turno.</div>';
+  ps.forEach(function(p){
+    h += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 8px;border-radius:8px;background:rgba(0,0,0,.18);margin-bottom:4px;font-size:12px"><div style="flex:1;min-width:150px"><b>'+esc((p.nombres||[]).join(' + '))+'</b> · '+esc(p.plan)+' · '+esc(p.hora||'')+(p.porNombre?' · ✎ '+esc(String(p.porNombre).split(' ')[0]):'')+(p.ediciones&&p.ediciones.length?' <span style="color:var(--cyan)">(editado)</span>':'')+'</div><b>'+pesos(p.valor)+'</b> <span style="color:'+(p.medio==='Efectivo'?'#80d4a0':'var(--cyan)')+'">'+esc(p.medio)+'</span>'
+      + (p.validadoTurno ? ' <span class="badge bk" title="'+esc(p.validadoTurno.por+' '+p.validadoTurno.hora)+'">✓ validado</span>' : '')
+      + (edit ? ' <button class="btn btn-g btn-sm" onclick="openEditPagoTurno(\''+p.id+'\')">✏️</button><button class="btn btn-'+(p.validadoTurno?'g':'p')+' btn-sm" onclick="validarPagoTurno(\''+p.id+'\')">'+(p.validadoTurno?'↩':'✓')+'</button>' : '') + '</div>';
+  });
+  h += '</div></details>';
+  var vs = Object.keys(s.ventas||{});
+  h += '<details style="margin-top:6px"'+(CT_EDIT?' open':'')+'><summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--cyan)">🛒 Ventas del turno: '+pesos(segVentasTot(s))+'</summary><div style="margin-top:6px">';
+  if (CT_EDIT && edit) {
+    h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px">'+prodsActivos().map(function(p){ var q = ventaQ((s.ventas||{})[p.id]); return '<div style="font-size:11px"><b>'+esc(p.nombre)+'</b><div style="display:flex;gap:3px"><input class="ct-in ct-tv" data-seg="'+s.id+'" data-pid="'+p.id+'" data-m="ef" inputmode="numeric" placeholder="Ef." value="'+(q.ef||'')+'" style="width:50%;padding:4px;background:var(--s1);border:1px solid var(--brd);border-radius:6px;color:var(--blanco)"><input class="ct-in ct-tv" data-seg="'+s.id+'" data-pid="'+p.id+'" data-m="tr" inputmode="numeric" placeholder="Tr." value="'+(q.tr||'')+'" style="width:50%;padding:4px;background:var(--s1);border:1px solid var(--brd);border-radius:6px;color:var(--blanco)"></div></div>'; }).join('')+'</div>';
+  } else h += vs.length ? vs.map(function(pid){ var pr = prodPorId(pid), q = ventaQ(s.ventas[pid]); return '<span class="chip" style="margin:0 4px 4px 0">'+esc(pr?pr.nombre:pid)+': '+(q.ef?q.ef+' ef':'')+(q.ef&&q.tr?' · ':'')+(q.tr?q.tr+' tr':'')+' = '+pesos((q.ef+q.tr)*(pr?parseFloat(pr.precio)||0:0))+'</span>'; }).join('') : '<div style="font-size:12px;color:var(--gris)">Sin ventas en este turno.</div>';
+  h += '</div></details>';
+  if (s.validado) h += '<div style="font-size:11px;margin-top:6px;color:#80d4a0">✅ Turno validado por '+esc(s.validado.por)+' a las '+esc(s.validado.hora)+(edit?' <button class="btn btn-g btn-sm" onclick="segValidar(\''+s.id+'\')">↩ Quitar</button>':'')+'</div>';
+  else if (edit) h += '<button class="btn btn-p btn-sm" style="margin-top:8px" onclick="segValidar(\''+s.id+'\')">✅ Validar este turno</button>';
+  return h;
+}
+function segValidar(id) {
+  if (!esEditorTotal()) return;
+  hojaGuardarYa(function(){ pgCierre(CT.fecha, '', 'turno'); }, function(x){ var s = x.segs.filter(function(z){ return z.id === id; })[0]; if (!s) return;
+    if (s.validado) { delete s.validado; x.historial.push({ por:CU.name, hora:horaCOL(), txt:'↩ quitó la validación del turno '+(x.segs.indexOf(s)+1) }); }
+    else { s.validado = { por:CU.name, hora:horaCOL() }; x.historial.push({ por:CU.name, hora:horaCOL(), txt:'✅ validó el turno '+(x.segs.indexOf(s)+1)+' ('+s.por+')' }); } });
+}
+function validarPagoTurno(id) {
+  if (!esEditorTotal()) return;
+  var p = gymRecs('pago').filter(function(x){ return x.id === id; })[0]; if (!p) return;
+  var x = JSON.parse(JSON.stringify(p)); if (x.validadoTurno) delete x.validadoTurno; else x.validadoTurno = { por:CU.name, hora:horaCOL() };
+  saveAndSync('saveLog', x, function(){ pgCierre(CT.fecha, '', 'turno'); });
+}
+function openEditPagoTurno(id) {
+  if (!esEditorTotal()) return;
+  var p = gymRecs('pago').filter(function(x){ return x.id === id; })[0]; if (!p) return;
+  var ov = document.getElementById('m_editpago');
+  if (!ov) { ov = document.createElement('div'); ov.className = 'overlay'; ov.id = 'm_editpago'; ov.style.zIndex = '2100'; document.body.appendChild(ov); }
+  var cur = (function(){ var r = ''; CT.segs.forEach(function(s, i){ if (pagosDeSeg(CT, i).some(function(z){ return z.id === id; })) r = s.id; }); return r; })();
+  ov.innerHTML = '<div class="modal" style="max-width:420px"><div class="modal-title"><span>✏️ CORREGIR PAGO</span><button class="close-btn" onclick="closeModal(\'m_editpago\')">×</button></div>'
+    + '<div style="font-size:13px;margin-bottom:10px"><b>'+esc((p.nombres||[]).join(' + '))+'</b> · '+esc(p.plan)+'</div>'
+    + '<div class="fr"><div class="fg"><label>Valor</label><input id="ep_val" inputmode="numeric" value="'+(parseFloat(p.valor)||0)+'"></div><div class="fg"><label>Medio</label><select id="ep_medio">'+MEDIOS_PAGO.map(function(m){ return '<option'+(m===p.medio?' selected':'')+'>'+m+'</option>'; }).join('')+'</select></div></div>'
+    + '<div class="fg"><label>Turno al que pertenece</label><select id="ep_seg">'+CT.segs.map(function(s, i){ return '<option value="'+s.id+'"'+(s.id===cur?' selected':'')+'>Turno '+(i+1)+' · '+esc(s.por)+' ('+esc(s.hora)+')</option>'; }).join('')+'</select></div>'
+    + '<div class="fg"><label>Nota</label><input id="ep_nota" value="'+esc(p.nota||'')+'"></div>'
+    + '<div style="font-size:11px;color:var(--gris);margin-bottom:10px">Para cambiar la persona o el plan, anula el pago y regístralo de nuevo.</div>'
+    + '<button class="btn btn-p btn-full" onclick="guardarEditPagoTurno(\''+id+'\')">💾 Guardar corrección</button></div>';
+  openModal('m_editpago');
+}
+function guardarEditPagoTurno(id) {
+  var p = gymRecs('pago').filter(function(x){ return x.id === id; })[0]; if (!p) return;
+  var x = JSON.parse(JSON.stringify(p)), v = dinero(document.getElementById('ep_val').value), m = document.getElementById('ep_medio').value, sg = document.getElementById('ep_seg').value, nt = document.getElementById('ep_nota').value.trim();
+  if (!v) { toast('Escribe el valor'); return; }
+  x.ediciones = (x.ediciones||[]).concat([{ por:CU.name, hora:horaCOL(), fecha:dateCOL(), antes:{ valor:p.valor, medio:p.medio, turnoSeg:p.turnoSeg||'' } }]);
+  x.valor = v; x.medio = m; x.turnoSeg = sg; x.nota = nt;
+  saveAndSync('saveLog', x, function(){
+    hojaGuardarYa(function(){ closeModal('m_editpago'); toast('✅ Pago corregido'); pgCierre(CT.fecha, '', 'turno'); }, function(h){ h.historial.push({ por:CU.name, hora:horaCOL(), txt:'✏️ corrigió el pago de '+(p.nombres||[]).join(' + ')+': '+pesos(p.valor)+' '+p.medio+' → '+pesos(v)+' '+m }); });
+  });
+}
 function hojaTurnosHtml() {
   var ed = turnoEditable() && CT.estado !== 'validado', edit = esEditorTotal() && turnoEditable(), inS = 'width:100%;padding:7px;background:var(--s1);border:1px solid var(--brd);border-radius:8px;color:var(--blanco);font-size:13px;box-sizing:border-box';
-  var h = '<div class="card" style="padding:14px;margin-bottom:12px;border-color:var(--cyan)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><div class="card-title" style="padding:0">📦 TURNOS: RECIBIR Y CERRAR</div>'+(edit && CT.segs.length?'<button class="btn btn-g btn-sm" onclick="CT_EDIT=CT_EDIT?null:1;pgCierre(CT.fecha,\'\',\'turno\')">'+(CT_EDIT?'✔ Terminar corrección':'✏️ Corregir conteos')+'</button>':'')+'</div>';
+  var h = '<div class="card" style="padding:14px;margin-bottom:12px;border-color:var(--cyan)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><div class="card-title" style="padding:0">📦 TURNOS: RECIBIR Y CERRAR</div>'+(edit && CT.segs.length?'<button class="btn btn-g btn-sm" onclick="CT_EDIT=CT_EDIT?null:1;pgCierre(CT.fecha,\'\',\'turno\')">'+(CT_EDIT?'✔ Terminar corrección':'✏️ Corregir turnos')+'</button>':'')+'</div>';
   h += '<div style="font-size:11px;color:var(--gris);margin:4px 0 10px;line-height:1.5">Las cajas son acumuladas del día: el sistema suma la apertura + todo lo cobrado en efectivo − retiros a banco. Cada persona cuenta al <b>recibir</b> y al <b>cerrar</b> su turno; si no cuadra queda anotado y se ve en qué turno pasó.</div>';
   if (!CT.segs.length) {
     if (!ed) return h + '<div style="font-size:12px;color:var(--gris)">Aún no se ha abierto el día.</div></div>';
@@ -5372,6 +5523,7 @@ function hojaTurnosHtml() {
       + '<div style="font-size:11px;font-weight:700;margin-top:8px">📤 '+(e ? (e.porRecibio ? 'Entregó (contado por '+esc(e.por)+' al recibir)' : 'Cerró su turno'+(e.por !== s.por ? ' (contó '+esc(e.por)+')' : '')) : 'Cierre del turno')+'</div>'
       + (e ? chipsConteo(e, CT_EDIT && edit && eReal, s.id, 'ent') : '<div style="font-size:12px;color:var(--gris)">Aún no ha cerrado su turno.</div>')
       + (calc ? '<div style="font-size:12px;margin-top:6px;font-weight:700;color:'+(nuevo.length?'#ff8080':'#80d4a0')+'">'+(nuevo.length ? '⚠️ Descuadre que apareció en este turno: '+nuevo.map(function(z){ return z.k[1]+' '+(z.v>0?'+':'')+pesos(z.v); }).join(' · ') : '✅ Este turno no generó descuadre en caja')+'</div>' : '')
+      + segDetalleHtml(s, i, edit)
       + '</div>';
   });
   var u = CT.segs[CT.segs.length-1];
@@ -5385,10 +5537,10 @@ function turnoHtml(ex) {
   var eds = Object.keys(CT.editores||{});
   var h = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px"><b>Hoja del '+fDate(CT.fecha)+'</b> '+(CT.estado==='validado'?'<span class="badge bk">✅ Validado · '+esc(CT.validadoPor||'')+'</span>':'<span class="badge bw">📝 Abierta</span>')
     + (ed?'<span id="hoja_st" style="font-size:11px;color:var(--gris)">'+(HOJA_ULT?'✅ Guardado '+HOJA_ULT:'Se guarda sola al escribir')+'</span>':'')
-    + (puedeRecepcion()?'<button class="btn btn-g btn-sm" style="margin-left:auto" onclick="openRetiro()">🏦 Retirar a banco</button>':'')+'</div>';
+    + (esRecepcion()?'<button class="btn btn-g btn-sm" style="margin-left:auto" onclick="openRetiro()">🏦 Retirar a banco</button>':'')+'</div>';
   if (eds.length) h += '<div style="font-size:11px;color:var(--gris);margin:-6px 0 12px">Han escrito en esta hoja: '+eds.map(function(n){ return esc(n)+' ('+esc(CT.editores[n])+')'; }).join(' · ')+'</div>';
   if (CT.estado === 'validado') h += '<div style="padding:10px 12px;border-radius:10px;background:rgba(80,200,120,0.08);border:1px solid rgba(80,200,120,0.4);font-size:12px;margin-bottom:12px">✅ Validado por <b>'+esc(CT.validadoPor||'')+'</b> el '+fDate(CT.validadoFecha||CT.fecha)+' a las '+esc(CT.validadoHora||'')+(CT.notaValidacion?' · '+esc(CT.notaValidacion):'')+(esEditorTotal()?' <button class="btn btn-g btn-sm" style="margin-left:8px" onclick="reabrirHoja()">🔓 Reabrir</button>':'')+'</div>';
-  else if (esEditorTotal()) h += '<div style="padding:8px 12px;border-radius:10px;background:rgba(var(--acc-rgb),0.07);border:1px solid rgba(var(--acc-rgb),0.35);font-size:12px;margin-bottom:12px">🛎️ Como '+(esRecepcion()?'recepción':'administrador')+' puedes corregir todo antes de validar: ventas, pagos, conteos de cada turno (botón ✏️ Corregir conteos) y eliminar turnos repetidos. Para ajustar el inventario usa Recepción → 📦 Inventario. Todo queda en el historial.</div>';
+  else if (esEditorTotal()) h += '<div style="padding:8px 12px;border-radius:10px;background:rgba(var(--acc-rgb),0.07);border:1px solid rgba(var(--acc-rgb),0.35);font-size:12px;margin-bottom:12px">🛎️ Como '+(esRecepcion()?'recepción':'administrador')+' puedes corregir todo antes de validar: ventas, pagos, pagos, ventas, cajas e inventario de cada turno (botón ✏️ Corregir turnos), validar cada turno y eliminar turnos repetidos. Para ajustar el inventario usa Recepción → 📦 Inventario. Todo queda en el historial.</div>';
   h += hojaTurnosHtml();
   var ps = pagosTurno(CT.fecha, HOJA);
   h += '<div class="card" style="padding:14px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><div class="card-title" style="padding:0">👥 PAGOS DE '+T.Usuarios.toUpperCase()+' DEL DÍA</div>'+(ed?'<button class="btn btn-p btn-sm" onclick="openPago(\'\',\''+CT.fecha+'\')">+ Registrar pago</button>':'')+'</div>';
@@ -5427,10 +5579,15 @@ function turnoLeer(ev) {
   var v = {};
   document.querySelectorAll('#main .ct-v').forEach(function(el){ var pid = el.getAttribute('data-pid'), m = el.getAttribute('data-m'), n = parseFloat(el.value)||0; if (!n) return; v[pid] = v[pid] || { ef:0, tr:0 }; v[pid][m] = n; });
   if (document.querySelector('#main .ct-v')) CT.ventas = v;
+  document.querySelectorAll('#main .ct-tv').forEach(function(el){ var s = CT.segs.filter(function(z){ return z.id === el.getAttribute('data-seg'); })[0]; if (!s) return; s.ventas = s.ventas || {}; var pid = el.getAttribute('data-pid'), q = ventaQ(s.ventas[pid]); q[el.getAttribute('data-m')] = parseFloat(el.value)||0; if (q.ef || q.tr) s.ventas[pid] = q; else delete s.ventas[pid]; });
+  document.querySelectorAll('#main .ct-si, #main .ct-ei').forEach(function(el){ if (el.value.trim() === '') return; var s = CT.segs.filter(function(z){ return z.id === el.getAttribute('data-seg'); })[0]; if (!s) return; var c = el.classList.contains('ct-si') ? s : s.entrega; if (c && c.inv) c.inv.con[el.getAttribute('data-pid')] = parseFloat(el.value)||0; });
   document.querySelectorAll('#main .ct-sc, #main .ct-se').forEach(function(el){ var s = CT.segs.filter(function(z){ return z.id === el.getAttribute('data-seg'); })[0]; if (!s) return; var dst = el.classList.contains('ct-sc') ? s : s.entrega; if (dst) dst.cajas[el.getAttribute('data-k')] = dinero(el.value); });
   var ob = document.getElementById('ct_obs'); if (ob) CT.obs = ob.value;
   if (tg && turnoEditable()) {
     if (tg.classList.contains('ct-v')) hojaMarcar('v:'+tg.getAttribute('data-pid'));
+    else if (tg.classList.contains('ct-tv')) hojaMarcar('tv:'+tg.getAttribute('data-seg')+':'+tg.getAttribute('data-pid'));
+    else if (tg.classList.contains('ct-si') && tg.value.trim() !== '') hojaMarcar('si:'+tg.getAttribute('data-seg')+':'+tg.getAttribute('data-pid'));
+    else if (tg.classList.contains('ct-ei') && tg.value.trim() !== '') hojaMarcar('ei:'+tg.getAttribute('data-seg')+':'+tg.getAttribute('data-pid'));
     else if (tg.classList.contains('ct-sc')) hojaMarcar('sc:'+tg.getAttribute('data-seg')+':'+tg.getAttribute('data-k'));
     else if (tg.classList.contains('ct-se')) hojaMarcar('se:'+tg.getAttribute('data-seg')+':'+tg.getAttribute('data-k'));
     else if (tg.id === 'ct_obs') hojaMarcar('obs');
@@ -5445,6 +5602,8 @@ function validarHoja() {
   if (enHoja) turnoLeer();
   var _u = (CT.segs||[])[CT.segs ? CT.segs.length-1 : 0];
   if (CT.segs && (!_u || !_u.entrega) && !confirm('El último turno'+(_u?' ('+_u.por+')':'')+' no se ha cerrado (no se contaron las cajas al final). ¿Validar de todas formas?')) return;
+  var sinVal = (CT.segs||[]).filter(function(z){ return !z.validado; });
+  if (sinVal.length && !confirm('Hay '+sinVal.length+' turno'+(sinVal.length===1?'':'s')+' sin validar ('+sinVal.map(function(z){ return z.por+' '+z.hora; }).join(', ')+'). ¿Validar el día de todas formas?')) return;
   var nota = ((document.getElementById('ct_nota_val')||document.getElementById('cd_nota')||{}).value||'').trim();
   if (enHoja) HOJA_DIRTY.obs = 1;
   hojaGuardarYa(function(){
@@ -5578,8 +5737,18 @@ function saldoSistema(fecha, coachId, hasta) {
   CAJAS.forEach(function(k){ var c = t.cajas[k[0]]; out[k[0]] = (c.contado != null ? c.contado : c.esperado) - retirosEntre(turnoFin(p), hasta || ahoraTs(), k[0]).reduce(function(a, r){ return a + (parseFloat(r.valor)||0); }, 0); });
   return out;
 }
+// El retiro a banco lo hace SOLO recepción y al final del día: con el último turno ya cerrado (cajas contadas)
+function retiroPermitido() {
+  if (!esRecepcion()) return 'Solo recepción puede retirar a banco';
+  var hj = turnoDe(dateCOL(), HOJA); if (hj) hojaNorm(hj = JSON.parse(JSON.stringify(hj)));
+  if (!hj || !hj.segs || !hj.segs.length) return 'Primero se abre el día (Recibir turno)';
+  if (hj.estado === 'validado') return '';
+  var u = hj.segs[hj.segs.length-1];
+  if (!u.entrega) return 'El retiro a banco se hace al finalizar el día: primero cierra el último turno ('+u.por+') contando las cajas en «🔚 Cerrar turno».';
+  return '';
+}
 function openRetiro() {
-  if (!puedeRecepcion()) return;
+  var no = retiroPermitido(); if (no) { alert('🏦 '+no); return; }
   var ov = document.getElementById('m_retiro');
   if (!ov) { ov = document.createElement('div'); ov.className = 'overlay'; ov.id = 'm_retiro'; document.body.appendChild(ov); }
   ov.innerHTML = '<div class="modal" style="max-width:420px"><div class="modal-title"><span>🏦 RETIRAR A BANCO</span><button class="close-btn" onclick="closeModal(\'m_retiro\')">×</button></div>'
@@ -5597,6 +5766,7 @@ function retiroPrev() {
   document.getElementById('rt_queda').innerHTML = v ? 'Queda de base en la caja: <span style="color:var(--cyan)">' + pesos(s - v) + '</span>' : '';
 }
 function guardarRetiro() {
+  var no = retiroPermitido(); if (no) { alert('🏦 '+no); return; }
   var c = document.getElementById('rt_caja').value, v = dinero(document.getElementById('rt_val').value); if (!v) { toast('Escribe el valor'); return; }
   var s = saldoAhora(c);
   var num = gymRecs('retiro').reduce(function(a, x){ return Math.max(a, x.num||0); }, 0) + 1;
@@ -5737,7 +5907,7 @@ function retirosHistHtml() {
 }
 function cajasDiaHtml(fecha, ts) {
   var v3 = ts.filter(function(c){ return c.version >= 2; }).sort(function(a,b){ return turnoFin(a).localeCompare(turnoFin(b)); });
-  var h = '<div class="card" style="padding:14px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><div class="card-title" style="padding:0">💵 CAJAS DEL DÍA</div>'+(puedeRecepcion()?'<button class="btn btn-g btn-sm" onclick="openRetiro()">🏦 Retirar a banco</button>':'')+'</div>';
+  var h = '<div class="card" style="padding:14px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><div class="card-title" style="padding:0">💵 CAJAS DEL DÍA</div>'+(esRecepcion()?'<button class="btn btn-g btn-sm" onclick="openRetiro()">🏦 Retirar a banco</button>':'')+'</div>';
   if (v3.length) {
     h += '<div style="overflow-x:auto"><table style="min-width:480px;font-size:12px"><thead><tr><th>Turno</th>'+CAJAS.map(function(k){ return '<th>'+k[1]+'</th>'; }).join('')+'</tr></thead><tbody>';
     v3.forEach(function(c){ var t = turnoTotales(c); h += '<tr><td><b>'+esc(c.coachNombre||'')+'</b></td>'+CAJAS.map(function(k){ var x = t.cajas[k[0]]; return '<td>recibió '+pesos(x.rec)+'<br>entregó <b>'+pesos(x.contado!=null?x.contado:x.esperado)+'</b>'+(x.ret?'<br><span style="color:var(--cyan)">banco '+pesos(x.ret)+'</span>':'')+(x.dif!=null&&Math.abs(x.dif)>=1?'<br><span style="color:#ff8080">'+(x.dif>0?'+':'')+pesos(x.dif)+'</span>':'')+'</td>'; }).join('')+'</tr>'; });
@@ -5809,7 +5979,7 @@ function pgRecepcion(tab) {
   h += '<div class="dia-tabs">'+tabs.map(function(t){ return '<button class="dia-tab'+(REC_TAB===t[0]?' active':'')+'" onclick="pgRecepcion(\''+t[0]+'\')">'+t[1]+'</button>'; }).join('')+'</div>';
   if (REC_TAB === 'cumple') h += cumpleHtml();
   else if (REC_TAB === 'inventario') h += inventarioHtml();
-  else if (REC_TAB === 'deudas') h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn btn-p btn-sm" onclick="openFiado()">🧾 Registrar venta sin pagar</button><button class="btn btn-g btn-sm" onclick="openRetiro()">🏦 Retirar a banco</button></div>' + deudasListaHtml() + retirosHistHtml();
+  else if (REC_TAB === 'deudas') h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn btn-p btn-sm" onclick="openFiado()">🧾 Registrar venta sin pagar</button>'+(esRecepcion()?'<button class="btn btn-g btn-sm" onclick="openRetiro()">🏦 Retirar a banco</button>':'')+'</div>' + deudasListaHtml() + retirosHistHtml();
   else if (REC_TAB === 'planes') h += planesHtml();
   else h += recordatoriosHtml();
   setMain(h);
