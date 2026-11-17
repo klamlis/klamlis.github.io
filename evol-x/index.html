@@ -1778,7 +1778,7 @@ function nav(page) {
     miRutina: pgMiRutina, registrar: function() { pgMiRutina(); setTimeout(openLogModal, 200); },
     miProgreso: pgMiProgreso, miHistorial: pgMiHistorial, miPerfil: pgMiPerfil,
     miBienestar: pgMiBienestar, bienestar: pgBienestarCoach, miTenis: pgMiTenis,
-    cierre: function(){ if (modulo('cierreDiario')) pgCierre(); else nav('dashboard'); },
+    cierre: function(){ if (modulo('cierreDiario')) pgCierre(null, '', 'turno'); else nav('dashboard'); },
     agenda: function(){ pgAgenda('usuarios'); },
     verRutina: function(){ pgVerRutina(VR_UID); },
     recepcion: function(){ if (modulo('cierreDiario') && puedeRecepcion()) pgRecepcion(); else nav('dashboard'); }
@@ -1941,8 +1941,8 @@ function pgDashboard() {
   if (modulo('cierreDiario') && puedeRecepcion()) {
     var pendRec = gymUsers().filter(function(u){ var e = etapaDe(u); return e && !recordatorioEnviado(u, e); }).length;
     if (pendRec) alerts.push({ name:'Recepción', label:'🔔 '+pendRec+' recordatorio'+(pendRec===1?'':'s')+' de pago por enviar', color:'#ffaa44', action:"nav('recepcion')" });
-    var pendT = gymRecs('cierre').filter(function(c){ return c.estado === 'entregado'; }).length;
-    if (pendT && esRecepcion()) alerts.push({ name:'Cierre diario', label:'📤 '+pendT+' cierre'+(pendT===1?'':'s')+' de turno por validar', color:'#ffaa44', action:"pgCierre(dateCOL(),CU.id,'dia');curPage='cierre'" });
+    var pendT = gymRecs('cierre').filter(function(c){ return !c.fusionado && (c.estado === 'entregado' || (c.coachId === '__dia' && c.estado !== 'validado' && c.fecha < dateCOL())); }).length;
+    if (pendT && esRecepcion()) alerts.push({ name:'Cierre diario', label:'📤 '+pendT+' hoja'+(pendT===1?'':'s')+' de cierre por validar', color:'#ffaa44', action:"curPage='cierre';pgCierre(dateCOL(),'','dia')" });
     var hoyC = dateCOL().slice(5);
     gymUsers().forEach(function(u){ if (u.fechaNac && u.fechaNac.slice(5) === hoyC) alerts.push({ name:u.name, label:'🎂 Cumple años hoy', color:'#80d4a0', action:"nav('recepcion');pgRecepcion('cumple')" }); });
   }
@@ -2046,7 +2046,7 @@ function pgUsuarios() {
       html += '</div></div>';
       // BUTTONS — no onclick with args, using global functions with IDs stored in data attrs
       html += '<div class="u-btns">';
-      html += '<button class="btn btn-p btn-sm" data-uid="' + u.id + '" data-action="res7">📊 7 días</button>';
+      html += '<button class="btn btn-p btn-sm" data-uid="' + u.id + '" data-action="res7">📊 Ficha · 7 días</button>';
       html += '<button class="btn btn-g btn-sm" data-uid="' + u.id + '" data-action="vista">👁 Ver rutina</button>';
       if (rutModo(u) === 'sin') html += '<button class="btn btn-g btn-sm" data-uid="' + u.id + '" data-action="dirigida">✅ Sesión dirigida</button>';
       if (rutModo(u) === 'acond' && acondEstado(u) !== 'validado' && CU.role !== 'recepcion') html += '<button class="btn btn-g btn-sm" data-uid="' + u.id + '" data-action="acond">🌱 Validar acondicionamiento</button>';
@@ -2474,6 +2474,32 @@ function getMedDiff(last, first, key) {
   return '<div style="font-size:10px;color:'+color+';margin-top:2px">'+(diff>0?'+':'')+diff.toFixed(1)+'</div>';
 }
 
+// Comparación con flechas (sin verde/rojo): actual vs anterior y primera vs última
+function medFlecha(dif) { if (dif == null || isNaN(dif)) return ''; if (Math.abs(dif) < 0.05) return '<b style="color:var(--gris)">= 0</b>'; return '<b style="color:var(--blanco)">'+(dif > 0 ? '▲ +' : '▼ −')+Math.abs(dif).toFixed(1)+'</b>'; }
+function medNum(m, k) { var v = medVal(m, k); return v == null || v === '' ? null : parseFloat(v); }
+function medCompHtml(meds, key) {
+  var conV = meds.filter(function(m){ return medNum(m, key) != null; }); if (conV.length < 2) return '';
+  var last = conV[conV.length-1], prev = conV[conV.length-2], first = conV[0], lv = medNum(last, key), pv = medNum(prev, key), fv = medNum(first, key);
+  var h = '<div style="font-size:10px;color:var(--gris);margin-top:3px;line-height:1.5">Anterior '+pv+' '+medFlecha(lv - pv)+'</div>';
+  if (first !== prev) h += '<div style="font-size:10px;color:var(--gris);line-height:1.5">1ª '+fv+' '+medFlecha(lv - fv)+'</div>';
+  return h;
+}
+function openMedVisor(uid, key) {
+  var f = medTodos().filter(function(x){ return x.k === key; })[0] || { l:key, u:'' }, u = userById(uid) || {};
+  var meds = (db().medidas||[]).filter(function(m){ return m.userId === uid && medNum(m, key) != null; }).sort(function(a,b){ return a.fecha.localeCompare(b.fecha); });
+  var ov = document.getElementById('m_medvis');
+  if (!ov) { ov = document.createElement('div'); ov.className = 'overlay'; ov.id = 'm_medvis'; ov.style.zIndex = '2200'; document.body.appendChild(ov); }
+  var h = '<div class="modal" style="max-width:460px"><div class="modal-title"><span>📏 '+esc(f.l.toUpperCase())+' · '+esc((u.name||'').toUpperCase())+'</span><button class="close-btn" onclick="closeModal(\'m_medvis\')">×</button></div>';
+  if (meds.length >= 2) {
+    var a = meds[meds.length-1], b = meds[meds.length-2], c = meds[0];
+    var box = function(t, x, y){ return '<div style="flex:1;min-width:130px;padding:10px;border-radius:10px;background:var(--s1);border:1px solid var(--brd);font-size:12px;line-height:1.6"><div style="font-size:10px;font-weight:700;color:var(--cyan);letter-spacing:1px">'+t+'</div>'+fDate(y.fecha)+': <b>'+medNum(y,key)+'</b><br>'+fDate(x.fecha)+': <b>'+medNum(x,key)+'</b> '+f.u+'<br>Diferencia: '+medFlecha(medNum(x,key) - medNum(y,key))+'</div>'; };
+    h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'+box('ACTUAL VS ANTERIOR', a, b)+(c !== b ? box('PRIMERA VS ÚLTIMA', a, c) : '')+'</div>';
+  }
+  h += '<table style="font-size:12px"><thead><tr><th>Fecha</th><th>'+esc(f.l)+' ('+f.u+')</th><th>vs anterior</th></tr></thead><tbody>';
+  meds.slice().reverse().forEach(function(m, i, arr){ var nx = arr[i+1]; h += '<tr><td>'+fDate(m.fecha)+'</td><td><b>'+medNum(m,key)+'</b></td><td>'+(nx ? medFlecha(medNum(m,key) - medNum(nx,key)) : '—')+'</td></tr>'; });
+  h += '</tbody></table></div>';
+  ov.innerHTML = h; openModal('m_medvis');
+}
 function pgMedidas() {
   var d = vdb();
   var usr = d.users.filter(function(u){return u.role==='user';});
@@ -2504,12 +2530,12 @@ function pgMedidas() {
     var grid = '';
     FIELDS.forEach(function(f) {
       var v = medVal(last, f.k); if (v == null) return;
-      grid += '<div class="m-item"><div class="m-name">' + f.l + '</div><div class="m-val">' + v + '<span class="m-u"> ' + f.u + '</span></div>' + getMedDiff(last, first, f.k) + '</div>';
+      grid += '<div class="m-item" style="cursor:pointer" title="Ver historial de esta medida" onclick="openMedVisor(\'' + u.id + '\',\'' + f.k + '\')"><div class="m-name">' + f.l + '</div><div class="m-val">' + v + '<span class="m-u"> ' + f.u + '</span></div>' + medCompHtml(meds, f.k) + '</div>';
     });
     html += '<div class="card"><div class="card-title"><span>📏 ' + esc(u.name) + ' <span class="badge bg" style="font-size:10px">'+meds.length+' medición'+(meds.length!==1?'es':'')+'</span></span><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-g btn-sm" onclick="openMedidasFor(\'' + u.id + '\')">+ Nueva medición</button><button class="btn btn-g btn-sm" onclick="openHistograma(\'' + u.id + '\')">📊 Histograma</button></div></div>';
     if (last.obs) html += '<div class="log-c" style="margin:0 0 10px">💬 '+esc(last.obs)+'</div>';
     html += '<div class="m-grid">' + grid + '</div>';
-    if (meds.length > 1) html += '<div style="margin-top:10px;font-size:11px;color:var(--gris)">▲▼ comparado con primera medición (' + fDate(first.fecha) + ') · Última: ' + fDate(last.fecha) + '</div>';
+    if (meds.length > 1) html += '<div style="margin-top:10px;font-size:11px;color:var(--gris)">▲▼ «Anterior» compara con la medición previa y «1ª» con la primera (' + fDate(first.fecha) + ') · Última: ' + fDate(last.fecha) + ' · Toca una medida para ver su historial</div>';
     // Historial editable (AJ-030)
     html += '<details style="margin-top:12px"><summary style="cursor:pointer;font-size:12px;color:var(--cyan);font-weight:600">📅 Ver / editar todas las mediciones</summary>';
     html += '<div style="overflow-x:auto;margin-top:8px"><table style="min-width:520px"><thead><tr><th>Fecha</th>';
@@ -3246,6 +3272,7 @@ function bloqueHeader(b) {
   return '<div class="blq-h" style="color:'+inf.color+'">'+inf.label+x+'</div>';
 }
 function bloqueFooter(b) {
+  if ((b.tipo === 'biserie' || b.tipo === 'triserie') && b.descansoCircuito) { var ic = tipoInfo(b.tipo).color; return '<div style="margin-top:4px;padding:6px 10px;border-radius:6px;background:'+ic+'1a;font-size:11px;color:'+ic+';font-weight:600">⏸ Al terminar la '+(b.tipo==='biserie'?'biserie':'triserie')+' descansa <strong>'+esc(b.descansoCircuito)+'</strong> y repite la siguiente serie</div>'; }
   if (b.tipo !== 'circuito' || !b.descansoCircuito) return '';
   return '<div style="margin-top:4px;padding:6px 10px;border-radius:6px;background:rgba(41,182,246,0.1);font-size:11px;color:#29b6f6;font-weight:600">⏸ Al terminar todo el circuito descansa <strong>'+esc(b.descansoCircuito)+'</strong>'+(b.vueltas&&String(b.vueltas)!=='1'?' y repite':'')+'</div>';
 }
@@ -3413,6 +3440,9 @@ function rutRenderDayPanel() {
       h+='<div><div style="font-size:9px;color:#29b6f6;margin-bottom:3px;font-weight:700">VUELTAS</div><input class="rut-blk" data-ei="'+i+'" data-field="vueltas" data-dk="'+dk+'" placeholder="3" value="'+esc(ex.vueltas||'')+'" style="'+iStyle+'"></div>';
       h+='<div><div style="font-size:9px;color:#29b6f6;margin-bottom:3px;font-weight:700">⏸ DESCANSO AL TERMINAR EL CIRCUITO</div><input class="rut-blk" data-ei="'+i+'" data-field="descansoCircuito" data-dk="'+dk+'" placeholder="2 MIN" value="'+esc(ex.descansoCircuito||'')+'" style="'+iStyle+'"></div>';
       h+='</div>';
+    }
+    if (tipo === 'biserie' || tipo === 'triserie') {
+      h+='<div style="margin-top:10px;padding:10px;border-radius:8px;background:'+bc+'14;border:1px dashed '+bc+'"><div style="font-size:9px;color:'+bc+';margin-bottom:3px;font-weight:700">⏸ DESCANSO AL TERMINAR LA '+(tipo==='biserie'?'BISERIE':'TRISERIE')+' (antes de repetirla)</div><input class="rut-blk" data-ei="'+i+'" data-field="descansoCircuito" data-dk="'+dk+'" placeholder="90S" value="'+esc(ex.descansoCircuito||'')+'" style="'+iStyle+'"></div>';
     }
     h+='</div>';
   });
@@ -3867,7 +3897,7 @@ function saveRutina() {
             libEx.video = sub.videoUrl; save(dbSave); sync('saveEjercicio', libEx, function(){});
           }
           dayExs.push({ejId:libEx?libEx.id:'',nombre:sub.nombre.toUpperCase(),dosis:(sub.dosis||'').toUpperCase(),intensidad:sub.intensidad||'',intMetric:sub.intMetric||parseIntens(sub.intensidad).m,descanso:(sub.descanso||'').toUpperCase(),videoUrl:sub.videoUrl||'',comentario:sub.comentario||'',tipo:ex.tipo||'simple',modo:sub.modo||'reps',
-            bloque:_inf.n?'':'b'+exI, vueltas:ex.tipo==='circuito'?(ex.vueltas||''):'', descansoCircuito:ex.tipo==='circuito'?(ex.descansoCircuito||''):''});
+            bloque:_inf.n?'':'b'+exI, vueltas:ex.tipo==='circuito'?(ex.vueltas||''):'', descansoCircuito:['circuito','biserie','triserie'].indexOf(ex.tipo)>=0?(ex.descansoCircuito||'').toUpperCase():''});
         }
       });
     });
@@ -3955,6 +3985,9 @@ function pgLogs() {
   if (filterDo === 'fuerte') sorted = sorted.filter(function(l){return l.dolor==='fuerte';});
   if (filterDo === 'sin_feedback') sorted = sorted.filter(function(l){return !l.feedback;});
 
+  var _dupK = {}; ses(d).forEach(function(l){ if (l.tipo === 'libre') return; var k = l.userId+'|'+l.fecha+'|'+(l.tipo==='dirigida'?'dir':l.dia); _dupK[k] = (_dupK[k]||0) + 1; });
+  var _nDup = Object.keys(_dupK).filter(function(k){ return _dupK[k] > 1; }).length;
+  if (_nDup) html += '<div style="padding:10px 14px;margin-bottom:12px;border-radius:10px;border:1px solid rgba(255,80,80,0.4);background:rgba(255,80,80,0.07);font-size:12px">⚠️ Hay <b>'+_nDup+'</b> registro'+(_nDup===1?'':'s')+' repetido'+(_nDup===1?'':'s')+' (mismo día de rutina y misma fecha). Están marcados abajo: ábrelos y elimina el que sobra. Desde ahora la app no deja registrarlos dos veces.</div>';
   if (!sorted.length) {
     html += '<div class="empty"><div class="empty-icon">📋</div><div class="empty-t">SIN SESIONES</div></div>';
     setMain(html); return;
@@ -3979,7 +4012,8 @@ function pgLogs() {
     html += '<div style="flex:1">';
     html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
     html += '<span style="font-weight:600;font-size:14px">'+(u?u.name:'')+'</span>';
-    html += '<span class="badge bm">'+(diaData?diaData.nombre:'Día '+l.dia.replace('dia',''))+'</span>';
+    html += '<span class="badge bm">'+(diaData?diaData.nombre:'Día '+String(l.dia||'').replace('dia',''))+'</span>';
+    if (_dupK[l.userId+'|'+l.fecha+'|'+(l.tipo==='dirigida'?'dir':l.dia)] > 1) html += '<span class="badge" style="color:#ff8080;border:1px solid #ff808066" title="Hay otro registro de este mismo día y fecha. Ábrelo y elimina el que sobra.">⚠️ Repetido</span>';
     if (r) html += '<span class="badge bg">'+( r.nombre||'Sem.'+r.semana)+'</span>';
     if (hasDolor) html += '<span class="badge bw">⚠️ Dolor '+l.dolor+'</span>';
     if (!hasFeedback) html += '<span class="badge" style="background:rgba(var(--oro-rgb),0.15);color:var(--oro);border:1px solid rgba(var(--oro-rgb),0.3)">Sin retroalimentar</span>';
@@ -4662,8 +4696,8 @@ function dinero(v) { var t = String(v==null?'':v).replace(/[$\s.]/g, '').replace
 //  inventario, recordatorios de pago y cumpleaños.
 //  Todo se guarda en la hoja "logs" de Sheets (no hay que cambiar el Apps Script).
 // ═══════════════════════════════════════════════════════════
-var GYM_TIPOS = ['cierre','cierredia','pago','membajuste','recordatorio','gymcfg','invmov','cumple','agenda','deuda','retiro'];
-function esGymRec(x) { return !!x && ['cierre','cierredia','pago','membajuste','recordatorio','gymcfg','invmov','cumple','agenda','deuda','retiro'].indexOf(x.tipo) >= 0; }
+var GYM_TIPOS = ['cierre','cierredia','pago','membajuste','recordatorio','gymcfg','invmov','cumple','agenda','deuda','retiro','pendaviso'];
+function esGymRec(x) { return !!x && ['cierre','cierredia','pago','membajuste','recordatorio','gymcfg','invmov','cumple','agenda','deuda','retiro','pendaviso'].indexOf(x.tipo) >= 0; }
 function gymRecs(tipo) { return (dbR().gym || []).filter(function(x){ return x.tipo === tipo; }); }
 function esRecepcion() { return CU && CU.role === 'recepcion'; }
 function puedeRecepcion() { return CU && (CU.role === 'recepcion' || CU.role === 'admin'); }
@@ -4993,8 +5027,272 @@ var CT = null, CT_TAB = 'turno';
 function prodsActivos(cat) { return gymCfg().productos.filter(function(p){ return p.activo !== false && (!cat || p.cat === cat); }); }
 function turnoId(fecha, coachId) { return 'cierre_'+fecha+'_'+coachId; }
 function turnoDe(fecha, coachId) { return gymRecs('cierre').filter(function(c){ return c.id === turnoId(fecha, coachId); })[0] || null; }
-function turnosDelDia(fecha) { return gymRecs('cierre').filter(function(c){ return c.fecha === fecha; }); }
-function pagosTurno(fecha, coachId) { return gymRecs('pago').filter(function(p){ return p.fecha === fecha && p.por === coachId; }); }
+
+// ═══════════════════════════════════════════════════════════
+//  CIERRE v4 · UNA SOLA HOJA POR DÍA
+//  Todos (coaches, recepción, admin) escriben en la misma hoja.
+//  Se guarda sola mientras se escribe; cada campo recuerda quién lo cambió.
+//  Recepción valida el día. Los turnos del formato anterior se conservan.
+// ═══════════════════════════════════════════════════════════
+var HOJA = '__dia', HOJA_DIRTY = {}, HOJA_TIMER = null, HOJA_ULT = '';
+function turnosDelDia(fecha) { return gymRecs('cierre').filter(function(c){ return c.fecha === fecha && !c.fusionado; }); }
+function pagosTurno(fecha, coachId) { return gymRecs('pago').filter(function(p){ return p.fecha === fecha && (coachId === HOJA || p.por === coachId); }); }
+function esHoja(c) { return c && c.coachId === HOJA; }
+function hojaNueva(fecha) { return { id:turnoId(fecha, HOJA), tipo:'cierre', version:4, userId:'__gym', fecha:fecha, coachId:HOJA, coachNombre:'Hoja del día', ventas:{}, ventasMeta:{}, contado:{}, contadoMeta:{}, relevos:[], historial:[], editores:{}, obs:'', estado:'borrador' }; }
+// Une los turnos del formato anterior de ese día en la hoja (no se borra nada: quedan marcados como "fusionado")
+function hojaDesdeTurnos(fecha, viejos) {
+  var h = hojaNueva(fecha);
+  viejos.sort(function(a,b){ return turnoIni(a).localeCompare(turnoIni(b)) || turnoFin(a).localeCompare(turnoFin(b)); }).forEach(function(c){
+    Object.keys(c.ventas||{}).forEach(function(pid){ var q = ventaQ(c.ventas[pid]), o = h.ventas[pid] || { ef:0, tr:0 }; o.ef += q.ef; o.tr += q.tr; h.ventas[pid] = o; h.ventasMeta[pid] = { por:c.coachNombre||'', hora:c.entregadoHora||'' }; });
+    if (c.recibo && !h.recibo) h.recibo = JSON.parse(JSON.stringify(c.recibo));
+    else if (c.recibo) h.relevos.push({ hora:c.recibo.hora, hs:c.recibo.hs||c.recibo.hora, por:c.recibo.por||c.coachNombre, cajas:c.recibo.cajas||{}, esperado:c.recibo.cajasSistema||{}, descuadre:!!c.recibo.descuadre, motivo:c.recibo.motivo||'', inv:c.recibo.diferencias||{} });
+    var ct = c.contado || (c.version === 2 ? { principal:c.efectivoContado, menor:c.cajaMenor, sachets:'' } : {});
+    CAJAS.forEach(function(k){ if (ct[k[0]] !== '' && ct[k[0]] != null) h.contado[k[0]] = ct[k[0]]; });
+    if (c.obs) h.obs += (h.obs ? '\n' : '') + (c.coachNombre ? c.coachNombre + ': ' : '') + c.obs;
+  });
+  h.fusionados = viejos.map(function(c){ return c.id; });
+  h.historial.push({ por:'Sistema', hora:horaCOL(), txt:'Se unieron '+viejos.length+' turno'+(viejos.length===1?'':'s')+' del formato anterior ('+viejos.map(function(c){ return c.coachNombre; }).join(', ')+')' });
+  return h;
+}
+function ultimoTurnoAntes(fecha, coachId) {
+  return gymRecs('cierre').filter(function(c){ return c.version >= 2 && !c.fusionado && (c.fecha < fecha || (coachId !== HOJA && c.fecha === fecha && c.coachId !== coachId && c.estado && c.estado !== 'borrador')); })
+    .sort(function(a,b){ return turnoFin(b).localeCompare(turnoFin(a)); })[0] || null;
+}
+function saldoAhora(caja) {
+  var hoja = turnoDe(dateCOL(), HOJA);
+  if (hoja && hoja.recibo && hoja.estado !== 'validado') return turnoTotales(CT && CT.id === hoja.id ? CT : hoja, ahoraTs()).cajas[caja].esperado;
+  var s = saldoSistema(dateCOL(), HOJA, ahoraTs()); return s ? s[caja] : 0;
+}
+function turnoEditable() { return !!CT && CT.version >= 4 && CT.estado !== 'validado' && CU.role !== 'user'; }
+var CT_KEEP = null;
+function pgCierre(fecha, coachId, tab) {
+  if (!modulo('cierreDiario')) { nav('dashboard'); return; }
+  hojaGuardarYa();
+  fecha = fecha || dateCOL();
+  CT_TAB = tab || (CT_TAB && CT && CT.fecha === fecha ? CT_TAB : 'turno');
+  var ex = null, legado = false;
+  var tv = coachId && coachId !== HOJA ? turnoDe(fecha, coachId) : null;
+  if (tv && !tv.fusionado && (tv.estado === 'validado' || !CU || CU.role === 'user') && !turnoDe(fecha, HOJA)) { ex = tv; legado = true; }   // ver un turno del formato anterior
+  else {
+    ex = turnoDe(fecha, HOJA);
+    if (!ex) {
+      var viejos = turnosDelDia(fecha).filter(function(c){ return c.version >= 2 && !esHoja(c); });
+      if (viejos.length && viejos.every(function(c){ return c.estado === 'validado'; })) legado = 'dia';
+      else { CT = viejos.length ? hojaDesdeTurnos(fecha, viejos) : hojaNueva(fecha); if (viejos.length && CU.role !== 'user') { HOJA_DIRTY = {}; hojaGuardarYa(null, function(){}); ex = turnoDe(fecha, HOJA); } }
+    }
+  }
+  if (ex) CT = JSON.parse(JSON.stringify(ex));
+  if (CT && CT.version === 2 && !CT.contado) CT.contado = { principal:CT.efectivoContado, menor:CT.cajaMenor, sachets:'' };
+  if (CT_KEEP && CT && CT_KEEP.id === CT.id) { CT.ventas = CT_KEEP.v; CT.contado = CT_KEEP.c; CT.obs = CT_KEEP.o; }
+  CT_KEEP = null; HOJA_DIRTY = {};
+  if (legado === 'dia') CT = { id:'', fecha:fecha, coachId:'', version:3, estado:'validado' };
+  var tabs = [['turno', legado === true ? '🧾 Turno de '+esc((CT.coachNombre||'').split(' ')[0])+' (formato anterior)' : '🧾 Hoja del día']];
+  if (puedeRecepcion()) tabs.push(['dia', '✅ Resumen y validación']);
+  tabs.push(['hist', '📚 Historial']);
+  var h = '<div class="page-title">CIERRE DIARIO</div><div class="page-sub">Una sola hoja por día: todos registran ahí pagos, ventas y cajas. Se guarda sola y recepción valida el día.</div>';
+  h += '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px"><div class="fg" style="margin:0"><label>Fecha</label><input type="date" value="'+fecha+'" onchange="pgCierre(this.value,\'\',CT_TAB)"></div></div>';
+  h += '<div class="dia-tabs">'+tabs.map(function(t){ return '<button class="dia-tab'+(CT_TAB===t[0]?' active':'')+'" onclick="pgCierre(\''+fecha+'\',\''+(legado===true?CT.coachId:'')+'\',\''+t[0]+'\')">'+t[1]+'</button>'; }).join('')+'</div>';
+  if (CT_TAB === 'dia') h += cierreDiaHtml(fecha);
+  else if (CT_TAB === 'hist') h += cierreHistHtml();
+  else if (legado === 'dia') h += '<div class="card" style="padding:14px"><div style="font-size:13px;margin-bottom:10px">Este día se cerró con el <b>formato anterior por turnos</b> y ya está validado. Así se conserva:</div>'+turnosDelDia(fecha).map(function(c){ return '<button class="btn btn-g btn-sm" style="margin:0 6px 6px 0" onclick="pgCierre(\''+fecha+'\',\''+c.coachId+'\',\'turno\')">🧾 '+esc(c.coachNombre||'')+'</button>'; }).join('')+'</div>';
+  else h += turnoHtml(ex);
+  setMain(h);
+  if (CT_TAB === 'turno' && legado !== 'dia') { document.querySelectorAll('#main .ct-in').forEach(function(el){ el.addEventListener('input', turnoLeer); }); turnoRenderTot(); if (esHoja(CT)) hojaRefrescar(); }
+}
+var HOJA_PULL = 0;
+function hojaRefrescar(forzar) {
+  if (typeof loadFromSheets !== 'function' || (!forzar && Date.now() - HOJA_PULL < 45000)) return;
+  HOJA_PULL = Date.now();
+  loadFromSheets(function(remote){
+    if (!remote) return;
+    mergeRemote(remote);
+    var act = document.activeElement, escribiendo = act && act.closest && act.closest('#main input, #main textarea');
+    if (curPage === 'cierre' && CT_TAB === 'turno' && esHoja(CT) && !Object.keys(HOJA_DIRTY).length && !escribiendo && !document.querySelector('.overlay.open')) pgCierre(CT.fecha, '', 'turno');
+  });
+}
+setInterval(function(){ try { if (CU && curPage === 'cierre' && CT_TAB === 'turno' && esHoja(CT)) hojaRefrescar(); } catch(e) {} }, 15000);
+// ── Guardado automático (solo se escriben los campos que esta persona cambió) ──
+function hojaMarcar(k) { HOJA_DIRTY[k] = 1; var st = document.getElementById('hoja_st'); if (st) st.innerHTML = '✏️ Guardando…'; clearTimeout(HOJA_TIMER); HOJA_TIMER = setTimeout(hojaGuardarYa, 1200); }
+function hojaGuardarYa(cb, extra) {
+  clearTimeout(HOJA_TIMER); HOJA_TIMER = null;
+  if (!CT || !esHoja(CT) || (!Object.keys(HOJA_DIRTY).length && !extra)) { if (cb) cb(); return; }
+  var dirty = HOJA_DIRTY; HOJA_DIRTY = {};
+  var cur = turnoDe(CT.fecha, HOJA), x = cur ? JSON.parse(JSON.stringify(cur)) : JSON.parse(JSON.stringify(CT)), cambios = [], hora = horaCOL();
+  if (x.estado === 'validado') { toast('⛔ Recepción ya validó este día: no se guardó el cambio'); CT = x; if (cb) cb(); return; }
+  x.ventas = x.ventas || {}; x.ventasMeta = x.ventasMeta || {}; x.contado = x.contado || {}; x.contadoMeta = x.contadoMeta || {}; x.historial = x.historial || []; x.editores = x.editores || {};
+  Object.keys(dirty).forEach(function(k){
+    var p = k.split(':');
+    if (p[0] === 'v') { var q = ventaQ(CT.ventas[p[1]]), pr = prodPorId(p[1]); if (q.ef || q.tr) x.ventas[p[1]] = q; else delete x.ventas[p[1]]; x.ventasMeta[p[1]] = { por:CU.name, hora:hora }; cambios.push((pr?pr.nombre:p[1])+' '+(q.ef||0)+' ef / '+(q.tr||0)+' tr'); }
+    else if (p[0] === 'c') { x.contado[p[1]] = CT.contado[p[1]]; x.contadoMeta[p[1]] = { por:CU.name, hora:hora }; cambios.push('conteo '+p[1]+' '+pesos(dinero(CT.contado[p[1]]))); }
+    else if (k === 'obs') { x.obs = CT.obs; cambios.push('observaciones'); }
+  });
+  if (extra) { extra(x); }
+  if (cambios.length) x.historial.push({ por:CU.name, hora:hora, txt:cambios.join(' · ') });
+  if (x.historial.length > 150) x.historial = x.historial.slice(-150);
+  x.editores[CU.name] = hora; x.version = 4; x.actualizado = new Date().toISOString(); x.actualizadoPor = CU.name;
+  var tt = turnoTotales(x); x.totales = { T:tt.T, C:tt.C, CM:tt.CM, S:tt.S, pagos:tt.pagos, efectivo:tt.efectivo, transf:tt.transfTotal, bold:tt.boldTotal, ventas:tt.ventas, fiado:tt.fiado, dif:tt.dif };
+  var marcar = (!cur && x.fusionados) ? x.fusionados.map(function(id){ var o = gymRecs('cierre').filter(function(c){ return c.id === id; })[0]; if (!o) return null; o = JSON.parse(JSON.stringify(o)); o.fusionado = x.id; return o; }).filter(Boolean) : [];
+  // lo que esta persona no tocó se refresca con lo último guardado
+  var mio = { v:CT.ventas, c:CT.contado, o:CT.obs };
+  CT = JSON.parse(JSON.stringify(x));
+  HOJA_ULT = hora;
+  var st = document.getElementById('hoja_st'); if (st) st.innerHTML = '✅ Guardado '+hora;
+  var todo = [x].concat(marcar), faltan = todo.length;
+  todo.forEach(function(o){ saveAndSync('saveLog', o, function(){ if (--faltan === 0 && cb) cb(); }); });
+}
+window.addEventListener('beforeunload', function(){ try { if (Object.keys(HOJA_DIRTY).length) hojaGuardarYa(); } catch(e) {} });
+// ── Recibir: apertura del día y cambios de turno ──
+function reciboTurnoHtml() {
+  var prods = prodsActivos(), ed = turnoEditable(), rc = CT.recibo;
+  var inS = 'width:100%;padding:7px;background:var(--s1);border:1px solid var(--brd);border-radius:8px;color:var(--blanco);font-size:13px;box-sizing:border-box';
+  var h = '<div class="card" style="padding:14px;margin-bottom:12px;border-color:'+(rc?(rc.descuadre?'rgba(255,80,80,0.5)':'rgba(80,200,120,0.5)'):'var(--cyan)')+'"><div class="card-title" style="padding:0 0 6px">📦 RECIBIR TURNO</div>';
+  var chips = function(cajas, sis){ return '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'+CAJAS.map(function(k){ var d = sis && sis[k[0]] != null ? dinero(cajas[k[0]]) - sis[k[0]] : 0; return '<span class="chip">'+k[1]+': <b>'+pesos(cajas[k[0]])+'</b>'+(Math.abs(d)>=1?' <span style="color:#ff8080">('+(d>0?'+':'')+pesos(d)+')</span>':'')+'</span>'; }).join('')+'</div>'; };
+  var invTxt = function(difs, sis, con){ return difs && Object.keys(difs).length ? '<div style="font-size:11px;color:var(--gris);margin-top:4px">'+Object.keys(difs).map(function(pid){ var p = prodPorId(pid); return esc(p?p.nombre:pid)+(sis&&con?': sistema '+sis[pid]+' · contado '+con[pid]:': '+(difs[pid]>0?'+':'')+difs[pid]); }).join(' · ')+'</div>' : ''; };
+  if (rc) {
+    h += '<div style="font-size:12px;line-height:1.6">🌅 <b>Apertura</b> · '+esc(rc.por||'')+' a las '+esc(rc.hora)+(rc.descuadre?' · ⚠️ con descuadre: <b>'+esc(rc.motivo||'')+'</b>':' · ✅ completo')+'</div>' + (rc.cajas ? chips(rc.cajas, rc.cajasSistema) : '') + invTxt(rc.diferencias, rc.sistema, rc.contado);
+    (CT.relevos||[]).forEach(function(r){ h += '<div style="font-size:12px;line-height:1.6;margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06)">🔄 <b>Recibió '+esc(r.por)+'</b> a las '+esc(r.hora)+(r.descuadre?' · ⚠️ <b>'+esc(r.motivo||'')+'</b>':' · ✅ cuadró')+'</div>' + chips(r.cajas||{}, r.esperado) + invTxt(r.inv); });
+    if (ed) h += '<div id="relevo_box" style="margin-top:10px"><button class="btn btn-g btn-sm" onclick="relevoForm()">🔄 Recibo el turno ahora</button> <span style="font-size:11px;color:var(--gris)">Cuando llega otra persona: cuenta las cajas y el inventario que recibe.</span></div>';
+    return h + '</div>';
+  }
+  if (!ed) return h + '<div style="font-size:12px;color:var(--gris)">Aún no se ha recibido.</div></div>';
+  var ant = ultimoTurnoAntes(CT.fecha, HOJA), sis = saldoSistema(CT.fecha, HOJA);
+  h += '<div style="font-size:11px;color:var(--gris);margin-bottom:8px">'+(ant ? 'Viene de: <b>'+esc(ant.coachNombre||'')+'</b> · '+fDate(ant.fecha) : 'Primer registro: escribe lo que hay')+'</div>';
+  h += '<div style="font-size:12px;margin-bottom:8px">🌅 <b>Apertura del día:</b> cuenta el efectivo de cada caja y el inventario. Si algo no cuadra con el sistema, explica por qué.</div>';
+  h += reciboCamposHtml(sis ? { principal:Math.round(sis.principal), menor:Math.round(sis.menor), sachets:Math.round(sis.sachets) } : null, function(p){ return stockDe(p.id, CT.id); }, inS);
+  return h + '<button class="btn btn-p btn-full" style="margin-top:10px" onclick="recibirTurno()">✅ Recibí</button></div>';
+}
+function reciboCamposHtml(sis, stockFn, inS) {
+  var h = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:10px">';
+  CAJAS.forEach(function(k){ var s = sis ? sis[k[0]] : ''; h += '<div><div style="font-size:11px;font-weight:700">'+k[1]+(sis?' <span style="color:var(--gris);font-weight:400">· sistema '+pesos(s)+'</span>':'')+'</div><input class="rc-caja" data-k="'+k[0]+'" data-sis="'+(sis?s:'')+'" inputmode="numeric" value="'+(sis?s:'')+'" oninput="reciboCheck()" style="'+inS+'"></div>'; });
+  h += '</div>';
+  var prods = prodsActivos();
+  if (prods.length) { h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px">'; prods.forEach(function(p){ var st = stockFn(p); h += '<div><div style="font-size:11px;font-weight:700">'+esc(p.nombre)+' <span style="color:var(--gris);font-weight:400">· sistema '+st+'</span></div><input class="rc-in" data-pid="'+p.id+'" data-sis="'+st+'" inputmode="numeric" value="'+st+'" oninput="reciboCheck()" style="'+inS+'"></div>'; }); h += '</div>'; }
+  return h + '<div id="rc_mot_wrap" style="display:none;margin-top:8px"><div class="fg" style="margin:0"><label style="color:#ff8080">¿Por qué no cuadra? *</label><input id="rc_motivo" placeholder="Ej: faltaban 5.000 en caja menor, se dañó una botella…" style="'+inS+'"></div></div>';
+}
+function reciboCheck() {
+  var dif = false;
+  document.querySelectorAll('#main .rc-in').forEach(function(el){ if ((parseFloat(el.value)||0) !== parseFloat(el.getAttribute('data-sis'))) dif = true; });
+  document.querySelectorAll('#main .rc-caja').forEach(function(el){ var s = el.getAttribute('data-sis'); if (s !== '' && Math.abs(dinero(el.value) - parseFloat(s)) >= 1) dif = true; });
+  var w = document.getElementById('rc_mot_wrap'); if (w) w.style.display = dif ? '' : 'none';
+}
+function reciboLeer() {
+  var r = { sis:{}, con:{}, difs:{}, cajas:{}, cajasSis:{}, difCaja:false };
+  document.querySelectorAll('#main .rc-in').forEach(function(el){ var pid = el.getAttribute('data-pid'), s = parseFloat(el.getAttribute('data-sis')), c = parseFloat(el.value)||0; r.sis[pid] = s; r.con[pid] = c; if (c !== s) r.difs[pid] = c - s; });
+  document.querySelectorAll('#main .rc-caja').forEach(function(el){ var k = el.getAttribute('data-k'), s = el.getAttribute('data-sis'); r.cajas[k] = dinero(el.value); if (s !== '') { r.cajasSis[k] = parseFloat(s); if (Math.abs(r.cajas[k] - r.cajasSis[k]) >= 1) r.difCaja = true; } });
+  r.motivo = ((document.getElementById('rc_motivo')||{}).value||'').trim(); r.desc = Object.keys(r.difs).length > 0 || r.difCaja;
+  return r;
+}
+function invAjustes(difs, nota) { return Object.keys(difs).map(function(pid){ return { id:gid('inv_'), tipo:'invmov', userId:'__gym', pid:pid, clase:'recibo', ubic:'stock', cant:difs[pid], nota:nota, fecha:dateCOL(), hora:horaCOL(), por:CU.name }; }); }
+function guardarVarios(arr, cb) { var i = 0; (function next(){ if (i >= arr.length) { if (cb) cb(); return; } saveAndSync('saveLog', arr[i++], next); })(); }
+function recibirTurno() {
+  var r = reciboLeer();
+  if (r.desc && !r.motivo) { toast('Explica por qué no cuadra'); document.getElementById('rc_motivo').focus(); return; }
+  turnoLeer();
+  var rec = { hora:horaCOL(), hs:horaSeg(), fecha:dateCOL(), por:CU.name, sistema:r.sis, contado:r.con, diferencias:r.difs, cajas:r.cajas, cajasSistema:r.cajasSis, descuadre:r.desc, motivo:r.motivo };
+  guardarVarios(invAjustes(r.difs, 'Apertura del día · '+r.motivo), function(){
+    hojaGuardarYa(function(){ toast(r.desc ? '⚠️ Recibido con descuadre (queda anotado)' : '✅ Recibido'); pgCierre(CT.fecha, '', 'turno'); }, function(x){ if (!x.recibo) x.recibo = rec; x.historial.push({ por:CU.name, hora:rec.hora, txt:'Apertura: recibió las cajas y el inventario' }); });
+  });
+}
+function relevoForm() {
+  hojaGuardarYa();
+  var t = turnoTotales(CT, ahoraTs()), sis = {}; CAJAS.forEach(function(k){ sis[k[0]] = Math.round(t.cajas[k[0]].esperado); });
+  var inS = 'width:100%;padding:7px;background:var(--s1);border:1px solid var(--brd);border-radius:8px;color:var(--blanco);font-size:13px;box-sizing:border-box';
+  var box = document.getElementById('relevo_box');
+  box.innerHTML = '<div style="padding:12px;border-radius:10px;border:1px dashed var(--cyan);margin-top:6px"><div style="font-size:12px;margin-bottom:8px">🔄 <b>'+esc(CU.name)+'</b>: cuenta lo que recibes ahora. El sistema ya suma lo registrado hasta este momento.</div>'
+    + reciboCamposHtml(sis, function(p){ var q = ventaQ((CT.ventas||{})[p.id]); return stockDe(p.id, CT.id) - q.ef - q.tr; }, inS)
+    + '<div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-p" style="flex:1" onclick="guardarRelevo()">✅ Recibí el turno</button><button class="btn btn-g" onclick="pgCierre(CT.fecha,\'\',\'turno\')">Cancelar</button></div></div>';
+}
+function guardarRelevo() {
+  var r = reciboLeer();
+  if (r.desc && !r.motivo) { toast('Explica por qué no cuadra'); document.getElementById('rc_motivo').focus(); return; }
+  var rel = { hora:horaCOL(), hs:horaSeg(), por:CU.name, porId:CU.id, cajas:r.cajas, esperado:r.cajasSis, descuadre:r.desc, motivo:r.motivo, inv:r.difs };
+  guardarVarios(invAjustes(r.difs, 'Cambio de turno · '+r.motivo), function(){
+    hojaGuardarYa(function(){ toast(r.desc ? '⚠️ Turno recibido con descuadre (queda anotado)' : '✅ Turno recibido'); pgCierre(CT.fecha, '', 'turno'); }, function(x){ x.relevos = (x.relevos||[]).concat([rel]); x.historial.push({ por:CU.name, hora:rel.hora, txt:'Recibió el turno'+(r.desc?' con descuadre: '+r.motivo:'') }); });
+  });
+}
+// ── Pantalla de la hoja ──
+function metaTxt(m) { return m && m.por ? '✎ '+esc(String(m.por).split(' ')[0])+' '+esc(m.hora||'') : ''; }
+function turnoHtml(ex) {
+  var ed = turnoEditable(), dis = ed ? '' : ' disabled', hoja = esHoja(CT);
+  var inS = 'width:100%;padding:7px;background:var(--s1);border:1px solid var(--brd);border-radius:8px;color:var(--blanco);font-family:var(--font-body);font-size:13px;box-sizing:border-box';
+  var eds = Object.keys(CT.editores||{});
+  var h = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px"><b>'+(hoja?'Hoja del '+fDate(CT.fecha):esc(CT.coachNombre||''))+'</b> '+(CT.estado==='validado'?'<span class="badge bk">✅ Validado · '+esc(CT.validadoPor||'')+'</span>':hoja?'<span class="badge bw">📝 Abierta</span>':estadoTurnoHtml(ex))
+    + (ed?'<span id="hoja_st" style="font-size:11px;color:var(--gris)">'+(HOJA_ULT?'✅ Guardado '+HOJA_ULT:'Se guarda sola al escribir')+'</span>':'')
+    + (puedeRecepcion()?'<button class="btn btn-g btn-sm" style="margin-left:auto" onclick="openRetiro()">🏦 Retirar a banco</button>':'')+'</div>';
+  if (eds.length) h += '<div style="font-size:11px;color:var(--gris);margin:-6px 0 12px">Han escrito en esta hoja: '+eds.map(function(n){ return esc(n)+' ('+esc(CT.editores[n])+')'; }).join(' · ')+'</div>';
+  if (CT.estado === 'validado') h += '<div style="padding:10px 12px;border-radius:10px;background:rgba(80,200,120,0.08);border:1px solid rgba(80,200,120,0.4);font-size:12px;margin-bottom:12px">✅ Validado por <b>'+esc(CT.validadoPor||'')+'</b> el '+fDate(CT.validadoFecha||CT.fecha)+' a las '+esc(CT.validadoHora||'')+(CT.notaValidacion?' · '+esc(CT.notaValidacion):'')+(hoja && esRecepcion()?' <button class="btn btn-g btn-sm" style="margin-left:8px" onclick="reabrirHoja()">🔓 Reabrir</button>':'')+'</div>';
+  if (!hoja) h += '<div style="padding:10px 12px;border-radius:10px;background:var(--s1);border:1px solid var(--brd);font-size:12px;margin-bottom:12px">Turno guardado con el formato anterior (solo lectura).</div>';
+  h += reciboTurnoHtml();
+  var ps = pagosTurno(CT.fecha, CT.coachId);
+  h += '<div class="card" style="padding:14px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><div class="card-title" style="padding:0">👥 PAGOS DE '+T.Usuarios.toUpperCase()+'</div>'+(ed?'<button class="btn btn-p btn-sm" onclick="openPago(\'\',\''+CT.fecha+'\')">+ Registrar pago</button>':'')+'</div>';
+  if (!ps.length) h += '<div style="font-size:12px;color:var(--gris)">Aún no hay pagos.</div>';
+  ps.forEach(function(p){
+    h += '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:rgba(0,0,0,.15);margin-bottom:6px"><div style="flex:1;min-width:0;font-size:12px;line-height:1.5"><b>'+esc((p.nombres||[]).join(' + '))+'</b>'+(p.externo?' <span class="badge bw">no registrado</span>':'')+' · '+esc(p.plan)+'<br><span style="color:var(--gris)">'+(p.externo?'Válido hasta ':'Corte ')+fDate(p.hasta)+(p.nota?' · '+esc(p.nota):'')+(p.porNombre?' · ✎ '+esc(String(p.porNombre).split(' ')[0])+(p.hora?' '+esc(p.hora):''):'')+'</span></div><div style="text-align:right"><div style="font-weight:800">'+pesos(p.valor)+'</div><div style="font-size:10px;color:'+(p.medio==='Efectivo'?'#80d4a0':'var(--cyan)')+'">'+esc(p.medio)+(p.medio==='Transferencia'?' (B)':'')+'</div></div>'+(ed?'<button onclick="borrarPago(\''+p.id+'\')" title="Anular" style="background:none;border:none;color:var(--gris);font-size:16px;cursor:pointer">×</button>':'')+'</div>';
+  });
+  h += '</div>';
+  h += '<div class="card" style="padding:14px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><div class="card-title" style="padding:0">🛒 VENTAS DE LA TIENDA</div>'+(ed?'<button class="btn btn-g btn-sm" onclick="openFiado()">🧾 Venta sin pagar</button>':'')+'</div>';
+  h += '<div style="font-size:11px;color:var(--gris);margin-bottom:8px">Total del día de cada producto en <b>efectivo</b> y por <b>transferencia</b> (súmale lo que vendas). El efectivo de líquidos va a la caja menor y el de sachets a la caja sachets.</div>';
+  [['liquido','🥤 Líquidos'],['sachet','🧂 Sachets']].forEach(function(cat){
+    var prods = prodsActivos(cat[0]); if (!prods.length) return;
+    h += '<div style="font-size:12px;font-weight:800;margin:8px 0 6px">'+cat[1]+'</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">';
+    prods.forEach(function(p){
+      var st = stockDe(p.id, CT.id), q = ventaQ((CT.ventas||{})[p.id]), mt = metaTxt((CT.ventasMeta||{})[p.id]);
+      h += '<div style="padding:8px;border-radius:8px;background:rgba(0,0,0,.15)"><div style="font-weight:800;color:var(--cyan)">'+esc(p.nombre)+'</div><div style="font-size:10px;color:var(--gris);margin-bottom:4px">'+pesos(p.precio)+' c/u · hay <b data-st="'+p.id+'" data-base="'+st+'" style="color:'+(st<=0?'#ff8080':'inherit')+'">'+st+'</b></div>'
+        + '<div style="display:flex;gap:4px"><input class="ct-in ct-v" data-pid="'+p.id+'" data-m="ef" inputmode="numeric" placeholder="Efect." value="'+(q.ef||'')+'" style="'+inS+'"'+dis+'><input class="ct-in ct-v" data-pid="'+p.id+'" data-m="tr" inputmode="numeric" placeholder="Transf." value="'+(q.tr||'')+'" style="'+inS+'"'+dis+'></div><div class="ct-sub" data-pid="'+p.id+'" style="font-size:11px;color:var(--gris);margin-top:3px"></div>'+(mt?'<div style="font-size:10px;color:var(--gris)">'+mt+'</div>':'')+'</div>';
+    });
+    h += '</div>';
+  });
+  var tt = turnoTotales(CT);
+  if (tt.fiados.length) h += '<div style="font-size:12px;font-weight:800;margin:12px 0 6px;color:#ff8080">🧾 Vendido sin pagar</div>' + tt.fiados.map(function(d){ return '<div style="font-size:12px;padding:6px 10px;border-radius:8px;background:rgba(255,80,80,0.07);margin-bottom:4px"><b>'+esc(d.nombre)+'</b> · '+esc((d.items||[]).map(function(i){ return i.cant+' × '+i.nombre; }).join(', '))+' · '+pesos(d.valor)+' · ✎ '+esc(String(d.porNombre||'').split(' ')[0])+(deudaSaldo(d)<=0.5?' · ✅ pagado':'')+'</div>'; }).join('');
+  if (tt.abonos.length) h += '<div style="font-size:12px;font-weight:800;margin:12px 0 6px;color:#80d4a0">💵 Deudas cobradas</div>' + tt.abonos.map(function(x){ return '<div style="font-size:12px;padding:6px 10px;border-radius:8px;background:rgba(80,200,120,0.07);margin-bottom:4px"><b>'+esc(x.d.nombre)+'</b> · '+pesos(x.a.valor)+' · '+esc(x.a.medio)+'</div>'; }).join('');
+  h += '</div>';
+  h += '<div class="card" style="padding:14px;margin-bottom:12px"><div class="card-title" style="padding:0 0 8px">💵 CAJAS DEL DÍA</div><div id="ct_cajas"></div>';
+  h += '<div style="font-size:11px;color:var(--gris);margin:8px 0 6px">Al cerrar el día, cuenta lo que queda en cada caja:</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">';
+  CAJAS.forEach(function(k){ var v = (CT.contado||{})[k[0]], mt = metaTxt((CT.contadoMeta||{})[k[0]]); h += '<div class="fg" style="margin:0"><label>'+k[1]+' · contado</label><input class="ct-in ct-cont" data-k="'+k[0]+'" inputmode="numeric" value="'+esc(v==null?'':v)+'" style="'+inS+'"'+dis+'>'+(mt?'<div style="font-size:10px;color:var(--gris);margin-top:2px">'+mt+'</div>':'')+'</div>'; });
+  h += '</div><div class="fg" style="margin:10px 0 0"><label>Observaciones</label><textarea class="ct-in" id="ct_obs" style="'+inS+';height:52px"'+dis+'>'+esc(CT.obs||'')+'</textarea></div></div>';
+  h += '<div class="card" id="ct_tot" style="padding:14px;margin-bottom:12px"></div>';
+  if (ed) h += '<button class="btn btn-g btn-full" onclick="HOJA_DIRTY.obs=1;turnoLeer();hojaGuardarYa(function(){toast(\'💾 Hoja guardada\')})">💾 Guardar ahora</button>';
+  if (hoja && esRecepcion() && CT.estado !== 'validado') {
+    h += '<div class="card" style="padding:14px;margin-top:12px;border-color:var(--cyan)"><div class="card-title" style="padding:0 0 8px">✅ VALIDACIÓN DE RECEPCIÓN</div><div style="font-size:12px;color:var(--gris);margin-bottom:8px">Cuando el día termine y las cajas estén contadas, valida la hoja. Después ya no se puede modificar (puedes reabrirla si hace falta).</div><div class="fg"><label>Nota (opcional)</label><input id="ct_nota_val" placeholder="Ej: cuadró completo"></div>'
+      + '<button class="btn btn-p btn-full" onclick="validarHoja()">✅ Validar el día</button></div>';
+  }
+  if (hoja && (CT.historial||[]).length) h += '<details style="margin-top:12px"><summary style="cursor:pointer;font-size:12px;color:var(--cyan);font-weight:600">🕑 Historial de cambios ('+CT.historial.length+')</summary><div style="margin-top:6px;font-size:11px;line-height:1.7;color:var(--gris)">'+CT.historial.slice().reverse().map(function(x){ return '<div><b style="color:var(--blanco)">'+esc(x.hora)+' · '+esc(x.por)+'</b> — '+esc(x.txt)+'</div>'; }).join('')+'</div></details>';
+  return h;
+}
+function turnoLeer(ev) {
+  var tg = ev && ev.target;
+  var v = {};
+  document.querySelectorAll('#main .ct-v').forEach(function(el){ var pid = el.getAttribute('data-pid'), m = el.getAttribute('data-m'), n = parseFloat(el.value)||0; if (!n) return; v[pid] = v[pid] || { ef:0, tr:0 }; v[pid][m] = n; });
+  CT.ventas = v;
+  var c = {}; document.querySelectorAll('#main .ct-cont').forEach(function(el){ c[el.getAttribute('data-k')] = el.value; });
+  if (document.querySelector('#main .ct-cont')) CT.contado = c;
+  var ob = document.getElementById('ct_obs'); if (ob) CT.obs = ob.value;
+  if (tg && esHoja(CT) && turnoEditable()) {
+    if (tg.classList.contains('ct-v')) hojaMarcar('v:'+tg.getAttribute('data-pid'));
+    else if (tg.classList.contains('ct-cont')) hojaMarcar('c:'+tg.getAttribute('data-k'));
+    else if (tg.id === 'ct_obs') hojaMarcar('obs');
+  }
+  turnoRenderTot();
+}
+function guardarTurno() { turnoLeer(); hojaGuardarYa(function(){ toast('💾 Hoja guardada'); }); }
+function validarHoja() {
+  if (!esRecepcion()) { toast('Solo recepción puede validar'); return; }
+  var enHoja = !!document.querySelector('#main .ct-cont');
+  if (enHoja) turnoLeer();
+  if (CAJAS.some(function(k){ var v = (CT.contado||{})[k[0]]; return v === '' || v == null; }) && !confirm('No se ha escrito el conteo final de todas las cajas. ¿Validar de todas formas?')) return;
+  var nota = ((document.getElementById('ct_nota_val')||document.getElementById('cd_nota')||{}).value||'').trim();
+  if (enHoja) { CAJAS.forEach(function(k){ HOJA_DIRTY['c:'+k[0]] = 1; }); HOJA_DIRTY.obs = 1; }
+  hojaGuardarYa(function(){
+    var dia = { id:'cierredia_'+CT.fecha, tipo:'cierredia', userId:'__gym', fecha:CT.fecha, por:CU.name, porId:CU.id, hora:horaCOL(), nota:nota, turnos:[CT.id], totales:CT.totales };
+    saveAndSync('saveLog', dia, function(){ toast('✅ Día validado'); pgCierre(CT.fecha, '', 'turno'); });
+  }, function(x){ x.estado = 'validado'; x.validadoPor = CU.name; x.validadoPorId = CU.id; x.validadoFecha = dateCOL(); x.validadoHora = horaCOL(); x.validadoHs = horaSeg(); x.notaValidacion = nota; x.historial.push({ por:CU.name, hora:horaCOL(), txt:'✅ Validó el día'+(nota?': '+nota:'') }); });
+}
+function reabrirHoja() {
+  if (!esRecepcion() || !confirm('¿Reabrir la hoja de este día para corregirla?')) return;
+  var x = JSON.parse(JSON.stringify(turnoDe(CT.fecha, HOJA))); x.estado = 'borrador'; x.historial = (x.historial||[]).concat([{ por:CU.name, hora:horaCOL(), txt:'🔓 Reabrió la hoja' }]);
+  saveAndSync('saveLog', x, function(){ toast('🔓 Hoja reabierta'); pgCierre(x.fecha, '', 'turno'); });
+}
+
 function estadoTurnoHtml(c) {
   if (!c) return '<span class="badge bw">Sin guardar</span>';
   if (c.estado === 'validado') return '<span class="badge bk">✅ Validado · '+esc(c.validadoPor||'')+'</span>';
@@ -5002,34 +5300,6 @@ function estadoTurnoHtml(c) {
   if (c.estado === 'devuelto') return '<span class="badge" style="color:#ff8080;border:1px solid #ff808066">↩ Devuelto para corregir</span>';
   return '<span class="badge bw">📝 Borrador</span>';
 }
-var CT_KEEP = null;
-function pgCierre(fecha, coachId, tab) {
-  if (!modulo('cierreDiario')) { nav('dashboard'); return; }
-  fecha = fecha || dateCOL();
-  if (!coachId || (!puedeRecepcion() && coachId !== CU.id)) coachId = CU.id;
-  CT_TAB = tab || (CT_TAB && CT && CT.fecha === fecha ? CT_TAB : 'turno');
-  var ex = turnoDe(fecha, coachId), coach = userById(coachId) || CU;
-  CT = ex ? JSON.parse(JSON.stringify(ex)) : { id:turnoId(fecha, coachId), tipo:'cierre', version:3, userId:'__gym', fecha:fecha, coachId:coachId, coachNombre:coach.name, ventas:{}, contado:{}, obs:'', estado:'borrador' };
-  if (CT_KEEP && CT_KEEP.id === CT.id) { CT.ventas = CT_KEEP.v; CT.contado = CT_KEEP.c; CT.obs = CT_KEEP.o; }
-  CT_KEEP = null;
-  if (CT.version === 2 && !CT.contado) CT.contado = { principal:CT.efectivoContado, menor:CT.cajaMenor, sachets:'' };
-  var tabs = [['turno', coachId === CU.id ? '🧾 Mi turno' : '🧾 Turno de '+esc((coach.name||'').split(' ')[0])]];
-  if (puedeRecepcion()) tabs.push(['dia', '✅ Validar el día']);
-  tabs.push(['hist', '📚 Historial']);
-  var h = '<div class="page-title">CIERRE DIARIO</div><div class="page-sub">'+(puedeRecepcion()?'Cada coach entrega el cierre de su turno y recepción lo valida':'Registra los pagos y ventas de tu turno y entrégalo a recepción')+'</div>';
-  h += '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px"><div class="fg" style="margin:0"><label>Fecha</label><input type="date" value="'+fecha+'" onchange="pgCierre(this.value,CT.coachId,CT_TAB)"></div>';
-  if (puedeRecepcion() && CT_TAB === 'turno') {
-    var staff = db().users.filter(function(u){ return ['coach','recepcion','admin'].indexOf(u.role) >= 0; });
-    h += '<div class="fg" style="margin:0"><label>Turno de</label><select onchange="pgCierre(\''+fecha+'\',this.value,\'turno\')">'+staff.map(function(s){ var tx = turnoDe(fecha, s.id); return '<option value="'+s.id+'"'+(s.id===coachId?' selected':'')+'>'+esc(s.name)+(tx?' · '+(tx.estado||'borrador'):'')+'</option>'; }).join('')+'</select></div>';
-  }
-  h += '</div><div class="dia-tabs">'+tabs.map(function(t){ return '<button class="dia-tab'+(CT_TAB===t[0]?' active':'')+'" onclick="pgCierre(\''+fecha+'\',\''+coachId+'\',\''+t[0]+'\')">'+t[1]+'</button>'; }).join('')+'</div>';
-  if (CT_TAB === 'dia') h += cierreDiaHtml(fecha);
-  else if (CT_TAB === 'hist') h += cierreHistHtml();
-  else h += turnoHtml(ex);
-  setMain(h);
-  if (CT_TAB === 'turno') { document.querySelectorAll('#main .ct-in').forEach(function(el){ el.addEventListener('input', turnoLeer); }); turnoRenderTot(); }
-}
-function turnoEditable() { return CT.estado !== 'entregado' && CT.estado !== 'validado' && (CT.coachId === CU.id || puedeRecepcion()); }
 
 // ═══════════════════════════════════════════════════════════
 //  CIERRE v3 · TRES CAJAS (como el libro de recepción)
@@ -5045,7 +5315,7 @@ function prodPorId(pid) { return gymCfg().productos.filter(function(p){ return p
 function stockDe(pid, excluirCierreId) {
   var s = 0;
   gymRecs('invmov').forEach(function(m){ if (m.pid === pid && m.ubic !== 'bodega') s += (parseFloat(m.cant)||0); });
-  gymRecs('cierre').forEach(function(c){ if (c.id !== excluirCierreId && c.ventas && c.ventas[pid] != null) { var q = ventaQ(c.ventas[pid]); s -= q.ef + q.tr; } });
+  gymRecs('cierre').forEach(function(c){ if (c.id !== excluirCierreId && !c.fusionado && c.ventas && c.ventas[pid] != null) { var q = ventaQ(c.ventas[pid]); s -= q.ef + q.tr; } });
   gymRecs('deuda').forEach(function(d){ (d.items||[]).forEach(function(it){ if (it.pid === pid) s -= (parseFloat(it.cant)||0); }); });
   return s;
 }
@@ -5133,7 +5403,7 @@ function guardarAbono(id) {
 function tsDe(f, h) { h = h || '00:00'; return (f||'') + ' ' + (h.length === 5 ? h + ':00' : h); }
 function horaSeg() { var x = new Date(); return horaCOL() + ':' + ('0'+x.getSeconds()).slice(-2); }
 function turnoIni(c) { return tsDe(c.fecha, c.recibo && (c.recibo.hs || c.recibo.hora) || '00:00'); }
-function turnoFin(c) { return c.entregadoFecha ? tsDe(c.entregadoFecha, c.entregadoHs || c.entregadoHora) : tsDe(c.fecha, '23:59:59'); }
+function turnoFin(c) { return c.entregadoFecha ? tsDe(c.entregadoFecha, c.entregadoHs || c.entregadoHora) : (c.coachId === '__dia' && c.estado === 'validado' && c.validadoFecha) ? tsDe(c.validadoFecha, c.validadoHs || c.validadoHora) : tsDe(c.fecha, '23:59:59'); }
 function retirosEntre(desde, hasta, caja) { return gymRecs('retiro').filter(function(r){ var t = tsDe(r.fecha, r.hs || r.hora); return t > desde && t <= hasta && (!caja || r.caja === caja); }); }
 function ahoraTs() { return tsDe(dateCOL(), horaSeg()); }
 // Lo que debería haber en cada caja según el último turno entregado y los retiros posteriores
@@ -5142,11 +5412,6 @@ function saldoSistema(fecha, coachId, hasta) {
   var t = turnoTotales(p), out = { desde:p };
   CAJAS.forEach(function(k){ var c = t.cajas[k[0]]; out[k[0]] = (c.contado != null ? c.contado : c.esperado) - retirosEntre(turnoFin(p), hasta || ahoraTs(), k[0]).reduce(function(a, r){ return a + (parseFloat(r.valor)||0); }, 0); });
   return out;
-}
-function saldoAhora(caja) {
-  var hoy = dateCOL(), abiertos = gymRecs('cierre').filter(function(c){ return c.fecha === hoy && c.recibo && c.estado !== 'entregado' && c.estado !== 'validado'; });
-  if (abiertos.length) { var t = turnoTotales(abiertos.sort(function(a,b){ return turnoIni(b).localeCompare(turnoIni(a)); })[0], ahoraTs()); return t.cajas[caja].esperado; }
-  var s = saldoSistema(hoy, '__nadie__', ahoraTs()); return s ? s[caja] : 0;
 }
 function openRetiro() {
   if (!puedeRecepcion()) return;
@@ -5169,8 +5434,9 @@ function retiroPrev() {
 function guardarRetiro() {
   var c = document.getElementById('rt_caja').value, v = dinero(document.getElementById('rt_val').value); if (!v) { toast('Escribe el valor'); return; }
   var s = saldoAhora(c);
-  var r = { id:gid('ret_'), tipo:'retiro', userId:'__gym', caja:c, valor:v, fecha:dateCOL(), hora:horaCOL(), hs:horaSeg(), por:CU.name, porId:CU.id, nota:(document.getElementById('rt_nota').value||'').trim(), habia:s, queda:s - v };
-  saveAndSync('saveLog', r, function(){ closeModal('m_retiro'); toast('🏦 Retiro registrado · queda '+pesos(s - v)+' de base'); gymRefrescar(); });
+  var num = gymRecs('retiro').reduce(function(a, x){ return Math.max(a, x.num||0); }, 0) + 1;
+  var r = { id:gid('ret_'), tipo:'retiro', userId:'__gym', num:num, caja:c, valor:v, fecha:dateCOL(), hora:horaCOL(), hs:horaSeg(), por:CU.name, porId:CU.id, nota:(document.getElementById('rt_nota').value||'').trim(), habia:s, queda:s - v };
+  saveAndSync('saveLog', r, function(){ closeModal('m_retiro'); toast('🏦 Retiro #'+('00'+num).slice(-3)+' registrado · queda '+pesos(s - v)+' de base'); gymRefrescar(); });
 }
 // ── Totales de un turno ──
 function turnoTotales(c, hasta) {
@@ -5193,8 +5459,8 @@ function turnoTotales(c, hasta) {
     t.ventasEf[cajaDeProducto(pr)] += q.ef * precio; t.ventasTr += q.tr * precio; t.ventas += (q.ef + q.tr) * precio;
   });
   gymRecs('deuda').forEach(function(d){
-    if (d.fecha === c.fecha && d.por === c.coachId) { t.fiado += parseFloat(d.valor)||0; t.fiados.push(d); }
-    (d.abonos||[]).forEach(function(a){ if (a.fecha !== c.fecha || a.por !== c.coachId) return; var v = parseFloat(a.valor)||0; t.abonos.push({ d:d, a:a });
+    if (d.fecha === c.fecha && (c.coachId === '__dia' || d.por === c.coachId)) { t.fiado += parseFloat(d.valor)||0; t.fiados.push(d); }
+    (d.abonos||[]).forEach(function(a){ if (a.fecha !== c.fecha || (c.coachId !== '__dia' && a.por !== c.coachId)) return; var v = parseFloat(a.valor)||0; t.abonos.push({ d:d, a:a });
       if (a.medio === 'Transferencia') t.abonosTr += v; else if (a.medio === 'Bold') t.abonosBold += v; else t.abonosEf[d.caja || 'menor'] += v; });
   });
   t.transfTotal = t.transf + t.ventasTr + t.abonosTr; t.boldTotal = t.bold + t.abonosBold;
@@ -5226,115 +5492,13 @@ function acumMes(fecha) {
   gymRecs('pago').forEach(function(p){ if ((p.fecha||'').slice(0,7) !== mes || p.fecha > fecha) return; var v = parseFloat(p.valor)||0; a.pagos += v;
     if (p.planId === 'dia') a.dia += v; else if (p.planId === 'quincena') a.quincena += v; else if (p.planId !== 'clase') a.M += v;
     if (p.medio === 'Transferencia') a.B += v; else if (p.medio === 'Bold') a.Bold += v; });
-  gymRecs('cierre').forEach(function(c){ if ((c.fecha||'').slice(0,7) !== mes || c.fecha > fecha) return; Object.keys(c.ventas||{}).forEach(function(pid){ var pr = prodPorId(pid); a.B += ventaQ(c.ventas[pid]).tr * (pr ? parseFloat(pr.precio)||0 : 0); }); });
+  gymRecs('cierre').forEach(function(c){ if (c.fusionado || (c.fecha||'').slice(0,7) !== mes || c.fecha > fecha) return; Object.keys(c.ventas||{}).forEach(function(pid){ var pr = prodPorId(pid); a.B += ventaQ(c.ventas[pid]).tr * (pr ? parseFloat(pr.precio)||0 : 0); }); });
   gymRecs('deuda').forEach(function(d){ (d.abonos||[]).forEach(function(x){ if ((x.fecha||'').slice(0,7) === mes && x.fecha <= fecha) { if (x.medio === 'Transferencia') a.B += parseFloat(x.valor)||0; else if (x.medio === 'Bold') a.Bold += parseFloat(x.valor)||0; } }); });
   gymRecs('retiro').forEach(function(r){ if ((r.fecha||'').slice(0,7) === mes && r.fecha <= fecha) a.retiros += parseFloat(r.valor)||0; });
   return a;
 }
-function ultimoTurnoAntes(fecha, coachId) {
-  return gymRecs('cierre').filter(function(c){ return c.version >= 2 && (c.fecha < fecha || (c.fecha === fecha && c.coachId !== coachId && c.estado && c.estado !== 'borrador')); })
-    .sort(function(a,b){ return turnoFin(b).localeCompare(turnoFin(a)); })[0] || null;
-}
 // ── Recibir turno: efectivo de las 3 cajas + inventario ──
-function reciboTurnoHtml() {
-  var prods = prodsActivos(), ed = turnoEditable() && CT.coachId === CU.id;
-  var rc = CT.recibo, ant = ultimoTurnoAntes(CT.fecha, CT.coachId), sis = saldoSistema(CT.fecha, CT.coachId);
-  var inS = 'width:100%;padding:7px;background:var(--s1);border:1px solid var(--brd);border-radius:8px;color:var(--blanco);font-size:13px;box-sizing:border-box';
-  var h = '<div class="card" style="padding:14px;margin-bottom:12px;border-color:'+(rc?(rc.descuadre?'rgba(255,80,80,0.5)':'rgba(80,200,120,0.5)'):'var(--cyan)')+'"><div class="card-title" style="padding:0 0 6px">📦 RECIBIR TURNO</div>';
-  h += '<div style="font-size:11px;color:var(--gris);margin-bottom:8px">'+(ant ? 'Turno anterior: <b>'+esc(ant.coachNombre||'')+'</b> · '+fDate(ant.fecha)+(ant.entregadoHora?' '+esc(ant.entregadoHora):'') : 'Primer turno registrado: escribe lo que hay')+'</div>';
-  if (rc) {
-    h += '<div style="font-size:12px;line-height:1.6">'+(rc.descuadre?'⚠️ Recibido con descuadre a las '+esc(rc.hora)+': <b>'+esc(rc.motivo||'')+'</b>':'✅ Recibido completo a las '+esc(rc.hora))+'</div>';
-    if (rc.cajas) h += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'+CAJAS.map(function(k){ var d = rc.cajasSistema && rc.cajasSistema[k[0]] != null ? dinero(rc.cajas[k[0]]) - rc.cajasSistema[k[0]] : 0; return '<span class="chip">'+k[1]+': <b>'+pesos(rc.cajas[k[0]])+'</b>'+(Math.abs(d)>=1?' <span style="color:#ff8080">('+(d>0?'+':'')+pesos(d)+')</span>':'')+'</span>'; }).join('')+'</div>';
-    if (rc.diferencias && Object.keys(rc.diferencias).length) h += '<div style="font-size:11px;color:var(--gris);margin-top:4px">'+Object.keys(rc.diferencias).map(function(pid){ var p = prodPorId(pid); return esc(p?p.nombre:pid)+': sistema '+rc.sistema[pid]+' · contado '+rc.contado[pid]; }).join(' · ')+'</div>';
-    return h + '</div>';
-  }
-  if (!ed) return h + '<div style="font-size:12px;color:var(--gris)">Aún no se ha recibido el turno.</div></div>';
-  h += '<div style="font-size:12px;margin-bottom:8px">Cuenta el <b>efectivo de cada caja</b> y el <b>inventario</b> que recibes. Si algo no cuadra con el sistema, explica por qué.</div>';
-  h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:10px">';
-  CAJAS.forEach(function(k){ var s = sis ? Math.round(sis[k[0]]) : ''; h += '<div><div style="font-size:11px;font-weight:700">'+k[1]+(sis?' <span style="color:var(--gris);font-weight:400">· sistema '+pesos(s)+'</span>':'')+'</div><input class="rc-caja" data-k="'+k[0]+'" data-sis="'+(sis?s:'')+'" inputmode="numeric" value="'+(sis?s:'')+'" oninput="reciboCheck()" style="'+inS+'"></div>'; });
-  h += '</div>';
-  if (prods.length) {
-    h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px">';
-    prods.forEach(function(p){ var st = stockDe(p.id, CT.id); h += '<div><div style="font-size:11px;font-weight:700">'+esc(p.nombre)+' <span style="color:var(--gris);font-weight:400">· sistema '+st+'</span></div><input class="rc-in" data-pid="'+p.id+'" data-sis="'+st+'" inputmode="numeric" value="'+st+'" oninput="reciboCheck()" style="'+inS+'"></div>'; });
-    h += '</div>';
-  }
-  h += '<div id="rc_mot_wrap" style="display:none;margin-top:8px"><div class="fg" style="margin:0"><label style="color:#ff8080">¿Por qué no cuadra? *</label><input id="rc_motivo" placeholder="Ej: faltaban 5.000 en caja menor, se dañó una botella…" style="'+inS+'"></div></div>';
-  return h + '<button class="btn btn-p btn-full" style="margin-top:10px" onclick="recibirTurno()">✅ Recibí el turno</button></div>';
-}
-function reciboCheck() {
-  var dif = false;
-  document.querySelectorAll('#main .rc-in').forEach(function(el){ if ((parseFloat(el.value)||0) !== parseFloat(el.getAttribute('data-sis'))) dif = true; });
-  document.querySelectorAll('#main .rc-caja').forEach(function(el){ var s = el.getAttribute('data-sis'); if (s !== '' && Math.abs(dinero(el.value) - parseFloat(s)) >= 1) dif = true; });
-  var w = document.getElementById('rc_mot_wrap'); if (w) w.style.display = dif ? '' : 'none';
-}
-function recibirTurno() {
-  var sis = {}, con = {}, difs = {}, movs = [], cajas = {}, cajasSis = {}, difCaja = false;
-  document.querySelectorAll('#main .rc-in').forEach(function(el){ var pid = el.getAttribute('data-pid'), s = parseFloat(el.getAttribute('data-sis')), c = parseFloat(el.value)||0; sis[pid] = s; con[pid] = c; if (c !== s) difs[pid] = c - s; });
-  document.querySelectorAll('#main .rc-caja').forEach(function(el){ var k = el.getAttribute('data-k'), s = el.getAttribute('data-sis'); cajas[k] = dinero(el.value); if (s !== '') { cajasSis[k] = parseFloat(s); if (Math.abs(cajas[k] - cajasSis[k]) >= 1) difCaja = true; } });
-  var motivo = ((document.getElementById('rc_motivo')||{}).value||'').trim(), desc = Object.keys(difs).length > 0 || difCaja;
-  if (desc && !motivo) { toast('Explica por qué no cuadra'); document.getElementById('rc_motivo').focus(); return; }
-  turnoLeer();
-  CT.recibo = { hora:horaCOL(), hs:horaSeg(), fecha:dateCOL(), por:CU.name, sistema:sis, contado:con, diferencias:difs, cajas:cajas, cajasSistema:cajasSis, descuadre:desc, motivo:motivo };
-  Object.keys(difs).forEach(function(pid){ movs.push({ id:gid('inv_'), tipo:'invmov', userId:'__gym', pid:pid, clase:'recibo', ubic:'stock', cant:difs[pid], nota:'Recibo de turno · '+motivo, fecha:dateCOL(), hora:horaCOL(), por:CU.name }); });
-  var x = JSON.parse(JSON.stringify(CT)); x.estado = x.estado || 'borrador';
-  movs.push(x);
-  var i = 0; (function next(){ if (i >= movs.length) { toast(desc ? '⚠️ Turno recibido con descuadre (recepción será notificada)' : '✅ Turno recibido'); pgCierre(CT.fecha, CT.coachId, 'turno'); return; } saveAndSync('saveLog', movs[i++], next); })();
-}
 // ── Pantalla del turno ──
-function turnoHtml(ex) {
-  var ed = turnoEditable(), dis = ed ? '' : ' disabled', esMio = CT.coachId === CU.id;
-  var inS = 'width:100%;padding:7px;background:var(--s1);border:1px solid var(--brd);border-radius:8px;color:var(--blanco);font-family:var(--font-body);font-size:13px;box-sizing:border-box';
-  var h = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px"><b>'+esc(CT.coachNombre||'')+'</b> '+estadoTurnoHtml(ex)+(puedeRecepcion()?'<button class="btn btn-g btn-sm" style="margin-left:auto" onclick="openRetiro()">🏦 Retirar a banco</button>':'')+'</div>';
-  if (ex && ex.estado === 'devuelto' && ex.notaValidacion) h += '<div style="padding:10px 12px;border-radius:10px;background:rgba(255,80,80,0.08);border:1px solid rgba(255,80,80,0.4);font-size:12px;margin-bottom:12px">↩ Recepción: '+esc(ex.notaValidacion)+'</div>';
-  if (ex && ex.estado === 'validado') h += '<div style="padding:10px 12px;border-radius:10px;background:rgba(80,200,120,0.08);border:1px solid rgba(80,200,120,0.4);font-size:12px;margin-bottom:12px">✅ Validado por <b>'+esc(ex.validadoPor||'')+'</b> el '+fDate(ex.validadoFecha||ex.fecha)+' a las '+esc(ex.validadoHora||'')+(ex.notaValidacion?' · '+esc(ex.notaValidacion):'')+'</div>';
-  h += reciboTurnoHtml();
-  // Pagos
-  var ps = pagosTurno(CT.fecha, CT.coachId);
-  h += '<div class="card" style="padding:14px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><div class="card-title" style="padding:0">👥 PAGOS DE '+T.Usuarios.toUpperCase()+'</div>'+(ed && esMio?'<button class="btn btn-p btn-sm" onclick="openPago(\'\',\''+CT.fecha+'\')">+ Registrar pago</button>':'')+'</div>';
-  if (!ps.length) h += '<div style="font-size:12px;color:var(--gris)">Aún no hay pagos en este turno.</div>';
-  ps.forEach(function(p){
-    h += '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:rgba(0,0,0,.15);margin-bottom:6px"><div style="flex:1;min-width:0;font-size:12px;line-height:1.5"><b>'+esc((p.nombres||[]).join(' + '))+'</b>'+(p.externo?' <span class="badge bw">no registrado</span>':'')+' · '+esc(p.plan)+'<br><span style="color:var(--gris)">'+(p.externo?'Válido hasta ':'Corte ')+fDate(p.hasta)+(p.nota?' · '+esc(p.nota):'')+'</span></div><div style="text-align:right"><div style="font-weight:800">'+pesos(p.valor)+'</div><div style="font-size:10px;color:'+(p.medio==='Efectivo'?'#80d4a0':'var(--cyan)')+'">'+esc(p.medio)+(p.medio==='Transferencia'?' (B)':'')+'</div></div>'+(ed?'<button onclick="borrarPago(\''+p.id+'\')" title="Anular" style="background:none;border:none;color:var(--gris);font-size:16px;cursor:pointer">×</button>':'')+'</div>';
-  });
-  h += '</div>';
-  // Ventas de la tienda
-  h += '<div class="card" style="padding:14px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><div class="card-title" style="padding:0">🛒 VENTAS DE LA TIENDA</div>'+(ed?'<button class="btn btn-g btn-sm" onclick="openFiado()">🧾 Venta sin pagar</button>':'')+'</div>';
-  h += '<div style="font-size:11px;color:var(--gris);margin-bottom:8px">Escribe cuántas unidades se vendieron en <b>efectivo</b> y cuántas por <b>transferencia</b>. El efectivo de líquidos va a la caja menor y el de sachets a la caja sachets.</div>';
-  [['liquido','🥤 Líquidos'],['sachet','🧂 Sachets']].forEach(function(cat){
-    var prods = prodsActivos(cat[0]); if (!prods.length) return;
-    h += '<div style="font-size:12px;font-weight:800;margin:8px 0 6px">'+cat[1]+'</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">';
-    prods.forEach(function(p){
-      var st = stockDe(p.id, CT.id), q = ventaQ((CT.ventas||{})[p.id]);
-      h += '<div style="padding:8px;border-radius:8px;background:rgba(0,0,0,.15)"><div style="font-weight:800;color:var(--cyan)">'+esc(p.nombre)+'</div><div style="font-size:10px;color:var(--gris);margin-bottom:4px">'+pesos(p.precio)+' c/u · hay <b data-st="'+p.id+'" data-base="'+st+'" style="color:'+(st<=0?'#ff8080':'inherit')+'">'+st+'</b></div>'
-        + '<div style="display:flex;gap:4px"><input class="ct-in ct-v" data-pid="'+p.id+'" data-m="ef" inputmode="numeric" placeholder="Efect." value="'+(q.ef||'')+'" style="'+inS+'"'+dis+'><input class="ct-in ct-v" data-pid="'+p.id+'" data-m="tr" inputmode="numeric" placeholder="Transf." value="'+(q.tr||'')+'" style="'+inS+'"'+dis+'></div><div class="ct-sub" data-pid="'+p.id+'" style="font-size:11px;color:var(--gris);margin-top:3px"></div></div>';
-    });
-    h += '</div>';
-  });
-  var tt = turnoTotales(CT);
-  if (tt.fiados.length) h += '<div style="font-size:12px;font-weight:800;margin:12px 0 6px;color:#ff8080">🧾 Vendido sin pagar en este turno</div>' + tt.fiados.map(function(d){ return '<div style="font-size:12px;padding:6px 10px;border-radius:8px;background:rgba(255,80,80,0.07);margin-bottom:4px"><b>'+esc(d.nombre)+'</b> · '+esc((d.items||[]).map(function(i){ return i.cant+' × '+i.nombre; }).join(', '))+' · '+pesos(d.valor)+(deudaSaldo(d)<=0.5?' · ✅ pagado':'')+'</div>'; }).join('');
-  if (tt.abonos.length) h += '<div style="font-size:12px;font-weight:800;margin:12px 0 6px;color:#80d4a0">💵 Deudas cobradas en este turno</div>' + tt.abonos.map(function(x){ return '<div style="font-size:12px;padding:6px 10px;border-radius:8px;background:rgba(80,200,120,0.07);margin-bottom:4px"><b>'+esc(x.d.nombre)+'</b> · '+pesos(x.a.valor)+' · '+esc(x.a.medio)+'</div>'; }).join('');
-  h += '</div>';
-  // Cajas
-  h += '<div class="card" style="padding:14px;margin-bottom:12px"><div class="card-title" style="padding:0 0 8px">💵 CAJAS DEL TURNO</div><div id="ct_cajas"></div>';
-  h += '<div style="font-size:11px;color:var(--gris);margin:8px 0 6px">Al entregar, cuenta lo que queda en cada caja:</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">';
-  CAJAS.forEach(function(k){ var v = (CT.contado||{})[k[0]]; h += '<div class="fg" style="margin:0"><label>'+k[1]+' · contado</label><input class="ct-in ct-cont" data-k="'+k[0]+'" inputmode="numeric" value="'+esc(v==null?'':v)+'" style="'+inS+'"'+dis+'></div>'; });
-  h += '</div><div class="fg" style="margin:10px 0 0"><label>Observaciones</label><textarea class="ct-in" id="ct_obs" style="'+inS+';height:52px"'+dis+'>'+esc(CT.obs||'')+'</textarea></div></div>';
-  h += '<div class="card" id="ct_tot" style="padding:14px;margin-bottom:12px"></div>';
-  if (ed) h += '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-g" style="flex:1" onclick="guardarTurno(\'borrador\')">💾 Guardar borrador</button><button class="btn btn-p" style="flex:1" onclick="guardarTurno(\'entregado\')">📤 Entregar a recepción</button></div>';
-  if (esRecepcion() && ex && ex.estado === 'entregado') {
-    h += '<div class="card" style="padding:14px;margin-top:12px;border-color:var(--cyan)"><div class="card-title" style="padding:0 0 8px">✅ VALIDACIÓN DE RECEPCIÓN</div><div class="fg"><label>Nota (opcional)</label><input id="ct_nota_val" placeholder="Ej: recibido completo"></div>'
-      + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-p" style="flex:1" onclick="validarTurno(\'validado\')">✅ Recibí y valido</button><button class="btn btn-g" style="flex:1" onclick="validarTurno(\'devuelto\')">↩ Devolver para corregir</button></div></div>';
-  }
-  return h;
-}
-function turnoLeer() {
-  var v = {};
-  document.querySelectorAll('#main .ct-v').forEach(function(el){ var pid = el.getAttribute('data-pid'), m = el.getAttribute('data-m'), n = parseFloat(el.value)||0; if (!n) return; v[pid] = v[pid] || { ef:0, tr:0 }; v[pid][m] = n; });
-  CT.ventas = v;
-  var c = {}; document.querySelectorAll('#main .ct-cont').forEach(function(el){ c[el.getAttribute('data-k')] = el.value; });
-  if (document.querySelector('#main .ct-cont')) CT.contado = c;
-  var ob = document.getElementById('ct_obs'); if (ob) CT.obs = ob.value;
-  turnoRenderTot();
-}
 function turnoRenderTot() {
   document.querySelectorAll('#main .ct-sub').forEach(function(el){
     var pid = el.getAttribute('data-pid'), q = ventaQ((CT.ventas||{})[pid]), pr = prodPorId(pid), n = q.ef + q.tr;
@@ -5349,14 +5513,14 @@ function turnoRenderTot() {
   var box = document.getElementById('ct_tot'); if (!box) return;
   var row = function(k, l, v, sub, col){ return '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.06)"><span style="flex:0 0 46px;font-weight:800;color:var(--oro)">'+k+'</span><span style="flex:1;font-size:12px">'+l+(sub?'<div style="font-size:10px;color:var(--gris)">'+sub+'</div>':'')+'</span><span style="font-weight:800;font-size:15px;'+(col?'color:'+col:'')+'">'+v+'</span></div>'; };
   var inv = prodsActivos().map(function(p){ return esc(p.nombre)+'='+(stockDe(p.id, CT.id) - (function(){ var q = ventaQ((CT.ventas||{})[p.id]); return q.ef + q.tr; })()); }).join(' · ');
-  var h = '<div class="card-title" style="padding:0 0 4px">🧾 RESUMEN DEL TURNO</div>';
+  var h = '<div class="card-title" style="padding:0 0 4px">🧾 RESUMEN '+(esHoja(CT)?'DEL DÍA':'DEL TURNO')+'</div>';
   h += row('T', 'Total efectivo caja principal', pesos(t.T), 'Recibió '+pesos(t.cajas.principal.rec)+' + pagos en efectivo '+pesos(t.efectivo)+(t.abonosEf.principal?' + deudas '+pesos(t.abonosEf.principal):''));
-  h += row('C', 'Queda en caja principal', pesos(t.C), t.cajas.principal.ret ? 'Después de retirar '+pesos(t.cajas.principal.ret)+' a banco' : 'Base para el siguiente turno');
+  h += row('C', 'Queda en caja principal', pesos(t.C), t.cajas.principal.ret ? 'Después de retirar '+pesos(t.cajas.principal.ret)+' a banco' : 'Base para el día siguiente');
   h += row('CM', 'Caja menor (líquidos)', pesos(t.CM));
   h += row('$', 'Caja sachets', pesos(t.S));
   h += row('🛒', 'Ventas de la tienda', pesos(t.ventas), 'Efectivo '+pesos(t.ventasEf.menor + t.ventasEf.sachets)+' · Transferencia '+pesos(t.ventasTr));
   if (t.fiado) h += row('🧾', 'Vendido sin pagar (fiado)', pesos(t.fiado), t.fiados.length+' persona'+(t.fiados.length===1?'':'s'), '#ff8080');
-  h += row('B·t', 'Transferencias del turno', pesos(t.transfTotal), 'Pagos '+pesos(t.transf)+' · ventas '+pesos(t.ventasTr)+(t.abonosTr?' · deudas '+pesos(t.abonosTr):''));
+  h += row('B·t', esHoja(CT) ? 'Transferencias del día' : 'Transferencias del turno', pesos(t.transfTotal), 'Pagos '+pesos(t.transf)+' · ventas '+pesos(t.ventasTr)+(t.abonosTr?' · deudas '+pesos(t.abonosTr):''));
   if (t.boldTotal) h += row('Bold', 'Pagos con Bold', pesos(t.boldTotal));
   h += row('#', 'Conteos', t.dia+' día · '+t.clase+' clase · '+t.quincena+' quincena'+(t.externos?' · '+t.externos+' no registrados':''));
   if (t.dif != null) h += row('±', 'Diferencia total con lo contado', (t.dif>0?'+':'')+pesos(t.dif), Math.abs(t.dif)<1?'✅ Cuadra':(t.dif>0?'Sobra dinero':'Falta dinero'), Math.abs(t.dif)<1?'#80d4a0':'#ff8080');
@@ -5368,20 +5532,6 @@ function turnoRenderTot() {
   if (m.Bold) h += row('Bold', 'Total Bold', pesos(m.Bold));
   h += '<div style="font-size:11px;color:var(--gris);margin-top:8px;line-height:1.6">📦 Inventario al cerrar: '+inv+'</div>';
   box.innerHTML = h;
-}
-function guardarTurno(estado) {
-  turnoLeer();
-  var malo = false; document.querySelectorAll('#main .ct-sub').forEach(function(el){ if (el.innerHTML.indexOf('supera') >= 0) malo = true; });
-  if (malo && !confirm('Hay ventas que superan el inventario disponible. ¿Guardar de todas formas?')) return;
-  if (estado === 'entregado' && !CT.recibo && !confirm('No has marcado «Recibí el turno» (efectivo e inventario al empezar). ¿Entregar de todas formas?')) return;
-  if (estado === 'entregado' && CAJAS.some(function(k){ var v = (CT.contado||{})[k[0]]; return v === '' || v == null; }) && !confirm('No escribiste el efectivo contado de todas las cajas. ¿Entregar de todas formas?')) return;
-  if (estado === 'entregado' && !confirm('¿Entregar el cierre a recepción? Ya no podrás editarlo, a menos que recepción te lo devuelva.')) return;
-  var x = JSON.parse(JSON.stringify(CT));
-  x.version = 3; x.estado = estado; x.actualizado = new Date().toISOString(); x.actualizadoPor = CU.name;
-  if (estado === 'entregado') { x.entregadoHora = horaCOL(); x.entregadoHs = horaSeg(); x.entregadoFecha = dateCOL(); }
-  var tt = turnoTotales(x); x.totales = { T:tt.T, C:tt.C, CM:tt.CM, S:tt.S, pagos:tt.pagos, efectivo:tt.efectivo, transf:tt.transfTotal, bold:tt.boldTotal, ventas:tt.ventas, fiado:tt.fiado, dif:tt.dif };
-  x.pagosIds = pagosTurno(x.fecha, x.coachId).map(function(p){ return p.id; });
-  saveAndSync('saveLog', x, function(){ toast(estado === 'entregado' ? '📤 Cierre entregado a recepción' : '💾 Borrador guardado'); pgCierre(x.fecha, x.coachId, 'turno'); });
 }
 
 function validarTurno(estado, id) {
@@ -5418,7 +5568,7 @@ function retirosHistHtml() {
   var h = '<div style="font-size:11px;font-weight:700;color:var(--cyan);letter-spacing:1px;margin:16px 0 6px">🏦 RETIROS A BANCO DEL MES</div>';
   if (!rs.length) return h + '<div style="font-size:12px;color:var(--gris)">Sin retiros este mes.</div>';
   var nom = {}; CAJAS.forEach(function(k){ nom[k[0]] = k[1]; });
-  return h + rs.map(function(r){ return '<div style="font-size:12px;padding:6px 10px;border-radius:8px;background:var(--s1);margin-bottom:4px">'+fDate(r.fecha)+' '+esc(r.hora)+' · '+esc(nom[r.caja]||r.caja)+' · <b>'+pesos(r.valor)+'</b> · quedó base '+pesos(r.queda)+' · '+esc(r.por)+(r.nota?' · '+esc(r.nota):'')+'</div>'; }).join('');
+  return h + rs.map(function(r){ return '<div style="font-size:12px;padding:6px 10px;border-radius:8px;background:var(--s1);margin-bottom:4px">'+(r.num?'<b>#'+('00'+r.num).slice(-3)+'</b> · ':'')+fDate(r.fecha)+' '+esc(r.hora)+' · '+esc(nom[r.caja]||r.caja)+' · <b>'+pesos(r.valor)+'</b> · quedó base '+pesos(r.queda)+' · '+esc(r.por)+(r.nota?' · '+esc(r.nota):'')+'</div>'; }).join('');
 }
 function cajasDiaHtml(fecha, ts) {
   var v3 = ts.filter(function(c){ return c.version >= 2; }).sort(function(a,b){ return turnoFin(a).localeCompare(turnoFin(b)); });
@@ -5429,7 +5579,7 @@ function cajasDiaHtml(fecha, ts) {
     h += '</tbody></table></div>';
   }
   var rs = gymRecs('retiro').filter(function(r){ return r.fecha === fecha; });
-  if (rs.length) h += '<div style="font-size:12px;margin-top:8px">🏦 Retiros del día: '+rs.map(function(r){ return '<b>'+pesos(r.valor)+'</b> ('+esc(r.hora)+', '+esc(r.por)+', quedó '+pesos(r.queda)+')'; }).join(' · ')+'</div>';
+  if (rs.length) h += '<div style="font-size:12px;margin-top:8px">🏦 Retiros del día: '+rs.map(function(r){ return (r.num?'#'+('00'+r.num).slice(-3)+' ':'')+'<b>'+pesos(r.valor)+'</b> ('+esc(r.hora)+', '+esc(r.por)+', quedó '+pesos(r.queda)+')'; }).join(' · ')+'</div>';
   var fi = gymRecs('deuda').filter(function(d){ return d.fecha === fecha; });
   if (fi.length) h += '<div style="font-size:12px;margin-top:6px;color:#ff8080">🧾 Vendido sin pagar: '+fi.map(function(d){ return esc(d.nombre)+' '+pesos(d.valor); }).join(' · ')+'</div>';
   var m = acumMes(fecha);
@@ -5438,6 +5588,8 @@ function cajasDiaHtml(fecha, ts) {
 }
 
 function validarDia(fecha) {
+  var hj = turnoDe(fecha, '__dia');
+  if (hj && hj.estado !== 'validado') { CT = JSON.parse(JSON.stringify(hj)); HOJA_DIRTY = {}; validarHoja(); return; }
   var ts = turnosDelDia(fecha), pend = ts.filter(function(c){ return c.estado !== 'validado'; }).length;
   if (pend && !confirm('Hay '+pend+' turno(s) sin validar. ¿Validar el día de todas formas?')) return;
   var tot = { pagos:0, efectivo:0, transf:0, bold:0, ventas:0 };
@@ -5448,7 +5600,7 @@ function validarDia(fecha) {
 var CH_FILTRO = { coach:'', mes:'' };
 function cierreHistHtml() {
   var mes = CH_FILTRO.mes || dateCOL().slice(0,7);
-  var todos = gymRecs('cierre').filter(function(c){ return puedeRecepcion() || c.coachId === CU.id; });
+  var todos = gymRecs('cierre').filter(function(c){ return !c.fusionado && (puedeRecepcion() || c.coachId === CU.id || c.coachId === '__dia'); });
   var coaches = {}; todos.forEach(function(c){ coaches[c.coachId||c.responsable||'?'] = c.coachNombre||c.responsable||'?'; });
   var list = todos.filter(function(c){ return (c.fecha||'').slice(0,7) === mes && (!CH_FILTRO.coach || (c.coachId||c.responsable) === CH_FILTRO.coach); }).sort(function(a,b){ return b.fecha.localeCompare(a.fecha); });
   var h = '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px"><div class="fg" style="margin:0"><label>Mes</label><input type="month" value="'+mes+'" onchange="CH_FILTRO.mes=this.value;pgCierre(CT.fecha,CT.coachId,\'hist\')"></div>';
@@ -5472,7 +5624,7 @@ function cierreHistHtml() {
 function exportCierresMes() {
   var mes = CH_FILTRO.mes || dateCOL().slice(0,7);
   var rows = [['Fecha','Turno','Estado','Validado por','Pagos','Efectivo pagos','Transferencias (B)','Bold','Ventas tienda','Ventas transf.','Fiado','T total efectivo','Retiros a banco','C queda caja principal','CM caja menor','$ caja sachets','Diferencia','/Día','/Quincena','Pagos (detalle)','Observaciones']];
-  gymRecs('cierre').filter(function(c){ return (c.fecha||'').slice(0,7) === mes && (puedeRecepcion() || c.coachId === CU.id); }).sort(function(a,b){ return a.fecha.localeCompare(b.fecha); }).forEach(function(c){
+  gymRecs('cierre').filter(function(c){ return !c.fusionado && (c.fecha||'').slice(0,7) === mes && (puedeRecepcion() || c.coachId === CU.id || c.coachId === '__dia'); }).sort(function(a,b){ return a.fecha.localeCompare(b.fecha); }).forEach(function(c){
     var t = turnoTotales(c), ps = c.version >= 2 ? pagosTurno(c.fecha, c.coachId) : [], ret = t.legacy ? 0 : CAJAS.reduce(function(a, k){ return a + t.cajas[k[0]].ret; }, 0);
     rows.push([c.fecha, c.coachNombre||c.responsable||'', c.estado||'', c.validadoPor||'', t.pagos, t.efectivo, t.legacy ? t.transf : t.transfTotal, t.legacy ? 0 : t.boldTotal, t.ventas||0, t.ventasTr||0, t.fiado||0, t.T||0, ret, t.C||0, t.CM||0, t.S||0, t.dif==null?'':t.dif, t.dia, t.quincena,
       ps.map(function(p){ return (p.nombres||[]).join('+')+' · '+p.plan+' · '+p.valor+' ('+p.medio+')'; }).join(' | '), c.obs||'']);
@@ -5662,15 +5814,85 @@ var AG_TAB = 'usuarios', AG_MES = '';
 function pgAgenda(tab) {
   AG_TAB = tab || AG_TAB;
   var tabs = [['usuarios','👥 '+T.Usuarios], ['calendario','📅 Calendario']];
+  if (CU.role !== 'user') tabs.push(['pendientes', esGestor() ? '📋 Pendientes por coach' : '📋 Mis pendientes']);
   if (puedeReprogramar() || esGestor()) tabs.push(['mensajes','💬 Mensajes']);
   var h = '<div class="page-title">AGENDA DE RUTINAS</div><div class="page-sub">Fecha comprometida para cargar cada rutina, actualización de medidas y avisos</div>';
   h += '<div class="dia-tabs">'+tabs.map(function(t){ return '<button class="dia-tab'+(AG_TAB===t[0]?' active':'')+'" onclick="pgAgenda(\''+t[0]+'\')">'+t[1]+'</button>'; }).join('')+'</div>';
-  h += agendaAlcanceHtml();
+  if (AG_TAB !== 'pendientes') h += agendaAlcanceHtml();
   if (AG_TAB === 'calendario') h += agendaCalHtml();
+  else if (AG_TAB === 'pendientes') h += pendientesHtml();
   else if (AG_TAB === 'mensajes') h += agendaMsgHtml();
   else h += agendaUsersHtml();
   setMain(h);
 }
+// ═════ PENDIENTES POR COACH (admin y recepción recogen la lista y la envían) ═════
+function pendientesDe(u) {
+  var out = [], hoy = dateCOL(), a = agendaActual(u.id), e = agendaEstado(a), r = rutinaActiva(u.id), vp = vencePronto(u.id), mp = medidasPendiente(u.id);
+  if (modoConObligacion(u)) {
+    if (e === 'vencida') out.push({ p:0, ic:'⛔', t:'Fecha comprometida VENCIDA ('+fDate(a.fecha)+'): cargar la rutina' });
+    else if (e === 'pendiente') out.push({ p:3, ic:'📅', t:'Cargar la rutina a más tardar el '+fDate(a.fecha) });
+    else if (e === 'solicitada') out.push({ p:1, ic:'🙋', t:'Pidió rutina: comprometer fecha y avisarle antes del '+fDate(limiteSolicitud(a)) });
+    if (!a && vp) out.push({ p:1, ic:'⏰', t:(vp.vencio ? 'Rutina vencida el '+fDate(vp.vencio) : 'Rutina por vencer')+': comprometer la nueva fecha antes del '+fDate(vp.fecha) });
+    else if (!a && !r) out.push({ p:2, ic:'🚫', t:'Sin rutina activa ni fecha comprometida' });
+    else if (!a && r && rutVencida(r)) out.push({ p:2, ic:'🔚', t:'Rutina vencida el '+fDate(r.fechaFin)+' sin fecha comprometida' });
+  }
+  if (rutModo(u) === 'acond' && acondEstado(u) === 'terminado') out.push({ p:2, ic:'🌱', t:'Terminó el acondicionamiento: validar' });
+  if (mp) out.push({ p:3, ic:'📏', t:'Tomar medidas (pendiente desde el '+fDate(mp)+')' });
+  var sf = ses(dbR()).filter(function(l){ return l.userId === u.id && l.tipo !== 'libre' && l.tipo !== 'dirigida' && !l.feedback; }).length;
+  if (sf) out.push({ p:4, ic:'💬', t:sf+' sesión'+(sf===1?'':'es')+' sin retroalimentar' });
+  return out;
+}
+function pendientesPorCoach() {
+  var g = {};
+  dbR().users.filter(function(u){ return u.role === 'user'; }).forEach(function(u){
+    var it = pendientesDe(u); if (!it.length) return;
+    var k = u.coachId || '__sin';
+    (g[k] = g[k] || []).push({ u:u, it:it.sort(function(a,b){ return a.p - b.p; }) });
+  });
+  Object.keys(g).forEach(function(k){ g[k].sort(function(a,b){ return a.it[0].p - b.it[0].p || (a.u.name||'').localeCompare(b.u.name||''); }); });
+  return g;
+}
+function pendientesTexto(cid, lista) {
+  var c = userById(cid), nom = c ? (c.name||'').split(' ')[0] : 'equipo', n = 0;
+  var t = 'Hola '+nom+' 👋 Estos son tus pendientes en '+BRAND.nombre+' al '+fDate(dateCOL())+':\n';
+  lista.forEach(function(x){ t += '\n*'+x.u.name+'*\n'; x.it.forEach(function(i){ n++; t += '  '+i.ic+' '+i.t+'\n'; }); });
+  return t + '\nTotal: '+n+' pendiente'+(n===1?'':'s')+'. Por favor ponte al día y avísanos cuando quede listo. ¡Gracias! 💪';
+}
+function pendientesHtml() {
+  var g = pendientesPorCoach(), ks = Object.keys(g);
+  if (!esGestor() && CU.role !== 'admin') ks = ks.filter(function(k){ return k === CU.id; });
+  var envios = gymRecs('pendaviso');
+  var h = '<div style="font-size:12px;color:var(--gris);margin-bottom:12px;line-height:1.6">'+(esGestor()?'Lista de lo que tiene pendiente cada coach: rutinas por comprometer o por cargar, fechas vencidas, medidas, acondicionamientos y sesiones sin retroalimentar. Envíasela por WhatsApp para que esté pendiente.':'Esto es lo que tienes pendiente con tus '+T.usuarios+'.')+'</div>';
+  if (!ks.length) return h + '<div class="empty"><div class="empty-icon">✅</div><div class="empty-t">SIN PENDIENTES</div></div>';
+  var tot = function(k){ return g[k].reduce(function(a, x){ return a + x.it.length; }, 0); };
+  ks.sort(function(a,b){ return a === '__sin' ? 1 : b === '__sin' ? -1 : tot(b) - tot(a); });
+  ks.forEach(function(k){
+    var c = userById(k), lista = g[k], urg = lista.some(function(x){ return x.it.some(function(i){ return i.p <= 1; }); });
+    var ult = envios.filter(function(x){ return x.coachId === k; }).sort(function(a,b){ return (b.fecha+b.hora).localeCompare(a.fecha+a.hora); })[0];
+    h += '<div class="card" style="padding:14px;margin-bottom:12px;border-color:'+(urg?'rgba(255,80,80,0.45)':'var(--brd)')+'"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px"><div><b style="font-size:15px">'+(k === '__sin' ? '👥 Sin coach asignado' : '🧑‍🏫 '+esc(c ? c.name : k))+'</b> <span class="badge '+(urg?'':'bo')+'"'+(urg?' style="color:#ff8080;border:1px solid #ff808066"':'')+'>'+tot(k)+' pendiente'+(tot(k)===1?'':'s')+'</span>'+(ult?'<div style="font-size:10px;color:var(--gris);margin-top:2px">Último envío: '+fDate(ult.fecha)+' '+esc(ult.hora)+' por '+esc(ult.por)+'</div>':'')+'</div>';
+    if (k !== '__sin' && esGestor()) h += '<div style="display:flex;gap:6px"><button class="btn btn-p btn-sm" onclick="enviarPendientes(\''+k+'\')">💬 Enviar por WhatsApp</button><button class="btn btn-g btn-sm" onclick="copiarPendientes(\''+k+'\')">📋 Copiar</button></div>';
+    h += '</div>';
+    lista.forEach(function(x){
+      h += '<div style="padding:7px 10px;border-radius:8px;background:var(--s1);margin-bottom:5px;font-size:12px;line-height:1.6"><b style="cursor:pointer" onclick="openResumen7(\''+x.u.id+'\')">'+esc(x.u.name)+'</b> '+modoBadge(x.u)+'<br>'+x.it.map(function(i){ return '<span style="'+(i.p===0?'color:#ff8080':'')+'">'+i.ic+' '+esc(i.t)+'</span>'; }).join('<br>')+'</div>';
+    });
+    h += '</div>';
+  });
+  return h;
+}
+function enviarPendientes(cid) {
+  var g = pendientesPorCoach(), lista = g[cid]; if (!lista) return;
+  var c = userById(cid) || {}, txt = pendientesTexto(cid, lista);
+  if (!c.tel) toast('El coach no tiene teléfono registrado: escoge el chat en WhatsApp');
+  window.open(waLink(c.tel || '', txt), '_blank');
+  var n = lista.reduce(function(a, x){ return a + x.it.length; }, 0);
+  saveAndSync('saveLog', { id:gid('pav_'), tipo:'pendaviso', userId:'__gym', coachId:cid, coachNombre:c.name||'', fecha:dateCOL(), hora:horaCOL(), por:CU.name, n:n }, function(){ if (curPage === 'agenda') pgAgenda('pendientes'); });
+}
+function copiarPendientes(cid) {
+  var g = pendientesPorCoach(), lista = g[cid]; if (!lista) return;
+  var txt = pendientesTexto(cid, lista);
+  try { navigator.clipboard.writeText(txt).then(function(){ toast('📋 Lista copiada'); }, function(){ prompt('Copia la lista:', txt); }); } catch(e) { prompt('Copia la lista:', txt); }
+}
+
 var AG_ALCANCE = 'todos';
 function agendaUsuarios() {
   var base = (CU.role === 'coach' && AG_ALCANCE === 'todos') ? dbR().users : vdb().users;
@@ -5744,18 +5966,21 @@ function agendaCalHtml() {
   var meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   var prev = addMeses(mes+'-01', -1).slice(0,7), next = addMeses(mes+'-01', 1).slice(0,7);
   var vis = {}; agendaUsuarios().forEach(function(u){ vis[u.id] = u; });
-  var ev = {};
-  // Cada evento: versión corta para la celda y versión completa para el detalle del día
+  var ev = {}, evU = {};
+  // Un solo evento por persona y día (si hay varias cosas se juntan los íconos, sin repetir)
   var add = function(f, color, icon, u, txt, extra){
     if (!f || f.slice(0,7) !== mes) return;
-    var corto = (u.name||'').split(' ')[0], cs = extra ? ';'+extra : '';
-    (ev[f] = ev[f] || []).push({
-      c:'<div class="cal-ev" style="border-left-color:'+color+cs+'">'+icon+' '+esc(corto)+'</div>',
-      d:'<div class="cal-ev cal-ev-l" style="border-left-color:'+color+cs+'" onclick="verComoUsuario(\''+u.id+'\')">'+icon+' <b>'+esc(u.name)+'</b> · '+txt+(u.coachId?' <span style="color:var(--gris)">· '+esc(coachNombre(u.coachId))+'</span>':'')+'</div>'
-    });
+    var k = f+'|'+u.id, o = evU[k];
+    if (!o) { o = evU[k] = { f:f, u:u, color:color, extra:extra||'', icons:[], txts:[] }; (ev[f] = ev[f] || []).push(o); }
+    if (o.icons.indexOf(icon) < 0) o.icons.push(icon);
+    if (o.txts.indexOf(txt) < 0) o.txts.push(txt);
+    if (icon === '⚠️' || icon === '⛔') { o.color = color; o.extra = extra || o.extra; }
   };
+  var abiertas = {};   // solo la agenda vigente de cada persona (evita fechas repetidas)
+  Object.keys(vis).forEach(function(uid){ var aa = agendaActual(uid); if (aa) abiertas[aa.id] = 1; });
   gymRecs('agenda').forEach(function(a){ var u = vis[a.uid]; if (!u) return; var e = agendaEstado(a); if (!a.fecha || e === 'cancelada') return;
-    add(a.fecha, e==='cumplida'?'#80d4a0':e==='vencida'?'#ff8080':'#ffaa44', e==='cumplida'?'✓':e==='vencida'?'⛔':'📅', u, e==='cumplida'?'rutina cargada':e==='vencida'?'fecha comprometida vencida':'fecha comprometida para la rutina'); });
+    if (e !== 'cumplida' && !abiertas[a.id]) return;
+    add(a.fecha, e==='cumplida'?'#80d4a0':e==='vencida'?'#ff8080':'#ffaa44', e==='cumplida'?'✓':e==='vencida'?'⛔':'📅', u, e==='cumplida'?'✅ realizada: rutina cargada'+(a.cumplidaFecha?' el '+fDate(a.cumplidaFecha):''):e==='vencida'?'fecha comprometida vencida':'fecha comprometida para la rutina'); });
   Object.keys(vis).forEach(function(uid){ var u = vis[uid];
     agendasDe(uid).forEach(function(a){ if (agendaEstado(a) === 'solicitada') add(limiteSolicitud(a), '#ff9800', '⏰', u, 'último día para comprometer la fecha y avisar'); });
     var vp = vencePronto(uid); if (vp && vp.vencio) add(vp.fecha, '#ff9800', '⏰', u, 'rutina vencida el '+fDate(vp.vencio)+' · último día para comprometer la nueva');
@@ -5766,6 +5991,9 @@ function agendaCalHtml() {
   var h = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><button class="btn btn-g btn-sm" onclick="AG_MES=\''+prev+'\';pgAgenda(\'calendario\')">‹</button><b style="font-size:16px">'+meses[m-1]+' '+y+'</b><button class="btn btn-g btn-sm" onclick="AG_MES=\''+next+'\';pgAgenda(\'calendario\')">›</button></div>';
   h += '<div class="cal">'+['L','M','M','J','V','S','D'].map(function(d){ return '<div class="cal-h">'+d+'</div>'; }).join('');
   var first = new Date(y, m-1, 1, 12), off = (first.getDay() + 6) % 7, dias = new Date(y, m, 0).getDate();
+  Object.keys(ev).forEach(function(f){ ev[f] = ev[f].map(function(o){ var cs = o.extra ? ';'+o.extra : '', ic = o.icons.join(''), u = o.u;
+    return { c:'<div class="cal-ev" style="border-left-color:'+o.color+cs+'">'+ic+' '+esc((u.name||'').split(' ')[0])+'</div>',
+      d:'<div class="cal-ev cal-ev-l" style="border-left-color:'+o.color+cs+'" onclick="verComoUsuario(\''+u.id+'\')">'+ic+' <b>'+esc(u.name)+'</b> · '+o.txts.join(' · ')+(u.coachId?' <span style="color:var(--gris)">· '+esc(coachNombre(u.coachId))+'</span>':'')+'</div>' }; }); });
   for (var i = 0; i < off; i++) h += '<div class="cal-d vacio"></div>';
   for (var dd = 1; dd <= dias; dd++) {
     var f = mes+'-'+('0'+dd).slice(-2);
@@ -5861,7 +6089,7 @@ function alertasExtra(alerts) {
 function bodegaDe(pid) { var s = 0; gymRecs('invmov').forEach(function(m){ if (m.pid === pid && m.ubic === 'bodega') s += (parseFloat(m.cant)||0); }); return s; }
 function inventarioHtml() {
   var cfg = gymCfg(), mes = dateCOL().slice(0,7);
-  var vendidosMes = {}; gymRecs('cierre').forEach(function(c){ if ((c.fecha||'').slice(0,7) === mes) Object.keys(c.ventas||{}).forEach(function(pid){ var q = ventaQ(c.ventas[pid]); vendidosMes[pid] = (vendidosMes[pid]||0) + q.ef + q.tr; }); });
+  var vendidosMes = {}; gymRecs('cierre').forEach(function(c){ if (!c.fusionado && (c.fecha||'').slice(0,7) === mes) Object.keys(c.ventas||{}).forEach(function(pid){ var q = ventaQ(c.ventas[pid]); vendidosMes[pid] = (vendidosMes[pid]||0) + q.ef + q.tr; }); });
   var inS = 'width:100%;padding:7px;background:var(--s1);border:1px solid var(--brd);border-radius:8px;color:var(--blanco);font-size:13px;box-sizing:border-box';
   var h = '<div style="font-size:12px;color:var(--gris);margin-bottom:12px;line-height:1.6"><b>Bodega</b> es el inventario global guardado. <b>Stock</b> es lo que está disponible para vender en el turno. Las ventas de cada cierre se descuentan del stock. Pon un <b>mínimo</b> para recibir alertas cuando falte algo.</div>';
   [['liquido','🥤 LÍQUIDOS'],['sachet','🧂 SACHETS']].forEach(function(cat){
@@ -6227,10 +6455,11 @@ function comprometerFecha(uid) {
   guardarAgenda(a, '📅 Fecha comprometida', function(){ if (u.tel && confirm('¿Avisarle a '+u.name+' por WhatsApp cuándo tendrá su rutina?')) avisarAgenda(a.id, 'rutinaFecha'); else pgAgenda(AG_TAB); });
 }
 function marcarAgendaCumplida(uid, rutId) {
-  var a = agendasDe(uid).filter(function(x){ return x.estado !== 'cumplida' && x.estado !== 'cancelada'; })[0]; if (!a) return;
-  var x = JSON.parse(JSON.stringify(a)); x.estado = 'cumplida'; x.cumplidaFecha = dateCOL(); x.rutId = rutId;
-  x.aTiempo = !a.fecha || x.cumplidaFecha <= a.fecha;
-  saveAndSync('saveLog', x, function(){});
+  agendasDe(uid).filter(function(x){ return x.estado !== 'cumplida' && x.estado !== 'cancelada'; }).forEach(function(a, i){
+    var x = JSON.parse(JSON.stringify(a)); x.estado = 'cumplida'; x.cumplidaFecha = dateCOL(); x.rutId = rutId;
+    x.aTiempo = !a.fecha || x.cumplidaFecha <= a.fecha; if (i) x.duplicada = true;
+    saveAndSync('saveLog', x, function(){});
+  });
 }
 
 // ── Usuario: pedir rutina / no querer rutina ──
@@ -6330,6 +6559,7 @@ function guardarDirigida() {
   if (_saving['dirigida']) return;
   var uid = document.getElementById('dg_uid').value, f = document.getElementById('dg_fecha').value;
   if (!f) { toast('Selecciona la fecha'); return; }
+  if (ses(db()).some(function(l){ return l.userId === uid && l.tipo === 'dirigida' && l.fecha === f; })) { alert('⛔ Ya existe una sesión dirigida registrada el '+fDate(f)+' para esta persona. No se puede registrar otra vez.'); return; }
   var cs = document.getElementById('dg_coach'), c = userById(cs.value);
   var log = { id:'sd'+Date.now(), userId:uid, tipo:'dirigida', fecha:f, duracion:parseInt(document.getElementById('dg_dur').value)||null,
     esfuerzo:document.getElementById('dg_esf').value, comentario:document.getElementById('dg_com').value.trim(), coachId:cs.value, coachNombre:c ? c.name : '',
@@ -6515,12 +6745,67 @@ function resumen7Html(uid) {
   if (avisos.length) h += '<div style="margin-top:12px;padding:10px 12px;border-radius:10px;background:rgba(255,170,0,0.08);border:1px solid rgba(255,170,0,0.3);font-size:12px;line-height:1.7;color:#ffaa44">'+avisos.join('<br>')+'</div>';
   return h;
 }
-function openResumen7(uid) {
+var FICHA_TAB = 'res7';
+function openResumen7(uid, tab) {
   var u = db().users.filter(function(x){ return x.id === uid; })[0]; if (!u) return;
+  FICHA_TAB = tab || 'res7';
   var ov = document.getElementById('m_res7');
   if (!ov) { ov = document.createElement('div'); ov.className = 'overlay'; ov.id = 'm_res7'; document.body.appendChild(ov); }
-  ov.innerHTML = '<div class="modal" style="max-width:560px"><div class="modal-title"><span>📊 ÚLTIMOS 7 DÍAS · '+esc((u.name||'').toUpperCase())+'</span><button class="close-btn" onclick="closeModal(\'m_res7\')">×</button></div>'+resumen7Html(uid)+'</div>';
+  var tabs = [['res7','📊 7 días'],['pesos','🏋️ Récord de pesos'],['rutina','📋 Rutina'],['medidas','📏 Medidas']];
+  var body = FICHA_TAB === 'pesos' ? recordPesosHtml(uid) : FICHA_TAB === 'rutina' ? fichaRutinaHtml(uid) : FICHA_TAB === 'medidas' ? fichaMedidasHtml(uid) : resumen7Html(uid);
+  ov.innerHTML = '<div class="modal" style="max-width:620px"><div class="modal-title"><span>👤 '+esc((u.name||'').toUpperCase())+'</span><button class="close-btn" onclick="closeModal(\'m_res7\')">×</button></div>'
+    + '<div class="dia-tabs" style="margin-bottom:12px">'+tabs.map(function(t){ return '<button class="dia-tab'+(FICHA_TAB===t[0]?' active':'')+'" onclick="openResumen7(\''+uid+'\',\''+t[0]+'\')">'+t[1]+'</button>'; }).join('')+'</div>'+body+'</div>';
   openModal('m_res7');
+}
+// Récord de cargas por ejercicio: cuánto levanta y si subió o bajó
+function cargasDe(cargaReal, det) {
+  var xs = [];
+  (det||[]).forEach(function(sd){ var n = parseFloat(cargaNum(sd.carga)); if (!isNaN(n)) xs.push(n); });
+  if (!xs.length) String(cargaReal||'').split('/').forEach(function(p){ var n = parseFloat(cargaNum(p)); if (!isNaN(n)) xs.push(n); });
+  return xs;
+}
+function recordPesos(uid) {
+  var ex = {};
+  ses(dbR()).filter(function(l){ return l.userId === uid && l.tipo !== 'libre'; }).sort(function(a,b){ return (a.fecha||'').localeCompare(b.fecha||''); }).forEach(function(l){
+    (l.ejercicios||[]).forEach(function(e){
+      var xs = cargasDe(e.cargaReal, e.seriesDetalle); if (!xs.length) return;
+      var k = ejTokens(e.nombre).join(' ') || e.nombre; if (!k) return;
+      var o = ex[k] || (ex[k] = { nombre:e.nombre, hist:[], max:0, maxF:'' });
+      var mx = Math.max.apply(null, xs), uni = /lb/i.test(e.cargaReal||'') ? 'lb' : 'kg';
+      o.hist.push({ fecha:l.fecha, max:mx, txt:e.cargaReal || xs.join('/')+' '+uni, reps:e.repsReal||'', uni:uni });
+      if (mx >= o.max) { o.max = mx; o.maxF = l.fecha; o.uni = uni; }
+    });
+  });
+  return Object.keys(ex).map(function(k){ return ex[k]; }).sort(function(a,b){ return b.hist[b.hist.length-1].fecha.localeCompare(a.hist[a.hist.length-1].fecha); });
+}
+function recordPesosHtml(uid) {
+  var rs = recordPesos(uid);
+  if (!rs.length) return '<div class="empty"><div class="empty-icon">🏋️</div><div class="empty-t">SIN CARGAS REGISTRADAS</div><div class="empty-s">Aparecen cuando la persona registra el peso en sus sesiones.</div></div>';
+  var fl = function(d, uni){ return Math.abs(d) < 0.01 ? '<span style="color:var(--gris)">= igual</span>' : '<b>'+(d > 0 ? '▲ subió ' : '▼ bajó ')+Math.abs(d)+' '+uni+'</b>'; };
+  var h = '<div style="font-size:11px;color:var(--gris);margin-bottom:8px">Peso más alto de cada sesión. ▲ subió · ▼ bajó respecto a la vez anterior. Toca un ejercicio para ver todo su historial.</div>';
+  rs.forEach(function(o){
+    var hs = o.hist, ul = hs[hs.length-1], an = hs[hs.length-2], pr = hs[0];
+    h += '<details style="margin-bottom:6px;border:1px solid var(--brd);border-radius:10px;background:var(--s1)"><summary style="cursor:pointer;padding:9px 12px;list-style:none;font-size:12px;line-height:1.6"><b style="font-size:13px">'+esc(o.nombre)+'</b> · '+hs.length+(hs.length===1?' vez':' veces')+'<br>'
+      + 'Última ('+fDate(ul.fecha)+'): <b>'+ul.max+' '+ul.uni+'</b>'+(an?' · '+fl(ul.max - an.max, ul.uni):'')+' · 🏆 Récord <b>'+o.max+' '+(o.uni||'kg')+'</b> ('+fDate(o.maxF)+')'+(hs.length>2?' · Desde el inicio '+fl(ul.max - pr.max, ul.uni):'')+'</summary>'
+      + '<div style="padding:0 12px 10px"><table style="font-size:12px"><thead><tr><th>Fecha</th><th>Carga</th><th>Series×reps</th><th>vs anterior</th></tr></thead><tbody>'
+      + hs.slice().reverse().map(function(x, i, arr){ var nx = arr[i+1]; return '<tr><td>'+fDate(x.fecha)+'</td><td><b>'+esc(x.txt)+'</b></td><td>'+esc(x.reps||'—')+'</td><td>'+(nx?fl(x.max - nx.max, x.uni):'—')+'</td></tr>'; }).join('')
+      + '</tbody></table></div></details>';
+  });
+  return h;
+}
+function fichaRutinaHtml(uid) {
+  var r = rutinaActiva(uid);
+  if (!r) return '<div class="empty"><div class="empty-icon">📋</div><div class="empty-t">SIN RUTINA ACTIVA</div></div>';
+  var h = '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px"><div style="font-size:13px"><b>'+esc(r.nombre||'Plan '+r.semana)+'</b><div style="font-size:11px;color:var(--gris)">'+(r.fechaIni?fDate(r.fechaIni):'')+(r.fechaFin?' → '+fDate(r.fechaFin):'')+'</div></div><button class="btn btn-g btn-sm" onclick="closeModal(\'m_res7\');verComoUsuario(\''+uid+'\')">👁 Ver como la ve</button></div>';
+  (r.dias||[]).forEach(function(d){ h += '<details style="margin-bottom:6px;border:1px solid var(--brd);border-radius:10px;background:var(--s1)"><summary style="cursor:pointer;padding:9px 12px;font-weight:700;font-size:13px;list-style:none">'+esc(d.nombre||d.dia)+' · '+(d.ejercicios||[]).length+' ejercicios</summary><div style="padding:0 10px 10px">'+renderDiaEjs(d.ejercicios||[], uid)+'</div></details>'; });
+  return h;
+}
+function fichaMedidasHtml(uid) {
+  var meds = (dbR().medidas||[]).filter(function(m){ return m.userId === uid; }).sort(function(a,b){ return a.fecha.localeCompare(b.fecha); });
+  if (!meds.length) return '<div class="empty"><div class="empty-icon">📏</div><div class="empty-t">SIN MEDIDAS</div></div>';
+  var last = meds[meds.length-1], h = '<div style="font-size:11px;color:var(--gris);margin-bottom:8px">Última: '+fDate(last.fecha)+' · '+meds.length+(meds.length===1?' medición':' mediciones')+' · Toca una medida para ver su historial</div><div class="m-grid">';
+  medTodos().forEach(function(f){ var v = medVal(last, f.k); if (v == null) return; h += '<div class="m-item" style="cursor:pointer" onclick="openMedVisor(\''+uid+'\',\''+f.k+'\')"><div class="m-name">'+f.l+'</div><div class="m-val">'+v+'<span class="m-u"> '+f.u+'</span></div>'+medCompHtml(meds, f.k)+'</div>'; });
+  return h + '</div>';
 }
 
 function openBien(fecha) {
@@ -6845,9 +7130,10 @@ function saveLog() {
   var comentario = (document.getElementById('log_comment')||{value:''}).value.trim();
   // Check duplicate: same user + same date + same dia
   var d = db();
-  var dup = d.logs.filter(function(l){return l.userId===CU.id && l.fecha===fecha && l.dia===dia;});
+  var dup = ses(d).filter(function(l){return l.userId===CU.id && l.fecha===fecha && l.dia===dia && l.tipo!=='libre' && l.tipo!=='dirigida';});
   if (dup.length > 0) {
-    if (!confirm('Ya registraste el '+dia.replace('dia','Día ')+' del '+fecha+'.\n¿Quieres guardar otra sesión de todas formas?')) return;
+    alert('⛔ Ya existe un registro del '+dia.replace('dia','Día ')+' con fecha '+fDate(fecha)+'.\n\nNo se puede registrar otra vez para que no quede repetido. Si necesitas corregirlo, búscalo en tu historial.');
+    return;
   }
   var r = null;
   for(var i=0;i<d.rutinas.length;i++){if(d.rutinas[i].id===rutId){r=d.rutinas[i];break;}}
@@ -6980,11 +7266,11 @@ function pgMiProgreso() {
     }
     html += '</div>';
     var FIELDS = medTodos();
-    html += '<div class="card"><div class="card-title">📏 Últimas medidas ' + (first ? '<span style="font-size:12px;color:var(--gris);font-weight:400">▲▼ vs inicio</span>' : '') + '</div>';
+    html += '<div class="card"><div class="card-title">📏 Últimas medidas ' + (first ? '<span style="font-size:12px;color:var(--gris);font-weight:400">▲▼ vs anterior y vs la 1ª · toca una medida</span>' : '') + '</div>';
     html += '<div class="m-grid">';
     FIELDS.forEach(function(f) {
       var v = medVal(last, f.k); if (v == null) return;
-      html += '<div class="m-item"><div class="m-name">'+f.l+'</div><div class="m-val">'+v+'<span class="m-u"> '+f.u+'</span></div>' + getMedDiff(last,first,f.k) + '</div>';
+      html += '<div class="m-item" style="cursor:pointer" onclick="openMedVisor(CU.id,\''+f.k+'\')"><div class="m-name">'+f.l+'</div><div class="m-val">'+v+'<span class="m-u"> '+f.u+'</span></div>' + medCompHtml(meds, f.k) + '</div>';
     });
     html += '</div></div>';
     // History table
