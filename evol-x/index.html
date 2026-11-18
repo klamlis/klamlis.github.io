@@ -5227,6 +5227,7 @@ function permisoHoja(x, accion) {
   if (!CU || CU.role === 'user') return 'No tienes permiso';
   if (!x) return '';
   if (accion === 'migrar') return '';
+  if (accion === 'aviso') return hojaCerrada(x) && !esAdminCierre() ? 'Este día ya está cerrado.' : '';
   if (hojaCerrada(x) && !esAdminCierre()) return 'Este día ya está cerrado (🔒 Cerrar día). Recepción puede reabrirlo.';
   var e = hojaEstadoTurno(x), nom = e.u ? String(e.u.por) : '';
   if (accion === 'apertura') { if (x.segs && x.segs.length) return 'El día ya fue abierto por '+x.segs[0].por+'.'; var ant = diaAnteriorSinCerrar(x.fecha); return ant ? 'Recepción aún no ha cerrado el día '+fDate(ant.fecha)+' (🔒 Cerrar día). Cuando lo cierre, aquí aparecerá la caja con la que se recibe.' : ''; }
@@ -5240,12 +5241,24 @@ function permisoHoja(x, accion) {
 }
 function hojaActual(fecha) { var hj = turnoDe(fecha, HOJA); return hj ? hojaNorm(JSON.parse(JSON.stringify(hj))) : (CT && esHoja(CT) && CT.fecha === fecha ? CT : null); }
 // Antes de cualquier acción: trae lo último de la nube y revisa si se puede
+var HOJA_ACC_BUSY = false;
+function hojaOcupado(on) {
+  HOJA_ACC_BUSY = on;
+  var o = document.getElementById('hoja_busy');
+  if (!o) { o = document.createElement('div'); o.id = 'hoja_busy'; o.style.cssText = 'position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:5000;padding:10px 18px;border-radius:999px;background:rgba(0,0,0,0.85);border:1px solid var(--cyan);color:#fff;font-size:13px;font-weight:700;display:none'; document.body.appendChild(o); }
+  o.textContent = '⏳ Guardando… no cierres ni vuelvas a tocar'; o.style.display = on ? 'block' : 'none';
+  document.querySelectorAll('.overlay.open .btn-p, #main .btn-p').forEach(function(b){ if (on) { if (!b.disabled) { b.dataset.hbusy = '1'; b.disabled = true; } } else if (b.dataset.hbusy) { delete b.dataset.hbusy; b.disabled = false; } });
+}
 function hojaAccion(accion, fn, fecha) {
+  if (HOJA_ACC_BUSY) { toast('⏳ Espera: se está guardando lo anterior'); return; }
   var f = fecha || (CT && CT.fecha) || dateCOL();
+  hojaOcupado(true);
+  var fin = setTimeout(function(){ hojaOcupado(false); }, 25000);
   hojaPull(function(){
+    clearTimeout(fin);
     var no = permisoHoja(hojaActual(f), accion);
-    if (no) { alert('⛔ '+no); if (curPage === 'cierre') pgCierre(f, '', CT_TAB); return; }
-    fn();
+    if (no) { hojaOcupado(false); alert('⛔ '+no); if (curPage === 'cierre') pgCierre(f, '', CT_TAB); return; }
+    try { fn(); } finally { setTimeout(function(){ hojaOcupado(false); }, 800); }
   }, 4000);
 }
 // ── Guardado automático (solo se escriben los campos que esta persona cambió) ──
@@ -5590,7 +5603,7 @@ function segDetalleHtml(s, i, edit) {
   if (!gs.length) h += '<div style="font-size:12px;color:var(--gris)">Sin gastos ni retiros en este turno.</div>';
   var nomC = {}; CAJAS.forEach(function(k){ nomC[k[0]] = k[1]; });
   gs.forEach(function(r){ h += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 8px;border-radius:8px;background:rgba(0,0,0,.18);margin-bottom:4px;font-size:12px"><div style="flex:1;min-width:150px">'+retNum(r)+' · '+(r.clase==='gasto'?'<b>'+esc(r.concepto||'')+'</b>':'a banco')+' · '+esc(nomC[r.caja]||r.caja)+' · '+esc(r.hora||'')+' · ✎ '+esc(String(r.por||'').split(' ')[0])+(r.ediciones&&r.ediciones.length?' <span style="color:var(--cyan)">(editado)</span>':'')+'</div><b>'+pesos(r.valor)+'</b>'
-    + (edit && r.clase === 'gasto' ? ' <button class="btn btn-g btn-sm" onclick="openEditGasto(\''+r.id+'\')">✏️</button><button class="btn btn-g btn-sm" onclick="borrarGasto(\''+r.id+'\')">🗑</button>' : '') + '</div>'; });
+    + (edit && r.clase === 'gasto' ? ' <button class="btn btn-g btn-sm" onclick="openEditGasto(\''+r.id+'\')">✏️</button><button class="btn btn-g btn-sm" onclick="borrarGasto(\''+r.id+'\')">🗑</button>' : '') + (edit && r.clase !== 'gasto' ? ' <button class="btn btn-g btn-sm" onclick="borrarRetiro(\''+r.id+'\')">🗑</button>' : '') + '</div>'; });
   if (edit && !hojaCerrada(CT)) h += '<button class="btn btn-g btn-sm" style="margin-top:4px" onclick="openRetiro(\'gasto\',\''+s.id+'\')">+ Agregar gasto operativo a este turno</button>';
   h += '</div></details>';
   if (s.validado) h += '<div style="font-size:11px;margin-top:6px;color:#80d4a0">✅ Turno validado por '+esc(s.validado.por)+' a las '+esc(s.validado.hora)+(edit?' <button class="btn btn-g btn-sm" onclick="segValidar(\''+s.id+'\')">↩ Quitar</button>':'')+'</div>';
@@ -5694,7 +5707,7 @@ function turnoHtml(ex) {
   if (!CT.segs.length) h += '<div style="font-size:12px;color:#ffb060;margin-bottom:6px">Primero se recibe el turno: los pagos quedan a nombre de quien lo recibió.</div>';
   if (!ps.length) h += '<div style="font-size:12px;color:var(--gris)">Aún no hay pagos.</div>';
   ps.forEach(function(p){
-    h += '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:rgba(0,0,0,.15);margin-bottom:6px"><div style="flex:1;min-width:0;font-size:12px;line-height:1.5"><b>'+esc((p.nombres||[]).join(' + '))+'</b>'+(p.externo?' <span class="badge bw">no registrado</span>':'')+' · '+esc(p.plan)+'<br><span style="color:var(--gris)">'+(p.externo?'Válido hasta ':'Corte ')+fDate(p.hasta)+(p.nota?' · '+esc(p.nota):'')+(p.porNombre?' · ✎ '+esc(String(p.porNombre).split(' ')[0])+(p.hora?' '+esc(p.hora):''):'')+(p.turnoPor?' · turno de '+esc(String(p.turnoPor).split(' ')[0]):'')+'</span></div><div style="text-align:right"><div style="font-weight:800">'+pesos(p.valor)+'</div><div style="font-size:10px;color:'+(p.medio==='Efectivo'?'#80d4a0':'var(--cyan)')+'">'+medioTxt(p)+'</div></div>'+(ed && (esEditorTotal() || p.por === CU.id)?'<button onclick="borrarPago(\''+p.id+'\')" title="Anular" style="background:none;border:none;color:var(--gris);font-size:16px;cursor:pointer">×</button>':'')+'</div>';
+    h += '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:rgba(0,0,0,.15);margin-bottom:6px"><div style="flex:1;min-width:0;font-size:12px;line-height:1.5"><b>'+esc((p.nombres||[]).join(' + '))+'</b>'+(p.externo?' <span class="badge bw">no registrado</span>':'')+' · '+esc(p.plan)+'<br><span style="color:var(--gris)">'+(p.externo?'Válido hasta ':'Corte ')+fDate(p.hasta)+(p.nota?' · '+esc(p.nota):'')+(p.porNombre?' · ✎ '+esc(String(p.porNombre).split(' ')[0])+(p.hora?' '+esc(p.hora):''):'')+(p.turnoPor?' · turno de '+esc(String(p.turnoPor).split(' ')[0]):'')+'</span></div><div style="text-align:right"><div style="font-weight:800">'+pesos(p.valor)+'</div><div style="font-size:10px;color:'+(p.medio==='Efectivo'?'#80d4a0':'var(--cyan)')+'">'+medioTxt(p)+'</div></div>'+((ed && (esEditorTotal() || p.por === CU.id)) || (esEditorTotal() && turnoEditable() && !hojaCerrada(CT) && !(hojaEstadoTurno(CT).abierto && !hojaEstadoTurno(CT).duenio))?'<button onclick="borrarPago(\''+p.id+'\')" title="Anular" style="background:none;border:none;color:var(--gris);font-size:16px;cursor:pointer">×</button>':'')+'</div>';
   });
   h += '</div>';
   var sAct = CT.segs.length ? CT.segs[CT.segs.length-1] : null, puedeV = ed && !!sAct && !hojaCerrada(CT);
@@ -5815,6 +5828,7 @@ function hojaTocar(x, txt) { x.historial = x.historial || []; x.historial.push({
 function hojaAviso(fecha, txt, cb, sinRevalidar) {
   if (!modulo('cierreDiario')) { if (cb) cb(); return; }
   var tocar = function(x){ if (sinRevalidar) { x.historial = x.historial || []; x.historial.push({ por:CU.name, hora:horaCOL(), txt:txt }); } else hojaTocar(x, txt); };
+  if (!turnoDe(fecha, '__dia')) { if (cb) cb(); return; }   // día sin hoja guardada: no se crea una hoja solo para anotar
   if (CT && esHoja(CT) && CT.fecha === fecha) { hojaGuardarYa(cb, tocar); return; }
   var hj = turnoDe(fecha, '__dia'); if (!hj) { if (cb) cb(); return; }
   var x = hojaNorm(JSON.parse(JSON.stringify(hj))); tocar(x); saveAndSync('saveLog', x, function(){ if (cb) cb(); });
@@ -5940,6 +5954,16 @@ function guardarAjusteAcum(fecha) {
   var prev = gymRecs('acumajuste').filter(function(j){ return j.mes === fecha.slice(0,7); })[0];
   var j = { id:'acumaj_'+fecha.slice(0,7), tipo:'acumajuste', userId:'__gym', mes:fecha.slice(0,7), fecha:fecha, hs:horaSeg(), objetivo:obj, sistema:{ M:s0.M, B:s0.B, dia:s0.dia, quincena:s0.quincena }, delta:delta, por:CU.name, hora:horaCOL(), registrado:dateCOL(), anteriores:prev ? (prev.anteriores||[]).concat([{ fecha:prev.fecha, objetivo:prev.objetivo, delta:prev.delta, por:prev.por }]) : [] };
   saveAndSync('saveLog', j, function(){ hojaAviso(fecha, '📒 cuadró los acumulados con el cuaderno: M '+pesos(obj.M)+' · B '+pesos(obj.B)+' · /Día '+pesos(obj.dia)+' · 15 días '+pesos(obj.quincena), function(){ closeModal('m_acum'); toast('📒 Acumulados cuadrados con el cuaderno'); if (curPage === 'cierre') pgCierre(CT.fecha, '', CT_TAB); }, true); });
+}
+
+function borrarRetiro(id) {
+  var r = gymRecs('retiro').filter(function(x){ return x.id === id; })[0]; if (!r || !esEditorTotal()) return;
+  var f = r.hojaFecha || r.fecha;
+  hojaAccion('correccion', function(){
+    if (!confirm('¿Eliminar el retiro a banco '+retNum(r)+' por '+pesos(r.valor)+' ('+r.por+', '+fDate(r.fecha)+' '+r.hora+')?\n\nÚsalo si quedó repetido o mal registrado. El dinero vuelve a contar en la caja.')) return;
+    toast('⏳ Eliminando…');
+    saveAndSync('deleteLog', { id:id }, function(){ hojaAviso(f, '🗑 eliminó el retiro a banco '+retNum(r)+' · '+pesos(r.valor), function(){ toast('🗑 Retiro eliminado'); if (curPage === 'cierre') pgCierre(CT.fecha, '', CT_TAB); }, true); });
+  }, f);
 }
 
 function validarHoja(a1) { hojaAccion('correccion', function(){ _validarHoja(a1); }); }
@@ -6137,6 +6161,8 @@ function _guardarRetiro() {
   var c = document.getElementById('rt_caja').value, v = dinero(document.getElementById('rt_val').value); if (!v) { toast('Escribe el valor'); return; }
   var concepto = g ? ((document.getElementById('rt_concepto')||{}).value||'').trim() : '';
   if (g && !concepto) { toast('Escribe el concepto del gasto'); document.getElementById('rt_concepto').focus(); return; }
+  var fDup = rtFecha(), dup = gymRecs('retiro').filter(function(x){ return (x.clase||'banco') === RT_TIPO && x.caja === c && (parseFloat(x.valor)||0) === v && (x.hojaFecha || x.fecha) === fDup; })[0];
+  if (dup && !confirm('⚠️ Ya está registrado '+retNum(dup)+' por '+pesos(v)+' de esta caja ('+esc(dup.por)+' '+dup.hora+').\n\n¿De verdad es OTRO '+(g?'gasto':'retiro')+' distinto? Si fue el mismo, toca Cancelar.')) { closeModal('m_retiro'); return; }
   var s = saldoAhora(c);
   var num = gymRecs('retiro').filter(function(x){ return (x.clase||'banco') === RT_TIPO; }).reduce(function(a, x){ return Math.max(a, x.num||0); }, 0) + 1;
   var fH = rtFecha(), hjR = turnoDe(fH, HOJA); hjR = hjR ? hojaNorm(JSON.parse(JSON.stringify(hjR))) : null;
@@ -6147,6 +6173,8 @@ function _guardarRetiro() {
     var dentro = (fH === dateCOL() && ahoraTs() > base && ahoraTs() < tope);
     if (!dentro) { var hh = (sg.hs || sg.hora || '00:00') + (String(sg.hs||'').length === 5 ? ':00' : ''); var d0 = new Date('2000-01-01T'+(hh.length === 5 ? hh+':00' : hh)); d0.setSeconds(d0.getSeconds() + 1); r.fecha = fH; r.hs = d0.toTimeString().slice(0,8); r.hora = r.hs.slice(0,5); r.agregadoEn = { fecha:dateCOL(), hora:horaCOL() }; }
   }
+  var bR = document.querySelector('#m_retiro .btn-p'); if (bR) { bR.disabled = true; bR.textContent = '⏳ Guardando…'; }
+  closeModal('m_retiro'); toast('⏳ Guardando '+(g?'la salida':'el retiro')+'…');
   saveAndSync('saveLog', r, function(){ if (g) hojaAviso(fH, '💸 registró el gasto '+retNum(r)+' · '+concepto+' · '+pesos(v)); else hojaAviso(fH, '🏦 registró el retiro a banco '+retNum(r)+' · '+pesos(v)+' · queda '+pesos(s - v), null, true); closeModal('m_retiro'); toast(g ? '💸 Salida G-'+('00'+num).slice(-3)+' registrada · queda '+pesos(s - v) : '🏦 Retiro #'+('00'+num).slice(-3)+' registrado · queda '+pesos(s - v)+' de base'); gymRefrescar(); });
 }
 // ── Totales de un turno ──
@@ -6227,7 +6255,7 @@ function _turnoRenderTotLegacy() {
   if (esHoja(CT)) {
     var rsD = gymRecs('retiro').filter(function(r){ return (r.hojaFecha || r.fecha) === CT.fecha; }), gsD = rsD.filter(function(r){ return r.clase === 'gasto'; }), bkD = rsD.filter(function(r){ return r.clase !== 'gasto'; }), nomK = {}; CAJAS.forEach(function(k){ nomK[k[0]] = k[1]; });
     if (gsD.length) h += row('💸', 'Gastos / salidas de caja del día', pesos(gsD.reduce(function(a, r){ return a + (parseFloat(r.valor)||0); }, 0)), gsD.map(function(r){ return retNum(r)+' '+esc(r.concepto||'')+' '+pesos(r.valor)+' ('+esc(nomK[r.caja]||r.caja)+', '+esc(String(r.turnoPor||r.por||'').split(' ')[0])+')'; }).join(' · '), '#ffb060');
-    if (bkD.length) h += row('🏦', 'Retiros a banco', pesos(bkD.reduce(function(a, r){ return a + (parseFloat(r.valor)||0); }, 0)), bkD.map(function(r){ return retNum(r)+' '+pesos(r.valor)+' · quedó '+pesos(r.queda)+' ('+esc(r.por)+' '+esc(r.hora)+')'; }).join(' · '));
+    if (bkD.length) h += row('🏦', 'Retiros a banco', pesos(bkD.reduce(function(a, r){ return a + (parseFloat(r.valor)||0); }, 0)), bkD.map(function(r){ return retNum(r)+' '+pesos(r.valor)+' ('+esc(r.por)+' '+esc(fDate(r.fecha))+' '+esc(r.hora)+')'+(esEditorTotal() && !hojaCerrada(CT) ? ' <a href="#" style="color:#ff8080" onclick="borrarRetiro(\''+r.id+'\');return false">🗑 eliminar</a>' : ''); }).join(' · ')+(bkD.length > 1 ? ' <b style="color:#ffb060">· revisa si alguno está repetido</b>' : ''));
   }
   h += row('#', 'Conteos', t.dia+' día · '+t.clase+' clase · '+t.quincena+' quincena'+(t.externos?' · '+t.externos+' no registrados':''));
   if (t.dif != null) h += row('±', 'Diferencia total con lo contado', (t.dif>0?'+':'')+pesos(t.dif), Math.abs(t.dif)<1?'✅ Cuadra':(t.dif>0?'Sobra dinero':'Falta dinero'), Math.abs(t.dif)<1?'#80d4a0':'#ff8080');
