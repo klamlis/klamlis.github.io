@@ -1323,7 +1323,7 @@ function mergeRemote(remote) {
   var keepLocal = function(localArr, remoteArr) {
     var map = {}, out = [];
     remoteArr.forEach(function(x){ if (x && x.id) map[x.id] = x; });
-    localArr.forEach(function(x){ if (x && x.id && _sessionWrites[x.id]) map[x.id] = x; });
+    localArr.forEach(function(x){ if (x && x.id && _sessionWrites[x.id] && (!map[x.id] || (x._ts||0) >= (map[x.id]._ts||0))) map[x.id] = x; });
     Object.keys(map).forEach(function(k){ out.push(map[k]); });
     return out;
   };
@@ -1895,7 +1895,11 @@ function coachFilterBar() {
     '<select onchange="setCoachFilter(this.value)" style="flex:1;min-width:180px;padding:8px 10px;background:var(--bg);border:1px solid var(--brd);border-radius:8px;color:var(--blanco);font-family:var(--font-body);font-size:13px">'+o+'</select></div>';
 }
 
-function setMain(html) { document.getElementById('main').innerHTML = coachFilterBar() + html; window.scrollTo(0,0); var m = document.getElementById('main'); if (m) m.scrollTop = 0; }
+function setMain(html, mantener) {
+  var m = document.getElementById('main'), y = m ? m.scrollTop : 0, wy = window.scrollY || 0;
+  m.innerHTML = coachFilterBar() + html;
+  if (mantener) { m.scrollTop = y; window.scrollTo(0, wy); } else { window.scrollTo(0,0); m.scrollTop = 0; }
+}
 
 // ═══════════════════════════════════════════════════════════
 //  MODALS
@@ -4769,7 +4773,13 @@ function addMeses(f, n) {
 function diasEntre(a, b) { return Math.round((new Date(b+'T12:00:00') - new Date(a+'T12:00:00')) / 86400000); }
 var MEDIOS_PAGO = ['Efectivo', 'Transferencia', 'Bold'];
 // Un pago puede ser 'Mixto': una parte en efectivo y otra por transferencia (p.partes = {ef, tr})
-function pagoATurno(p) { if (!modulo('cierreDiario')) return; var sg = segEnCurso(p.fecha); if (sg) { p.turnoSeg = sg.id; p.turnoPor = sg.por; } }
+function pagoATurno(p) {
+  if (!modulo('cierreDiario')) return true;
+  var sg = segEnCurso(p.fecha); if (!sg) return true;
+  var mio = sg.porId ? sg.porId === CU.id : sg.por === CU.name;
+  if (!mio && !sg.entrega && !confirm('El turno abierto en el cierre diario es de '+sg.por+'. Este pago quedará registrado en su turno (y en su caja). ¿Continuar?')) return false;
+  p.turnoSeg = sg.id; p.turnoPor = sg.por; return true;
+}
 function pagoPartes(p) { var v = parseFloat(p.valor)||0; if (p.medio === 'Mixto') { var ef = parseFloat((p.partes||{}).ef)||0; return { ef:ef, tr:v - ef, bold:0 }; } return p.medio === 'Transferencia' ? { ef:0, tr:v, bold:0 } : p.medio === 'Bold' ? { ef:0, tr:0, bold:v } : { ef:v, tr:0, bold:0 }; }
 function medioTxt(p) { if (p.medio !== 'Mixto') return esc(p.medio||'')+(p.medio==='Transferencia'?' (B)':''); var x = pagoPartes(p); return 'Efectivo '+pesos(x.ef)+' + Transf. '+pesos(x.tr); }
 function medioSelHtml(id, sel, extra) { return '<select id="'+id+'"'+(extra||'')+'>'+MEDIOS_PAGO.concat(['Mixto']).map(function(m){ return '<option value="'+m+'"'+(m===sel?' selected':'')+'>'+(m==='Mixto'?'Efectivo + Transferencia':m)+'</option>'; }).join('')+'</select>'; }
@@ -4936,7 +4946,7 @@ function guardarPago() {
     var px = { id:gid('pago_'), tipo:'pago', userId:'__gym', fecha:fe, hora:horaCOL(), hs:horaSeg(), planId:p.id, plan:p.nombre, usuarios:[], nombres:[nom],
       externo:{ nombre:nom, tel:((document.getElementById('pg_ext_tel')||{}).value||'').trim() }, valor:val, medio:mxE.medio, partes:mxE.partes,
       cant:ca, unidad:un, desde:fe, hasta:corteDesde(fe, ca, un), cambios:[], sinAsociar:['dia','clase'].indexOf(p.id) < 0, nota:(document.getElementById('pg_nota').value||'').trim(), por:CU.id, porNombre:CU.name };
-    pagoATurno(px);
+    if (!pagoATurno(px)) return;
     _saving['pago'] = true;
     saveAndSync('saveLog', px, function(){ hojaAviso(px.fecha, '👥 registró el pago de '+nom+' · '+pesos(val)); _saving['pago'] = false; closeModal('m_pago'); toast(px.sinAsociar ? '🔗 Pago registrado como membresía sin asociar: asóciala cuando la persona esté en la app' : '✅ Pago registrado (no registrado en la app)'); gymRefrescar(); });
     return;
@@ -4959,7 +4969,7 @@ function guardarPago() {
   var pago = { id:gid('pago_'), tipo:'pago', userId:'__gym', fecha:fecha, hora:horaCOL(), hs:horaSeg(), planId:p.id, plan:p.nombre, usuarios:uids,
     nombres:cambios.map(function(c){ return c.nombre; }), valor:valor, medio:mx.medio, partes:mx.partes, cant:cant, unidad:uni,
     desde:ini, hasta:fin, cambios:cambios, nota:(document.getElementById('pg_nota').value||'').trim(), por:CU.id, porNombre:CU.name };
-  pagoATurno(pago);
+  if (!pagoATurno(pago)) return;
   _saving['pago'] = true;
   var b = document.getElementById('pg_save'); if (b) { b.disabled = true; b.textContent = '⏳ Guardando…'; }
   saveAndSync('saveLog', pago, function(){
@@ -5145,7 +5155,7 @@ function saldoAhora(caja) {
   if (hoja && hoja.recibo && hoja.estado !== 'validado') { var cx = turnoTotales(hojaNorm(JSON.parse(JSON.stringify(CT && CT.id === hoja.id ? CT : hoja))), ahoraTs()).cajas[caja]; return cx.real != null ? cx.real : cx.esperado; }
   var s = saldoSistema(dateCOL(), HOJA, ahoraTs()); return s ? s[caja] : 0;
 }
-var CT_KEEP = null;
+var CT_KEEP = null, PG_CIERRE_CLAVE = '';
 function pgCierre(fecha, coachId, tab) {
   if (!modulo('cierreDiario')) { nav('dashboard'); return; }
   hojaGuardarYa();
@@ -5159,7 +5169,7 @@ function pgCierre(fecha, coachId, tab) {
     if (!ex) {
       var viejos = turnosDelDia(fecha).filter(function(c){ return c.version >= 2 && !esHoja(c); });
       if (viejos.length && viejos.every(function(c){ return c.estado === 'validado'; })) legado = 'dia';
-      else { CT = viejos.length ? hojaDesdeTurnos(fecha, viejos) : hojaNueva(fecha); if (viejos.length && CU.role !== 'user') { HOJA_DIRTY = {}; hojaGuardarYa(null, function(){}); ex = turnoDe(fecha, HOJA); } }
+      else { CT = viejos.length ? hojaDesdeTurnos(fecha, viejos) : hojaNueva(fecha); if (viejos.length && CU.role !== 'user') { HOJA_DIRTY = {}; hojaGuardarYa(null, function(){}, 'migrar'); ex = turnoDe(fecha, HOJA); } }
     }
   }
   if (ex) CT = JSON.parse(JSON.stringify(ex));
@@ -5179,21 +5189,63 @@ function pgCierre(fecha, coachId, tab) {
   else if (CT_TAB === 'hist') h += cierreHistHtml();
   else if (legado === 'dia') h += '<div class="card" style="padding:14px"><div style="font-size:13px;margin-bottom:10px">Este día se cerró con el <b>formato anterior por turnos</b> y ya está validado. Así se conserva:</div>'+turnosDelDia(fecha).map(function(c){ return '<button class="btn btn-g btn-sm" style="margin:0 6px 6px 0" onclick="pgCierre(\''+fecha+'\',\''+c.coachId+'\',\'turno\')">🧾 '+esc(c.coachNombre||'')+'</button>'; }).join('')+'</div>';
   else h += turnoHtml(ex);
-  setMain(h);
+  var clave = fecha+'|'+CT_TAB+'|'+(legado===true?CT.coachId:''), mant = curPage === 'cierre' && PG_CIERRE_CLAVE === clave; PG_CIERRE_CLAVE = clave;
+  setMain(h, mant);
   if (CT_TAB === 'turno' && legado !== 'dia') { document.querySelectorAll('#main .ct-in').forEach(function(el){ el.addEventListener('input', turnoLeer); }); turnoRenderTot(); if (esHoja(CT)) hojaRefrescar(); }
 }
-var HOJA_PULL = 0;
-function hojaRefrescar(forzar) {
-  if (typeof loadFromSheets !== 'function' || (!forzar && Date.now() - HOJA_PULL < 45000)) return;
-  HOJA_PULL = Date.now();
+// ═════ SINCRONIZACIÓN DE LA HOJA (compartida por todos los perfiles) ═════
+var HOJA_PULL = 0, HOJA_SYNC = 0, HOJA_SYNC_OK = true, _hojaPullCbs = null;
+function hojaPull(cb, maxEdad) {
+  if (HOJA_SYNC && Date.now() - HOJA_SYNC < (maxEdad || 0)) { if (cb) cb(true); return; }
+  if (_hojaPullCbs) { if (cb) _hojaPullCbs.push(cb); return; }
+  _hojaPullCbs = cb ? [cb] : [];
+  var st = document.getElementById('hoja_sync'); if (st) st.innerHTML = '🔄 Sincronizando…';
   loadFromSheets(function(remote){
-    if (!remote) return;
-    mergeRemote(remote);
-    var act = document.activeElement, escribiendo = act && act.closest && act.closest('#main input, #main textarea');
-    if (curPage === 'cierre' && CT_TAB === 'turno' && esHoja(CT) && !Object.keys(HOJA_DIRTY).length && !escribiendo && !document.querySelector('.overlay.open')) pgCierre(CT.fecha, '', 'turno');
+    var ok = !!(remote && remote.users); if (ok) { mergeRemote(remote); HOJA_SYNC = Date.now(); } HOJA_SYNC_OK = ok; HOJA_PULL = Date.now();
+    var cbs = _hojaPullCbs; _hojaPullCbs = null;
+    var st2 = document.getElementById('hoja_sync'); if (st2) st2.innerHTML = hojaSyncTxt();
+    cbs.forEach(function(f){ try { f(ok); } catch(e) { console.error(e); } });
   });
 }
-setInterval(function(){ try { if (CU && curPage === 'cierre' && CT_TAB === 'turno' && esHoja(CT)) hojaRefrescar(); } catch(e) {} }, 15000);
+function hojaSyncTxt() { return HOJA_SYNC_OK ? (HOJA_SYNC ? '☁️ Al día con la nube '+new Date(HOJA_SYNC).toTimeString().slice(0,8) : '') : '<span style="color:#ff8080">⚠️ Sin conexión con la nube: los cambios quedan en este dispositivo</span>'; }
+function hojaRefrescar(forzar) {
+  if (typeof loadFromSheets !== 'function' || (!forzar && Date.now() - HOJA_PULL < 20000)) return;
+  hojaPull(function(ok){
+    if (!ok) return;
+    var act = document.activeElement, escribiendo = act && act.closest && act.closest('#main input, #main textarea');
+    if (curPage === 'cierre' && (CT_TAB === 'turno' || CT_TAB === 'dia') && CT && !Object.keys(HOJA_DIRTY).length && !HOJA_Q.length && !escribiendo && !document.querySelector('.overlay.open') && !document.querySelector('#main .rc-caja') && ![].some.call(document.querySelectorAll('#main .ct-add'), function(e){ return e.value; })) pgCierre(CT.fecha, '', CT_TAB);
+  }, 0);
+}
+setInterval(function(){ try { if (CU && CU.role !== 'user' && curPage === 'cierre' && CT) hojaRefrescar(); } catch(e) {} }, 10000);
+// ═════ QUIÉN PUEDE ESCRIBIR EN LA HOJA ═════
+// Mientras un turno está abierto, solo la persona de ese turno registra pagos, ventas y gastos.
+// Recepción y administración corrigen cuando ese turno se cierra. El día queda cerrado con el retiro a banco.
+function hojaEstadoTurno(x) { var u = x && x.segs && x.segs.length ? x.segs[x.segs.length-1] : null, ab = !!(u && !u.entrega); return { u:u, abierto:ab, duenio:ab && (u.porId ? u.porId === CU.id : u.por === CU.name) }; }
+function permisoHoja(x, accion) {
+  if (!CU || CU.role === 'user') return 'No tienes permiso';
+  if (!x) return '';
+  if (accion === 'migrar') return '';
+  if (hojaCerrada(x) && !esAdminCierre()) return 'Este día ya se cerró con el retiro a banco. Recepción puede reabrirlo.';
+  var e = hojaEstadoTurno(x), nom = e.u ? String(e.u.por) : '';
+  if (accion === 'apertura') return (x.segs && x.segs.length) ? 'El día ya fue abierto por '+x.segs[0].por+'.' : '';
+  if (accion === 'recibo') return e.abierto && !e.duenio ? 'El turno de '+nom+' sigue abierto. '+nom+' debe cerrarlo (🔚) antes de que lo recibas.' : '';
+  if (accion === 'recibo_forzado') return esEditorTotal() ? '' : 'Solo recepción o administración puede recibir sin que se cierre el turno.';
+  if (accion === 'entrega') return !e.abierto ? 'Este turno ya se cerró.' : (e.duenio || esEditorTotal()) ? '' : 'Solo '+nom+' (o recepción) puede cerrar este turno.';
+  if (!x.segs || !x.segs.length) return 'Primero se recibe el turno (apertura del día).';
+  if (accion === 'propio') return e.abierto ? (e.duenio ? '' : 'El turno abierto es de '+nom+' (desde las '+e.u.hora+'): solo '+nom+' puede registrar. Espera que cierre su turno.') : (esEditorTotal() ? '' : 'No hay un turno abierto: recibe el turno para registrar.');
+  if (accion === 'correccion') return !esEditorTotal() ? 'Solo recepción o administración puede corregir.' : (e.abierto && !e.duenio ? nom+' tiene el turno abierto: espera que lo cierre para corregir.' : '');
+  return '';
+}
+function hojaActual(fecha) { var hj = turnoDe(fecha, HOJA); return hj ? hojaNorm(JSON.parse(JSON.stringify(hj))) : (CT && esHoja(CT) && CT.fecha === fecha ? CT : null); }
+// Antes de cualquier acción: trae lo último de la nube y revisa si se puede
+function hojaAccion(accion, fn, fecha) {
+  var f = fecha || (CT && CT.fecha) || dateCOL();
+  hojaPull(function(){
+    var no = permisoHoja(hojaActual(f), accion);
+    if (no) { alert('⛔ '+no); if (curPage === 'cierre') pgCierre(f, '', CT_TAB); return; }
+    fn();
+  }, 4000);
+}
 // ── Guardado automático (solo se escriben los campos que esta persona cambió) ──
 window.addEventListener('beforeunload', function(){ try { if (Object.keys(HOJA_DIRTY).length) hojaGuardarYa(); } catch(e) {} });
 // ── Recibir: apertura del día y cambios de turno ──
@@ -5331,17 +5383,40 @@ function cajasEsperadasAhora() { var t = turnoTotales(CT, ahoraTs()), o = {}; CA
 function difCajas(cajas, sis) { var o = {}; CAJAS.forEach(function(k){ if (cajas && cajas[k[0]] != null && sis && sis[k[0]] != null) o[k[0]] = dinero(cajas[k[0]]) - sis[k[0]]; }); return o; }
 // ── Guardado (solo lo que esta persona cambió) ──
 function hojaMarcar(k) { HOJA_DIRTY[k] = 1; var st = document.getElementById('hoja_st'); if (st) st.innerHTML = '✏️ Guardando…'; clearTimeout(HOJA_TIMER); HOJA_TIMER = setTimeout(hojaGuardarYa, 1200); }
-function hojaGuardarYa(cb, extra) {
+var HOJA_Q = [], HOJA_BUSY = false;
+function accionDeDirty(d) { return Object.keys(d).every(function(k){ return k === 'obs' || k.indexOf('v:') === 0; }) ? 'propio' : 'correccion'; }
+function hojaGuardarYa(cb, extra, accion) {
   clearTimeout(HOJA_TIMER); HOJA_TIMER = null;
   if (!CT || !esHoja(CT) || (!Object.keys(HOJA_DIRTY).length && !extra)) { if (cb) cb(); return; }
-  var dirty = HOJA_DIRTY; HOJA_DIRTY = {};
-  var cur = turnoDe(CT.fecha, HOJA), x = hojaNorm(JSON.parse(JSON.stringify(cur || CT))), cambios = [], hora = horaCOL();
-  if (hojaCerrada(x) && !esAdminCierre()) { toast('⛔ Este día ya se cerró con el retiro a banco: no se guardó el cambio'); CT = x; if (cb) cb(); return; }
+  var job = { snap:JSON.parse(JSON.stringify(CT)), dirty:HOJA_DIRTY, cb:cb, extra:extra, accion:accion || (Object.keys(HOJA_DIRTY).length ? accionDeDirty(HOJA_DIRTY) : 'aviso') };
+  HOJA_DIRTY = {};
+  if (job.accion === 'migrar') { _hojaAplicar(job); return; }
+  HOJA_Q.push(job); hojaProcesar();
+}
+function hojaProcesar() {
+  if (HOJA_BUSY || !HOJA_Q.length) return;
+  HOJA_BUSY = true;
+  var st = document.getElementById('hoja_st'); if (st) st.innerHTML = '🔄 Guardando…';
+  hojaPull(function(){
+    var jobs = HOJA_Q.splice(0), bloq = null;
+    jobs.forEach(function(job){
+      var no = permisoHoja(hojaActual(job.snap.fecha) || job.snap, job.accion);
+      if (no) { bloq = no; return; }
+      _hojaAplicar(job);
+    });
+    HOJA_BUSY = false;
+    if (bloq) { alert('⛔ No se guardó: '+bloq); if (curPage === 'cierre' && CT) pgCierre(CT.fecha, '', CT_TAB); }
+    if (HOJA_Q.length) hojaProcesar();
+  }, 4000);
+}
+function _hojaAplicar(job) {
+  var SNAP = job.snap, dirty = job.dirty, cb = job.cb, extra = job.extra;
+  var cur = turnoDe(SNAP.fecha, HOJA), x = hojaNorm(JSON.parse(JSON.stringify(cur || SNAP))), cambios = [], hora = horaCOL();
   x.ventas = x.ventas || {}; x.ventasMeta = x.ventasMeta || {}; x.contado = x.contado || {}; x.contadoMeta = x.contadoMeta || {}; x.historial = x.historial || []; x.editores = x.editores || {};
-  var segX = function(id){ return x.segs.filter(function(s){ return s.id === id; })[0]; }, segC = function(id){ return (CT.segs||[]).filter(function(s){ return s.id === id; })[0]; };
+  var segX = function(id){ return x.segs.filter(function(s){ return s.id === id; })[0]; }, segC = function(id){ return (SNAP.segs||[]).filter(function(s){ return s.id === id; })[0]; };
   Object.keys(dirty).forEach(function(k){
     var p = k.split(':');
-    if (p[0] === 'v') { var q = ventaQ(CT.ventas[p[1]]), pr = prodPorId(p[1]);
+    if (p[0] === 'v') { var q = ventaQ((SNAP.ventas||{})[p[1]]), pr = prodPorId(p[1]);
       if (x.segs.length) { x.ventasPorTurno = true; hojaSumVentas(x); var vj = ventaQ(x.ventas[p[1]]); ventaDelta(x, p[1], 'ef', q.ef - vj.ef); ventaDelta(x, p[1], 'tr', q.tr - vj.tr); hojaSumVentas(x); }
       else { if (q.ef || q.tr) x.ventas[p[1]] = q; else delete x.ventas[p[1]]; }
       x.ventasMeta[p[1]] = { por:CU.name, hora:hora }; cambios.push((pr?pr.nombre:p[1])+' total del día '+(q.ef||0)+' ef / '+(q.tr||0)+' tr'); }
@@ -5363,7 +5438,7 @@ function hojaGuardarYa(cb, extra) {
       cambios.push('✏️ corrigió lo '+(p[0]==='sc'?'recibido':'entregado')+' en el turno '+(x.segs.indexOf(sx)+1)+' ('+p[2]+' '+pesos(dst.cajas[p[2]])+')');
       if (p[0] === 'se' && sx === x.segs[x.segs.length-1]) x.contado[p[2]] = dst.cajas[p[2]];
     }
-    else if (k === 'obs') { x.obs = CT.obs; cambios.push('observaciones'); }
+    else if (k === 'obs') { x.obs = SNAP.obs; cambios.push('observaciones'); }
   });
   if (extra) extra(x);
   hojaNorm(x);
@@ -5373,8 +5448,9 @@ function hojaGuardarYa(cb, extra) {
   x.editores[CU.name] = hora; x.version = 6; x.actualizado = new Date().toISOString(); x.actualizadoPor = CU.name;
   var tt = turnoTotales(x); x.totales = { T:tt.T, C:tt.C, CM:tt.CM, S:tt.S, pagos:tt.pagos, efectivo:tt.efectivo, transf:tt.transfTotal, bold:tt.boldTotal, ventas:tt.ventas, fiado:tt.fiado, dif:tt.dif };
   var marcar = (!cur && x.fusionados) ? x.fusionados.map(function(id){ var o = gymRecs('cierre').filter(function(c){ return c.id === id; })[0]; if (!o) return null; o = JSON.parse(JSON.stringify(o)); o.fusionado = x.id; return o; }).filter(Boolean) : [];
-  var adj = (x._invAdj || []).filter(function(a){ return a.cant; }).map(function(a){ return { id:gid('inv_'), tipo:'invmov', userId:'__gym', pid:a.pid, clase:'recibo', ubic:'stock', cant:a.cant, nota:'Corrección de conteo en la hoja del '+x.fecha, fecha:dateCOL(), hora:hora, hs:horaSeg(), por:CU.name }; }); delete x._invAdj;
-  CT = JSON.parse(JSON.stringify(x)); HOJA_ULT = hora;
+  var adj = (x._invAdj || []).filter(function(a){ return a.cant; }).map(function(a){ return { id:gid('inv_'), tipo:'invmov', userId:'__gym', pid:a.pid, clase:'recibo', ubic:'stock', cant:a.cant, hojaFecha:x.fecha, nota:'Corrección de conteo en la hoja del '+x.fecha, fecha:dateCOL(), hora:hora, hs:horaSeg(), por:CU.name }; }); delete x._invAdj;
+  if (CT && CT.id === x.id) CT = JSON.parse(JSON.stringify(x));
+  HOJA_ULT = hora;
   var st = document.getElementById('hoja_st'); if (st) st.innerHTML = '✅ Guardado '+hora;
   var todo = [x].concat(marcar).concat(adj), faltan = todo.length;
   todo.forEach(function(o){ saveAndSync('saveLog', o, function(){ if (--faltan === 0 && cb) cb(); }); });
@@ -5415,9 +5491,14 @@ function reciboValidar(r, btn) {
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Guardando…'; }
   return true;
 }
-function invAjustes(difs, nota) { return Object.keys(difs).map(function(pid){ return { id:gid('inv_'), tipo:'invmov', userId:'__gym', pid:pid, clase:'recibo', ubic:'stock', cant:difs[pid], nota:nota, fecha:dateCOL(), hora:horaCOL(), hs:horaSeg(), por:CU.name }; }); }
+function invAjustes(difs, nota) { return Object.keys(difs).map(function(pid){ return { id:gid('inv_'), tipo:'invmov', userId:'__gym', hojaFecha:(CT && CT.fecha) || dateCOL(), pid:pid, clase:'recibo', ubic:'stock', cant:difs[pid], nota:nota, fecha:dateCOL(), hora:horaCOL(), hs:horaSeg(), por:CU.name }; }); }
 function conteoNuevo(r) { return { por:CU.name, porId:CU.id, fecha:dateCOL(), hora:horaCOL(), hs:horaSeg(), cajas:r.cajas, cajasSistema:r.cajasSis, inv:{ sis:r.sis, con:r.con, difs:r.difs }, descuadre:r.desc, motivo:r.motivo }; }
-function conteoForm(modo) {
+function conteoForm(modo, forzado) {
+  CONTEO_FORZADO = !!forzado;
+  if (forzado) { var e = hojaEstadoTurno(CT); if (!confirm('⚠️ '+(e.u?e.u.por:'')+' no ha cerrado su turno. Si lo recibes, tu conteo quedará como su entrega y quedará anotado que lo recibiste sin que lo cerrara. ¿Continuar?')) return; }
+  hojaAccion(accConteo(modo), function(){ _conteoForm(modo); });
+}
+function _conteoForm(modo) {
   hojaGuardarYa();
   var inS = 'width:100%;padding:7px;background:var(--s1);border:1px solid var(--brd);border-radius:8px;color:var(--blanco);font-size:13px;box-sizing:border-box';
   var u = CT.segs[CT.segs.length-1], box = document.getElementById('relevo_box');
@@ -5427,7 +5508,10 @@ function conteoForm(modo) {
     + reciboCamposHtml(cajasEsperadasAhora(), stockAhora, inS)
     + '<div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-p" style="flex:1" onclick="guardarConteo(\''+modo+'\',this)">'+(modo==='entrega'?'🔚 Cerrar el turno':'✅ Recibí el turno')+'</button><button class="btn btn-g" onclick="pgCierre(CT.fecha,\'\',\'turno\')">Cancelar</button></div></div>';
 }
-function guardarConteo(modo, btn) {
+var CONTEO_FORZADO = false;
+function accConteo(modo) { return modo === 'entrega' ? 'entrega' : modo === 'apertura' ? 'apertura' : (CONTEO_FORZADO ? 'recibo_forzado' : 'recibo'); }
+function guardarConteo(modo, btn) { hojaAccion(accConteo(modo), function(){ _guardarConteo(modo, btn); }); }
+function _guardarConteo(modo, btn) {
   var r = reciboLeer(); if (!reciboValidar(r, btn)) return;
   var cn = conteoNuevo(r);
   guardarVarios(invAjustes(r.difs, (modo === 'entrega' ? 'Cierre de turno · ' : modo === 'apertura' ? 'Apertura del día · ' : 'Cambio de turno · ')+r.motivo), function(){
@@ -5443,15 +5527,16 @@ function guardarConteo(modo, btn) {
       if (u && u.por === cn.por && JSON.stringify(u.cajas) === JSON.stringify(cn.cajas) && (Date.now() - new Date(x.fecha+'T'+(u.hs||'00:00')).getTime()) < 180000) return;   // doble clic
       var seg = Object.assign({ id:gid('seg_'), tipo:x.segs.length ? 'relevo' : 'apertura', ventas:{} }, cn);
       if (!x.segs.length) { seg.ventas = JSON.parse(JSON.stringify(x.ventas || {})); x.ventasPorTurno = true; }
-      if (u && !u.entrega) { u.entrega = Object.assign({}, cn, { porRecibio:true }); }
+      if (u && !u.entrega) { u.entrega = Object.assign({}, cn, { porRecibio:true, forzado:CONTEO_FORZADO }); if (CONTEO_FORZADO) x.historial.push({ por:CU.name, hora:cn.hora, txt:'⚠️ Recibió el turno de '+u.por+' sin que lo cerrara' }); }
       x.segs.push(seg);
       CAJAS.forEach(function(k){ x.contado[k[0]] = cn.cajas[k[0]]; });
       x.historial.push({ por:CU.name, hora:cn.hora, txt:(seg.tipo === 'apertura' ? '🌅 Apertura' : '🔄 Recibió el turno')+(r.falta.length?' · faltaba: '+r.falta.join(', '):'')+(r.desc?' · '+r.motivo:'') });
-    });
+    }, accConteo(modo));
   });
 }
 function recibirTurno(btn) { guardarConteo('apertura', btn); }
-function segEliminar(id) {
+function segEliminar(a1) { hojaAccion('correccion', function(){ _segEliminar(a1); }); }
+function _segEliminar(id) {
   if (!esEditorTotal()) return;
   var i = segIdx(id); if (i <= 0) { toast('La apertura no se puede eliminar'); return; }
   if (!confirm('¿Eliminar el turno '+(i+1)+' ('+CT.segs[i].por+' '+CT.segs[i].hora+')? Úsalo si quedó repetido o mal registrado.')) return;
@@ -5474,6 +5559,7 @@ function chipsConteo(c, editar, segId, tipo) {
     + (c.descuadre && c.motivo ? '<div style="font-size:11px;color:var(--gris);margin-top:2px">Motivo: '+esc(c.motivo)+'</div>' : '')
     + (c.corregido ? '<div style="font-size:10px;color:var(--cyan);margin-top:2px">✏️ corregido por '+esc(c.corregido.por)+' '+esc(c.corregido.hora)+'</div>' : '');
 }
+function toggleCorregir() { if (CT_EDIT) { CT_EDIT = null; pgCierre(CT.fecha, '', 'turno'); } else hojaAccion('correccion', function(){ CT_EDIT = 1; pgCierre(CT.fecha, '', 'turno'); }); }
 function segDetalleHtml(s, i, edit) {
   var ps = pagosDeSeg(CT, i), totP = ps.reduce(function(a, p){ return a + (parseFloat(p.valor)||0); }, 0), nVal = ps.filter(function(p){ return p.validadoTurno; }).length;
   var h = '<details style="margin-top:8px"'+(CT_EDIT?' open':'')+'><summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--cyan)">👥 Pagos del turno: '+ps.length+' · '+pesos(totP)+(ps.length?' · '+nVal+'/'+ps.length+' validados':'')+'</summary><div style="margin-top:6px">';
@@ -5502,19 +5588,22 @@ function segDetalleHtml(s, i, edit) {
   else if (edit) h += '<button class="btn btn-p btn-sm" style="margin-top:8px" onclick="segValidar(\''+s.id+'\')">✅ Validar este turno</button>';
   return h;
 }
-function segValidar(id) {
+function segValidar(a1) { hojaAccion('correccion', function(){ _segValidar(a1); }); }
+function _segValidar(id) {
   if (!esEditorTotal()) return;
   hojaGuardarYa(function(){ pgCierre(CT.fecha, '', 'turno'); }, function(x){ var s = x.segs.filter(function(z){ return z.id === id; })[0]; if (!s) return;
     if (s.validado) { delete s.validado; x.historial.push({ por:CU.name, hora:horaCOL(), txt:'↩ quitó la validación del turno '+(x.segs.indexOf(s)+1) }); }
     else { s.validado = { por:CU.name, hora:horaCOL() }; x.historial.push({ por:CU.name, hora:horaCOL(), txt:'✅ validó el turno '+(x.segs.indexOf(s)+1)+' ('+s.por+')' }); } });
 }
-function validarPagoTurno(id) {
+function validarPagoTurno(a1) { hojaAccion('correccion', function(){ _validarPagoTurno(a1); }); }
+function _validarPagoTurno(id) {
   if (!esEditorTotal()) return;
   var p = gymRecs('pago').filter(function(x){ return x.id === id; })[0]; if (!p) return;
   var x = JSON.parse(JSON.stringify(p)); if (x.validadoTurno) delete x.validadoTurno; else x.validadoTurno = { por:CU.name, hora:horaCOL() };
   saveAndSync('saveLog', x, function(){ pgCierre(CT.fecha, '', 'turno'); });
 }
-function openEditPagoTurno(id) {
+function openEditPagoTurno(a1) { hojaAccion('correccion', function(){ _openEditPagoTurno(a1); }); }
+function _openEditPagoTurno(id) {
   if (!esEditorTotal()) return;
   var p = gymRecs('pago').filter(function(x){ return x.id === id; })[0]; if (!p) return;
   var ov = document.getElementById('m_editpago');
@@ -5541,8 +5630,8 @@ function guardarEditPagoTurno(id) {
   });
 }
 function hojaTurnosHtml() {
-  var ed = turnoEditable() && !hojaCerrada(CT), edit = esEditorTotal() && turnoEditable(), inS = 'width:100%;padding:7px;background:var(--s1);border:1px solid var(--brd);border-radius:8px;color:var(--blanco);font-size:13px;box-sizing:border-box';
-  var h = '<div class="card" style="padding:14px;margin-bottom:12px;border-color:var(--cyan)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><div class="card-title" style="padding:0">📦 TURNOS: RECIBIR Y CERRAR</div>'+(edit && CT.segs.length?'<button class="btn btn-g btn-sm" onclick="CT_EDIT=CT_EDIT?null:1;pgCierre(CT.fecha,\'\',\'turno\')">'+(CT_EDIT?'✔ Terminar corrección':'✏️ Corregir turnos')+'</button>':'')+'</div>';
+  var ed = turnoEditable() && !hojaCerrada(CT), edit = esEditorTotal() && turnoEditable() && !permisoHoja(CT, 'correccion'), inS = 'width:100%;padding:7px;background:var(--s1);border:1px solid var(--brd);border-radius:8px;color:var(--blanco);font-size:13px;box-sizing:border-box';
+  var h = '<div class="card" style="padding:14px;margin-bottom:12px;border-color:var(--cyan)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><div class="card-title" style="padding:0">📦 TURNOS: RECIBIR Y CERRAR</div>'+(edit && CT.segs.length?'<button class="btn btn-g btn-sm" onclick="toggleCorregir()">'+(CT_EDIT?'✔ Terminar corrección':'✏️ Corregir turnos')+'</button>':'')+'</div>';
   h += '<div style="font-size:11px;color:var(--gris);margin:4px 0 10px;line-height:1.5">Las cajas son acumuladas del día: el sistema suma la apertura + todo lo cobrado en efectivo − retiros a banco. Cada persona cuenta al <b>recibir</b> y al <b>cerrar</b> su turno; si no cuadra queda anotado y se ve en qué turno pasó.</div>';
   if (!CT.segs.length) {
     if (!ed) return h + '<div style="font-size:12px;color:var(--gris)">Aún no se ha abierto el día.</div></div>';
@@ -5567,25 +5656,30 @@ function hojaTurnosHtml() {
       + '</div>';
   });
   var u = CT.segs[CT.segs.length-1];
-  if (ed) h += '<div id="relevo_box" style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap">'+(!u.entrega?'<button class="btn btn-p btn-sm" onclick="conteoForm(\'entrega\')">🔚 Cerrar turno de '+esc(String(u.por).split(' ')[0])+'</button>':'')+'<button class="btn '+(u.entrega?'btn-p':'btn-g')+' btn-sm" onclick="conteoForm(\'recibo\')">🔄 Recibo el turno ahora</button></div>';
+  var eT = hojaEstadoTurno(CT), okE = !permisoHoja(CT, 'entrega'), okR = !permisoHoja(CT, 'recibo'), okF = eT.abierto && !eT.duenio && !permisoHoja(CT, 'recibo_forzado');
+  if (ed && (okE || okR || okF)) h += '<div id="relevo_box" style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap">'+(okE?'<button class="btn btn-p btn-sm" onclick="conteoForm(\'entrega\')">🔚 Cerrar turno de '+esc(String(u.por).split(' ')[0])+'</button>':'')+(okR?'<button class="btn '+(u.entrega?'btn-p':'btn-g')+' btn-sm" onclick="conteoForm(\'recibo\')">🔄 Recibo el turno ahora</button>':'')+(okF?'<button class="btn btn-g btn-sm" onclick="conteoForm(\'recibo\', true)">⚠️ Recibir aunque '+esc(String(u.por).split(' ')[0])+' no cerró</button>':'')+'</div>';
+  else if (ed && eT.abierto && !eT.duenio) h += '<div style="font-size:12px;color:#ffb060;margin-top:6px">⏳ Cuando '+esc(u.por)+' cierre su turno (🔚) podrás recibirlo.</div>';
   return h + '</div>';
 }
 function turnoHtml(ex) {
   if (!esHoja(CT)) return _turnoHtmlLegacyFn(ex);
-  var ed = turnoEditable(), dis = ed ? '' : ' disabled';
+  var pP = permisoHoja(CT, 'propio'), ed = turnoEditable() && !pP, dis = ed ? '' : ' disabled', eTu = hojaEstadoTurno(CT);
   var inS = 'width:100%;padding:7px;background:var(--s1);border:1px solid var(--brd);border-radius:8px;color:var(--blanco);font-family:var(--font-body);font-size:13px;box-sizing:border-box';
   var eds = Object.keys(CT.editores||{});
   var h = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px"><b>Hoja del '+fDate(CT.fecha)+'</b> '+(CT.estado==='validado'?(hojaCerrada(CT)?'<span class="badge bk">🔒 Cerrado</span>':'<span class="badge bk">✅ Validado · '+esc(CT.validadoPor||'')+'</span>'):(hojaCerrada(CT)?'<span class="badge bk">🔒 Cerrado</span>':'<span class="badge bw">📝 Abierta</span>'))
     + (ed?'<span id="hoja_st" style="font-size:11px;color:var(--gris)">'+(HOJA_ULT?'✅ Guardado '+HOJA_ULT:'Se guarda sola al escribir')+'</span>':'')
     + '<span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">'+(ed && CT.segs.length && !hojaCerrada(CT)?'<button class="btn btn-g btn-sm" onclick="openRetiro(\'gasto\')">💸 Salida / gasto</button>':'')+(esRecepcion()?'<button class="btn btn-g btn-sm" onclick="openRetiro(\'banco\')">🏦 Retirar a banco</button>':'')+'</span></div>';
   if (eds.length) h += '<div style="font-size:11px;color:var(--gris);margin:-6px 0 12px">Han escrito en esta hoja: '+eds.map(function(n){ return esc(n)+' ('+esc(CT.editores[n])+')'; }).join(' · ')+'</div>';
+  h += '<div id="hoja_sync" style="font-size:11px;color:var(--gris);margin:-6px 0 10px">'+hojaSyncTxt()+'</div>';
+  if (eTu.abierto && !eTu.duenio && !hojaCerrada(CT)) h += '<div style="padding:12px 14px;border-radius:10px;background:rgba(255,176,96,0.1);border:1px solid rgba(255,176,96,0.55);font-size:13px;margin-bottom:12px;line-height:1.55">🔒 <b>Turno abierto de '+esc(eTu.u.por)+'</b> desde las '+esc(eTu.u.hora)+'. Solo '+esc(eTu.u.por)+' puede registrar pagos, ventas y gastos en este momento. Puedes ver los datos guardados, pero no editarlos.<br><span style="font-size:12px;color:var(--gris)">Cuando '+esc(String(eTu.u.por).split(' ')[0])+' cierre su turno (🔚 Cerrar turno) podrás recibirlo y registrar.'+(esEditorTotal()?' Si no puede cerrarlo, recepción puede usar «⚠️ Recibir aunque no cerró».':'')+'</span></div>';
+  else if (eTu.duenio && !hojaCerrada(CT)) h += '<div style="padding:8px 12px;border-radius:10px;background:rgba(80,200,120,0.07);border:1px solid rgba(80,200,120,0.35);font-size:12px;margin-bottom:12px">✏️ Tienes el turno abierto: solo tú puedes registrar hasta que lo cierres (🔚).</div>';
   var rbx = retiroBancoDe(CT);
   if (rbx) h += '<div style="padding:10px 12px;border-radius:10px;background:rgba(80,200,120,0.08);border:1px solid rgba(80,200,120,0.4);font-size:12px;margin-bottom:12px">🔒 <b>Día cerrado</b> con el retiro a banco '+retNum(rbx)+' ('+pesos(rbx.valor)+', '+fDate(rbx.fecha)+' '+esc(rbx.hora)+', '+esc(rbx.por)+').'+(esEditorTotal()?' <button class="btn btn-g btn-sm" style="margin-left:8px" onclick="reabrirHoja()">🔓 Reabrir</button>':'')+(esAdminCierre()?'<div style="margin-top:4px;color:var(--gris)">Como administrador puedes corregir; queda en el historial.</div>':'')+'</div>';
   else if (CT.estado === 'validado') h += '<div style="padding:10px 12px;border-radius:10px;background:rgba(80,200,120,0.08);border:1px solid rgba(80,200,120,0.4);font-size:12px;margin-bottom:12px">✅ Validado por <b>'+esc(CT.validadoPor||'')+'</b> el '+fDate(CT.validadoFecha||CT.fecha)+' a las '+esc(CT.validadoHora||'')+(CT.notaValidacion?' · '+esc(CT.notaValidacion):'')+'<div style="margin-top:4px;color:var(--gris)">Todavía se puede corregir y agregar pagos o gastos: el día se cierra cuando recepción registra el <b>retiro a banco</b>. Si algo cambia, quedará pendiente de validar otra vez.</div></div>';
   else if (esEditorTotal()) h += '<div style="padding:8px 12px;border-radius:10px;background:rgba(var(--acc-rgb),0.07);border:1px solid rgba(var(--acc-rgb),0.35);font-size:12px;margin-bottom:12px">🛎️ Como '+(esRecepcion()?'recepción':'administrador')+' puedes corregir todo antes de validar: pagos, ventas, cajas e inventario de cada turno (botón ✏️ Corregir turnos), validar cada turno y eliminar turnos repetidos. Para ajustar el inventario usa Recepción → 📦 Inventario. Todo queda en el historial.</div>';
   h += hojaTurnosHtml();
   var ps = pagosTurno(CT.fecha, HOJA);
-  h += '<div class="card" style="padding:14px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><div class="card-title" style="padding:0">👥 PAGOS DE '+T.Usuarios.toUpperCase()+' DEL DÍA</div>'+(ed && CT.segs.length && !hojaCerrada(CT)?'<button class="btn btn-p btn-sm" onclick="openPago(\'\',\''+CT.fecha+'\')">+ Registrar pago</button>':'')+'</div>';
+  h += '<div class="card" style="padding:14px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><div class="card-title" style="padding:0">👥 PAGOS DE '+T.Usuarios.toUpperCase()+' DEL DÍA</div>'+(ed && CT.segs.length && !hojaCerrada(CT)?'<button class="btn btn-p btn-sm" onclick="hojaAccion(\'propio\', function(){ openPago(\'\',\''+CT.fecha+'\'); })">+ Registrar pago</button>':'')+'</div>';
   if (!CT.segs.length) h += '<div style="font-size:12px;color:#ffb060;margin-bottom:6px">Primero se recibe el turno: los pagos quedan a nombre de quien lo recibió.</div>';
   if (!ps.length) h += '<div style="font-size:12px;color:var(--gris)">Aún no hay pagos.</div>';
   ps.forEach(function(p){
@@ -5657,7 +5751,8 @@ function ventasMasPrev() {
   });
   var t = document.getElementById('vm_tot'); if (t) t.innerHTML = Object.keys(add).length ? 'A grabar: <span style="color:var(--cyan)">'+pesos(tot)+'</span>'+(malo?' <span style="color:#ff8080;font-size:12px">· hay productos que superan el inventario</span>':'') : '';
 }
-function grabarVentas(btn) {
+function grabarVentas(btn) { hojaAccion('propio', function(){ _grabarVentas(btn); }); }
+function _grabarVentas(btn) {
   var add = ventasMasLeer(), pids = Object.keys(add);
   if (!pids.length) { toast('Escribe en + lo que vendiste'); return; }
   var malo = pids.filter(function(pid){ var a = add[pid]; return a.ef + a.tr > stockAhora(prodPorId(pid)); });
@@ -5675,7 +5770,8 @@ function grabarVentas(btn) {
   });
 }
 
-function openEditGasto(id) {
+function openEditGasto(a1) { hojaAccion('correccion', function(){ _openEditGasto(a1); }); }
+function _openEditGasto(id) {
   if (!esEditorTotal()) return;
   var r = gymRecs('retiro').filter(function(x){ return x.id === id; })[0]; if (!r) return;
   var ov = document.getElementById('m_editgasto');
@@ -5695,7 +5791,8 @@ function guardarEditGasto(id) {
   x.valor = v; x.caja = document.getElementById('eg_caja').value; x.concepto = con; x.nota = document.getElementById('eg_nota').value.trim();
   saveAndSync('saveLog', x, function(){ hojaGuardarYa(function(){ closeModal('m_editgasto'); toast('✅ Gasto corregido'); pgCierre(CT.fecha, '', 'turno'); }, function(h){ hojaTocar(h, '✏️ corrigió el gasto '+retNum(r)+': '+pesos(r.valor)+' → '+pesos(v)+' ('+con+')'); }); });
 }
-function borrarGasto(id) {
+function borrarGasto(a1) { hojaAccion('correccion', function(){ _borrarGasto(a1); }); }
+function _borrarGasto(id) {
   var r = gymRecs('retiro').filter(function(x){ return x.id === id; })[0]; if (!r || !esEditorTotal()) return;
   if (!confirm('¿Eliminar el gasto '+retNum(r)+' ('+(r.concepto||'')+', '+pesos(r.valor)+')? El dinero vuelve a contar en la caja.')) return;
   saveAndSync('deleteLog', { id:id }, function(){ hojaGuardarYa(function(){ toast('🗑 Gasto eliminado'); pgCierre(CT.fecha, '', 'turno'); }, function(h){ hojaTocar(h, '🗑 eliminó el gasto '+retNum(r)+' ('+(r.concepto||'')+', '+pesos(r.valor)+')'); }); });
@@ -5749,7 +5846,27 @@ function guardarAsociarPago(id) {
   });
 }
 
-function validarHoja() {
+// Eliminar la hoja de un día (por ejemplo si se creó por error). Los pagos, gastos y retiros NO se borran: son registros propios.
+function eliminarHoja(fecha) {
+  if (!esEditorTotal()) return;
+  hojaPull(function(){
+    var hj = turnoDe(fecha, HOJA); if (!hj) { toast('No existe la hoja de ese día'); return; }
+    var x = hojaNorm(JSON.parse(JSON.stringify(hj)));
+    if (hojaCerrada(x) && !esAdminCierre()) { alert('⛔ Ese día ya se cerró con el retiro a banco. Reábrelo primero o pídelo al administrador.'); return; }
+    var nP = pagosTurno(fecha, HOJA).length, nG = gymRecs('retiro').filter(function(r){ return (r.hojaFecha || r.fecha) === fecha; }).length;
+    var txt = prompt('⚠️ Vas a ELIMINAR la hoja del '+fDate(fecha)+' ('+(x.segs||[]).length+' turnos, ventas, conteos e historial).\n\nNo se borran los '+nP+' pagos ni los '+nG+' gastos/retiros de ese día: si también sobran, anúlalos aparte.\nLos ajustes de inventario hechos al contar en esa hoja se deshacen.\n\nEscribe ELIMINAR para confirmar:');
+    if (!txt || txt.trim().toUpperCase() !== 'ELIMINAR') { toast('No se eliminó'); return; }
+    var ops = [];
+    gymRecs('cierre').filter(function(c){ return c.fusionado === hj.id; }).forEach(function(c){ var o = JSON.parse(JSON.stringify(c)); delete o.fusionado; ops.push(['saveLog', o]); });
+    gymRecs('invmov').filter(function(m){ return m.hojaFecha === fecha && m.clase === 'recibo'; }).forEach(function(m){ ops.push(['deleteLog', { id:m.id }]); });
+    gymRecs('cierredia').filter(function(c){ return c.fecha === fecha; }).forEach(function(c){ ops.push(['deleteLog', { id:c.id }]); });
+    ops.push(['deleteLog', { id:hj.id }]);
+    var i = 0; (function next(){ if (i >= ops.length) { toast('🗑 Hoja del '+fDate(fecha)+' eliminada'); CT = null; pgCierre(dateCOL(), '', 'hist'); return; } var o = ops[i++]; saveAndSync(o[0], o[1], next); })();
+  }, 0);
+}
+
+function validarHoja(a1) { hojaAccion('correccion', function(){ _validarHoja(a1); }); }
+function _validarHoja() {
   if (!esRecepcion()) { toast('Solo recepción puede validar'); return; }
   var enHoja = !!document.querySelector('#main .ct-v');
   if (enHoja) turnoLeer();
@@ -5930,6 +6047,11 @@ function retiroPrev() {
   document.getElementById('rt_queda').innerHTML = v ? 'Queda en la caja: <span style="color:var(--cyan)">' + pesos(s - v) + '</span>' : '';
 }
 function guardarRetiro() {
+  var acc = 'banco';
+  if (RT_TIPO === 'gasto') { var hj = hojaActual(rtFecha()), sgx = hj && RT_SEG ? hj.segs.filter(function(z){ return z.id === RT_SEG; })[0] : null; acc = sgx && sgx !== hj.segs[hj.segs.length-1] ? 'correccion' : (sgx && sgx.entrega ? 'correccion' : 'propio'); }
+  hojaAccion(acc, _guardarRetiro, rtFecha());
+}
+function _guardarRetiro() {
   var g = RT_TIPO === 'gasto', no = retiroPermitido(RT_TIPO); if (no) { alert((g?'💸 ':'🏦 ')+no); return; }
   var c = document.getElementById('rt_caja').value, v = dinero(document.getElementById('rt_val').value); if (!v) { toast('Escribe el valor'); return; }
   var concepto = g ? ((document.getElementById('rt_concepto')||{}).value||'').trim() : '';
@@ -6030,6 +6152,11 @@ function _turnoRenderTotLegacy() {
   if (t.fiado) h += row('🧾', 'Vendido sin pagar (fiado)', pesos(t.fiado), t.fiados.length+' persona'+(t.fiados.length===1?'':'s'), '#ff8080');
   h += row('B·t', esHoja(CT) ? 'Transferencias del día' : 'Transferencias del turno', pesos(t.transfTotal), 'Pagos '+pesos(t.transf)+' · ventas '+pesos(t.ventasTr)+(t.abonosTr?' · deudas '+pesos(t.abonosTr):''));
   if (t.boldTotal) h += row('Bold', 'Pagos con Bold', pesos(t.boldTotal));
+  if (esHoja(CT)) {
+    var rsD = gymRecs('retiro').filter(function(r){ return (r.hojaFecha || r.fecha) === CT.fecha; }), gsD = rsD.filter(function(r){ return r.clase === 'gasto'; }), bkD = rsD.filter(function(r){ return r.clase !== 'gasto'; }), nomK = {}; CAJAS.forEach(function(k){ nomK[k[0]] = k[1]; });
+    if (gsD.length) h += row('💸', 'Gastos / salidas de caja del día', pesos(gsD.reduce(function(a, r){ return a + (parseFloat(r.valor)||0); }, 0)), gsD.map(function(r){ return retNum(r)+' '+esc(r.concepto||'')+' '+pesos(r.valor)+' ('+esc(nomK[r.caja]||r.caja)+', '+esc(String(r.turnoPor||r.por||'').split(' ')[0])+')'; }).join(' · '), '#ffb060');
+    if (bkD.length) h += row('🏦', 'Retiros a banco', pesos(bkD.reduce(function(a, r){ return a + (parseFloat(r.valor)||0); }, 0)), bkD.map(function(r){ return retNum(r)+' '+pesos(r.valor)+' · quedó '+pesos(r.queda)+' ('+esc(r.por)+' '+esc(r.hora)+')'; }).join(' · '));
+  }
   h += row('#', 'Conteos', t.dia+' día · '+t.clase+' clase · '+t.quincena+' quincena'+(t.externos?' · '+t.externos+' no registrados':''));
   if (t.dif != null) h += row('±', 'Diferencia total con lo contado', (t.dif>0?'+':'')+pesos(t.dif), Math.abs(t.dif)<1?'✅ Cuadra':(t.dif>0?'Sobra dinero':'Falta dinero'), Math.abs(t.dif)<1?'#80d4a0':'#ff8080');
   h += '<div class="card-title" style="padding:12px 0 4px">📅 ACUMULADO DEL MES</div>';
@@ -6128,7 +6255,7 @@ function cierreHistHtml() {
   if (!list.length) return h + '<div class="empty"><div class="empty-icon">📚</div><div class="empty-t">SIN CIERRES EN ESTE MES</div></div>';
   h += '<div class="card" style="padding:0"><div style="overflow-x:auto"><table style="min-width:640px"><thead><tr><th>Fecha</th><th>Turno</th><th>Pagos</th><th>Efectivo</th><th>Transf.</th><th>Bold</th><th>Diferencia</th><th>Estado</th><th></th></tr></thead><tbody>';
   list.forEach(function(c){ var t = turnoTotales(c); if (!t.legacy) { t.transf = t.transfTotal; t.bold = t.boldTotal; }
-    h += '<tr><td>'+fDate(c.fecha)+'</td><td>'+esc(c.coachNombre||c.responsable||'')+(t.legacy?'<div style="font-size:10px;color:var(--gris)">formato anterior</div>':'')+'</td><td>'+pesos(t.pagos)+'</td><td>'+pesos(t.T)+'</td><td>'+pesos(t.transf)+'</td><td>'+pesos(t.bold)+'</td><td style="color:'+(t.dif==null?'var(--gris)':Math.abs(t.dif)<1?'#80d4a0':'#ff8080')+'">'+(t.dif==null?'—':(t.dif>0?'+':'')+pesos(t.dif))+'</td><td>'+estadoTurnoHtml(c)+'</td><td>'+(c.version>=2?'<button class="btn btn-g btn-sm" onclick="pgCierre(\''+c.fecha+'\',\''+c.coachId+'\',\'turno\')">Ver</button>':'')+'</td></tr>'; });
+    h += '<tr><td>'+fDate(c.fecha)+'</td><td>'+esc(c.coachNombre||c.responsable||'')+(t.legacy?'<div style="font-size:10px;color:var(--gris)">formato anterior</div>':'')+'</td><td>'+pesos(t.pagos)+'</td><td>'+pesos(t.T)+'</td><td>'+pesos(t.transf)+'</td><td>'+pesos(t.bold)+'</td><td style="color:'+(t.dif==null?'var(--gris)':Math.abs(t.dif)<1?'#80d4a0':'#ff8080')+'">'+(t.dif==null?'—':(t.dif>0?'+':'')+pesos(t.dif))+'</td><td>'+estadoTurnoHtml(c)+'</td><td style="white-space:nowrap">'+(c.version>=2?'<button class="btn btn-g btn-sm" onclick="pgCierre(\''+c.fecha+'\',\''+c.coachId+'\',\'turno\')">Ver</button>':'')+(esHoja(c) && esEditorTotal()?' <button class="btn btn-g btn-sm" title="Eliminar esta hoja" onclick="eliminarHoja(\''+c.fecha+'\')">🗑</button>':'')+'</td></tr>'; });
   return h + '</tbody></table></div></div>';
 }
 function exportCierresMes() {
