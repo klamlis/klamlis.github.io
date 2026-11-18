@@ -5738,6 +5738,7 @@ function turnoHtml(ex) {
   if (ed) h += '<button class="btn btn-g btn-full" onclick="HOJA_DIRTY.obs=1;turnoLeer();hojaGuardarYa(function(){toast(\'💾 Hoja guardada\')})">💾 Guardar ahora</button>';
   if (esEditorTotal() && CT.estado === 'validado' && !hojaCerrada(CT)) h += cerrarDiaCardHtml();
   if (esRecepcion() && CT.estado !== 'validado') h += '<div class="card" style="padding:14px;margin-top:12px;border-color:var(--cyan)"><div class="card-title" style="padding:0 0 8px">✅ VALIDACIÓN DE RECEPCIÓN</div><div style="font-size:12px;color:var(--gris);margin-bottom:8px">Revisa los turnos, corrige lo que no corresponda y valida el día. Después solo el administrador puede modificarlo.</div><div class="fg"><label>Nota (opcional)</label><input id="ct_nota_val" placeholder="Ej: cuadró completo"></div><button class="btn btn-p btn-full" onclick="validarHoja()">✅ Validar el día</button></div>';
+  if (esEditorTotal()) h += retirosMesCardHtml();
   if ((CT.historial||[]).length) h += '<details style="margin-top:12px"><summary style="cursor:pointer;font-size:12px;color:var(--cyan);font-weight:600">🕑 Historial de cambios ('+CT.historial.length+')</summary><div style="margin-top:6px;font-size:11px;line-height:1.7;color:var(--gris)">'+CT.historial.slice().reverse().map(function(x){ return '<div><b style="color:var(--blanco)">'+esc(x.hora)+' · '+esc(x.por)+'</b> — '+esc(x.txt)+'</div>'; }).join('')+'</div></details>';
   return h;
 }
@@ -5963,6 +5964,32 @@ function borrarRetiro(id) {
     if (!confirm('¿Eliminar el retiro a banco '+retNum(r)+' por '+pesos(r.valor)+' ('+r.por+', '+fDate(r.fecha)+' '+r.hora+')?\n\nÚsalo si quedó repetido o mal registrado. El dinero vuelve a contar en la caja.')) return;
     toast('⏳ Eliminando…');
     saveAndSync('deleteLog', { id:id }, function(){ hojaAviso(f, '🗑 eliminó el retiro a banco '+retNum(r)+' · '+pesos(r.valor), function(){ toast('🗑 Retiro eliminado'); if (curPage === 'cierre') pgCierre(CT.fecha, '', CT_TAB); }, true); });
+  }, f);
+}
+
+// Lista de TODOS los retiros a banco y salidas del mes, para revisar a qué día quedaron y corregir
+function retirosMesCardHtml() {
+  var mes = CT.fecha.slice(0,7), rs = gymRecs('retiro').filter(function(r){ return ((r.hojaFecha || r.fecha)||'').slice(0,7) === mes || (r.fecha||'').slice(0,7) === mes; }).sort(function(a,b){ return tsDe(a.fecha, a.hs||a.hora).localeCompare(tsDe(b.fecha, b.hs||b.hora)); });
+  var nom = {}; CAJAS.forEach(function(k){ nom[k[0]] = k[1]; });
+  var h = '<div class="card" style="padding:14px;margin-top:12px"><div class="card-title" style="padding:0 0 6px">🏦 RETIROS Y 💸 SALIDAS DEL MES</div><div style="font-size:11px;color:var(--gris);margin-bottom:8px">Cada retiro cuenta en el día que dice «Día». Si uno quedó repetido elimínalo con 🗑; si quedó en otro día, tócalo para pasarlo a este día ('+fDate(CT.fecha)+').</div>';
+  if (!rs.length) return h + '<div style="font-size:12px;color:var(--gris)">Sin retiros ni salidas este mes.</div></div>';
+  rs.forEach(function(r){
+    var dia = r.hojaFecha || r.fecha, aca = dia === CT.fecha, ok = !hojaCerrada(CT) || esAdminCierre();
+    h += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 10px;border-radius:8px;background:'+(aca?'rgba(var(--acc-rgb),0.10)':'var(--s1)')+';margin-bottom:5px;font-size:12px"><div style="flex:1;min-width:170px">'+retNum(r)+' · <b>'+pesos(r.valor)+'</b> · '+esc(nom[r.caja]||r.caja)+(r.clase==='gasto'?' · '+esc(r.concepto||''):'')+'<br><span style="color:var(--gris)">Día: <b style="color:'+(aca?'var(--cyan)':'inherit')+'">'+fDate(dia)+'</b> · registrado '+fDate(r.fecha)+' '+esc(r.hora||'')+' por '+esc(r.por||'')+'</span></div>'
+      + (ok && !aca ? '<button class="btn btn-g btn-sm" onclick="retiroAEsteDia(\''+r.id+'\')">📅 Pasar a este día</button>' : '')
+      + (ok ? '<button class="btn btn-g btn-sm" onclick="'+(r.clase==='gasto'?'borrarGasto':'borrarRetiro')+'(\''+r.id+'\')">🗑</button>' : '') + '</div>';
+  });
+  return h + '</div>';
+}
+function retiroAEsteDia(id) {
+  var r = gymRecs('retiro').filter(function(x){ return x.id === id; })[0]; if (!r || !esEditorTotal()) return;
+  var f = CT.fecha, antes = r.hojaFecha || r.fecha;
+  hojaAccion('correccion', function(){
+    if (!confirm('¿Pasar '+retNum(r)+' ('+pesos(r.valor)+') del día '+fDate(antes)+' al día '+fDate(f)+'?')) return;
+    var x = JSON.parse(JSON.stringify(r)); x.hojaFecha = f; x.ediciones = (x.ediciones||[]).concat([{ por:CU.name, fecha:dateCOL(), hora:horaCOL(), antes:{ hojaFecha:antes } }]);
+    var hj = hojaActual(f); if (hj && hj.segs && hj.segs.length) { var u = hj.segs[hj.segs.length-1]; x.turnoSeg = u.id; x.turnoPor = u.por; }
+    if (!x.agregadoEn) x.agregadoEn = { fecha:dateCOL(), hora:horaCOL() };
+    saveAndSync('saveLog', x, function(){ hojaAviso(f, '📅 pasó '+retNum(r)+' ('+pesos(r.valor)+') del '+fDate(antes)+' a este día', function(){ toast('📅 Listo'); pgCierre(f, '', CT_TAB); }, true); });
   }, f);
 }
 
