@@ -4755,8 +4755,8 @@ function dinero(v) { var t = String(v==null?'':v).replace(/[$\s.]/g, '').replace
 //  inventario, recordatorios de pago y cumpleaños.
 //  Todo se guarda en la hoja "logs" de Sheets (no hay que cambiar el Apps Script).
 // ═══════════════════════════════════════════════════════════
-var GYM_TIPOS = ['cierre','cierredia','pago','membajuste','recordatorio','gymcfg','invmov','cumple','agenda','deuda','retiro','pendaviso'];
-function esGymRec(x) { return !!x && ['cierre','cierredia','pago','membajuste','recordatorio','gymcfg','invmov','cumple','agenda','deuda','retiro','pendaviso'].indexOf(x.tipo) >= 0; }
+var GYM_TIPOS = ['cierre','cierredia','pago','membajuste','recordatorio','gymcfg','invmov','cumple','agenda','deuda','retiro','pendaviso','acumajuste'];
+function esGymRec(x) { return !!x && ['cierre','cierredia','pago','membajuste','recordatorio','gymcfg','invmov','cumple','agenda','deuda','retiro','pendaviso','acumajuste'].indexOf(x.tipo) >= 0; }
 function gymRecs(tipo) { return (dbR().gym || []).filter(function(x){ return x.tipo === tipo; }); }
 function esRecepcion() { return CU && CU.role === 'recepcion'; }
 function puedeRecepcion() { return CU && (CU.role === 'recepcion' || CU.role === 'admin'); }
@@ -4800,7 +4800,7 @@ function mixtoLeer(pref, total) {
 function segEnCurso(fecha) { var hj = turnoDe(fecha || dateCOL(), '__dia'); if (!hj) return null; hj = hojaNorm(JSON.parse(JSON.stringify(hj))); return hj.segs && hj.segs.length && !hojaCerrada(hj) ? hj.segs[hj.segs.length-1] : null; }
 // La hoja de un día queda CERRADA solo cuando recepción registra el retiro a banco de ese día (antes se puede corregir y agregar, aunque esté validada)
 function retiroBancoDe(x) { if (!x) return null; var desde = x.reabiertaTs || ''; return gymRecs('retiro').filter(function(r){ return r.clase !== 'gasto' && (r.hojaFecha || r.fecha) === x.fecha && tsDe(r.fecha, r.hs || r.hora) > desde; })[0] || null; }
-function hojaCerrada(x) { return !!retiroBancoDe(x); }
+function hojaCerrada(x) { return !!(x && x.cerrado); }
 
 // ── Configuración (la edita recepción) ──
 var PLANES_BASE = [
@@ -5151,6 +5151,8 @@ function ultimoTurnoAntes(fecha, coachId) {
     .sort(function(a,b){ return turnoFin(b).localeCompare(turnoFin(a)); })[0] || null;
 }
 function saldoAhora(caja) {
+  var fR = (typeof rtFecha === 'function') ? rtFecha() : dateCOL();
+  if (fR !== dateCOL()) { var hp = turnoDe(fR, HOJA); if (hp) { var cp = turnoTotales(hojaNorm(JSON.parse(JSON.stringify(hp)))).cajas[caja]; return cp.real != null ? cp.real : cp.esperado; } }
   var hoja = turnoDe(dateCOL(), HOJA);
   if (hoja && hoja.recibo && hoja.estado !== 'validado') { var cx = turnoTotales(hojaNorm(JSON.parse(JSON.stringify(CT && CT.id === hoja.id ? CT : hoja))), ahoraTs()).cajas[caja]; return cx.real != null ? cx.real : cx.esperado; }
   var s = saldoSistema(dateCOL(), HOJA, ahoraTs()); return s ? s[caja] : 0;
@@ -5225,9 +5227,9 @@ function permisoHoja(x, accion) {
   if (!CU || CU.role === 'user') return 'No tienes permiso';
   if (!x) return '';
   if (accion === 'migrar') return '';
-  if (hojaCerrada(x) && !esAdminCierre()) return 'Este día ya se cerró con el retiro a banco. Recepción puede reabrirlo.';
+  if (hojaCerrada(x) && !esAdminCierre()) return 'Este día ya está cerrado (🔒 Cerrar día). Recepción puede reabrirlo.';
   var e = hojaEstadoTurno(x), nom = e.u ? String(e.u.por) : '';
-  if (accion === 'apertura') return (x.segs && x.segs.length) ? 'El día ya fue abierto por '+x.segs[0].por+'.' : '';
+  if (accion === 'apertura') { if (x.segs && x.segs.length) return 'El día ya fue abierto por '+x.segs[0].por+'.'; var ant = diaAnteriorSinCerrar(x.fecha); return ant ? 'Recepción aún no ha cerrado el día '+fDate(ant.fecha)+' (🔒 Cerrar día). Cuando lo cierre, aquí aparecerá la caja con la que se recibe.' : ''; }
   if (accion === 'recibo') return e.abierto && !e.duenio ? 'El turno de '+nom+' sigue abierto. '+nom+' debe cerrarlo (🔚) antes de que lo recibas.' : '';
   if (accion === 'recibo_forzado') return esEditorTotal() ? '' : 'Solo recepción o administración puede recibir sin que se cierre el turno.';
   if (accion === 'entrega') return !e.abierto ? 'Este turno ya se cerró.' : (e.duenio || esEditorTotal()) ? '' : 'Solo '+nom+' (o recepción) puede cerrar este turno.';
@@ -5373,8 +5375,15 @@ function turnoTotales(c, hasta) {
   var t = _turnoTotalesBase(c, hasta);
   if (!esHoja(c) || !c.segs || !c.segs.length) return t;
   var u = c.segs[c.segs.length-1], last = u.entrega || u, difTot = null, cont = 0;
+  var tsCont = tsDe(last.fecha || c.fecha, last.hs || last.hora);
   CAJAS.forEach(function(k){ var x = t.cajas[k[0]], ct = last.cajas && last.cajas[k[0]] != null ? dinero(last.cajas[k[0]]) : null, sis = last.cajasSistema && last.cajasSistema[k[0]] != null ? last.cajasSistema[k[0]] : null;
-    x.contado = ct; x.dif = (ct != null && sis != null) ? ct - sis : null; x.real = x.esperado + (x.dif || 0); x.conteo = { por:last.por, hora:last.hora };
+    x.contado = ct; x.dif = (ct != null && sis != null) ? ct - sis : null; x.conteo = { por:last.por, hora:last.hora };
+    if (u.entrega && ct != null) {   // día terminado: lo contado al final menos lo que salió después (gastos y retiros a banco de ese día)
+      x.despues = gymRecs('retiro').filter(function(r){ return (r.hojaFecha || r.fecha) === c.fecha && r.caja === k[0] && retTsReal(r) > tsCont; });
+      x.real = ct - x.despues.reduce(function(a, r){ return a + (parseFloat(r.valor)||0); }, 0);
+      var antes = gymRecs('retiro').filter(function(r){ return (r.hojaFecha || r.fecha) === c.fecha && r.caja === k[0] && retTsReal(r) <= tsCont; }).reduce(function(a, r){ return a + (parseFloat(r.valor)||0); }, 0);
+      x.debiaHaber = x.rec + x.ent - antes; x.dif = ct - x.debiaHaber;   // diferencia real del día: lo contado al final vs lo que debía haber
+    } else x.real = x.esperado + (x.dif || 0);
     if (x.dif != null) difTot = (difTot || 0) + x.dif; cont += ct || 0; });
   t.C = t.cajas.principal.real; t.CM = t.cajas.menor.real; t.S = t.cajas.sachets.real; t.dif = difTot; t.contado = cont; t.ultimoConteo = { por:last.por, hora:last.hora, entrega:!!u.entrega };
   return t;
@@ -5635,6 +5644,8 @@ function hojaTurnosHtml() {
   h += '<div style="font-size:11px;color:var(--gris);margin:4px 0 10px;line-height:1.5">Las cajas son acumuladas del día: el sistema suma la apertura + todo lo cobrado en efectivo − retiros a banco. Cada persona cuenta al <b>recibir</b> y al <b>cerrar</b> su turno; si no cuadra queda anotado y se ve en qué turno pasó.</div>';
   if (!CT.segs.length) {
     if (!ed) return h + '<div style="font-size:12px;color:var(--gris)">Aún no se ha abierto el día.</div></div>';
+    var dAnt = diaAnteriorSinCerrar(CT.fecha);
+    if (dAnt) return h + '<div style="padding:12px 14px;border-radius:10px;background:rgba(255,176,96,0.1);border:1px solid rgba(255,176,96,0.55);font-size:13px;line-height:1.55">⏳ <b>El día '+fDate(dAnt.fecha)+' todavía no está cerrado.</b> Recepción debe revisarlo, registrar el retiro a banco (si hay) y tocar <b>🔒 Cerrar día</b>. Con eso, aquí se recibe la caja que quedó.<div style="margin-top:8px"><button class="btn btn-g btn-sm" onclick="pgCierre(\''+dAnt.fecha+'\',\'\',\'turno\')">Ir al '+fDate(dAnt.fecha)+'</button></div></div></div>';
     var ant = ultimoTurnoAntes(CT.fecha, HOJA), sis = saldoSistema(CT.fecha, HOJA);
     h += '<div style="font-size:11px;color:var(--gris);margin-bottom:8px">'+(ant ? 'Viene de: <b>'+esc(ant.coachNombre||'')+'</b> · '+fDate(ant.fecha) : 'Primer registro: escribe lo que hay')+'</div>';
     h += '<div style="font-size:12px;margin-bottom:8px">🌅 <b>Apertura del día:</b> cuenta el efectivo de cada caja y cada producto.</div>';
@@ -5673,9 +5684,9 @@ function turnoHtml(ex) {
   h += '<div id="hoja_sync" style="font-size:11px;color:var(--gris);margin:-6px 0 10px">'+hojaSyncTxt()+'</div>';
   if (eTu.abierto && !eTu.duenio && !hojaCerrada(CT)) h += '<div style="padding:12px 14px;border-radius:10px;background:rgba(255,176,96,0.1);border:1px solid rgba(255,176,96,0.55);font-size:13px;margin-bottom:12px;line-height:1.55">🔒 <b>Turno abierto de '+esc(eTu.u.por)+'</b> desde las '+esc(eTu.u.hora)+'. Solo '+esc(eTu.u.por)+' puede registrar pagos, ventas y gastos en este momento. Puedes ver los datos guardados, pero no editarlos.<br><span style="font-size:12px;color:var(--gris)">Cuando '+esc(String(eTu.u.por).split(' ')[0])+' cierre su turno (🔚 Cerrar turno) podrás recibirlo y registrar.'+(esEditorTotal()?' Si no puede cerrarlo, recepción puede usar «⚠️ Recibir aunque no cerró».':'')+'</span></div>';
   else if (eTu.duenio && !hojaCerrada(CT)) h += '<div style="padding:8px 12px;border-radius:10px;background:rgba(80,200,120,0.07);border:1px solid rgba(80,200,120,0.35);font-size:12px;margin-bottom:12px">✏️ Tienes el turno abierto: solo tú puedes registrar hasta que lo cierres (🔚).</div>';
-  var rbx = retiroBancoDe(CT);
-  if (rbx) h += '<div style="padding:10px 12px;border-radius:10px;background:rgba(80,200,120,0.08);border:1px solid rgba(80,200,120,0.4);font-size:12px;margin-bottom:12px">🔒 <b>Día cerrado</b> con el retiro a banco '+retNum(rbx)+' ('+pesos(rbx.valor)+', '+fDate(rbx.fecha)+' '+esc(rbx.hora)+', '+esc(rbx.por)+').'+(esEditorTotal()?' <button class="btn btn-g btn-sm" style="margin-left:8px" onclick="reabrirHoja()">🔓 Reabrir</button>':'')+(esAdminCierre()?'<div style="margin-top:4px;color:var(--gris)">Como administrador puedes corregir; queda en el historial.</div>':'')+'</div>';
-  else if (CT.estado === 'validado') h += '<div style="padding:10px 12px;border-radius:10px;background:rgba(80,200,120,0.08);border:1px solid rgba(80,200,120,0.4);font-size:12px;margin-bottom:12px">✅ Validado por <b>'+esc(CT.validadoPor||'')+'</b> el '+fDate(CT.validadoFecha||CT.fecha)+' a las '+esc(CT.validadoHora||'')+(CT.notaValidacion?' · '+esc(CT.notaValidacion):'')+'<div style="margin-top:4px;color:var(--gris)">Todavía se puede corregir y agregar pagos o gastos: el día se cierra cuando recepción registra el <b>retiro a banco</b>. Si algo cambia, quedará pendiente de validar otra vez.</div></div>';
+  var rbx = CT.cerrado;
+  if (rbx) h += '<div style="padding:10px 12px;border-radius:10px;background:rgba(80,200,120,0.08);border:1px solid rgba(80,200,120,0.4);font-size:12px;margin-bottom:12px">🔒 <b>Día cerrado</b> por '+esc(rbx.por)+' el '+fDate(rbx.fecha)+' a las '+esc(rbx.hora)+'. Pasa al día siguiente: '+CAJAS.map(function(k){ return k[1]+' <b>'+pesos(rbx.cajas[k[0]])+'</b>'; }).join(' · ')+'.'+(esEditorTotal()?' <button class="btn btn-g btn-sm" style="margin-left:8px" onclick="reabrirHoja()">🔓 Reabrir</button>':'')+(esAdminCierre()?'<div style="margin-top:4px;color:var(--gris)">Como administrador puedes corregir; queda en el historial.</div>':'')+'</div>';
+  else if (CT.estado === 'validado') h += '<div style="padding:10px 12px;border-radius:10px;background:rgba(80,200,120,0.08);border:1px solid rgba(80,200,120,0.4);font-size:12px;margin-bottom:12px">✅ Validado por <b>'+esc(CT.validadoPor||'')+'</b> el '+fDate(CT.validadoFecha||CT.fecha)+' a las '+esc(CT.validadoHora||'')+(CT.notaValidacion?' · '+esc(CT.notaValidacion):'')+'<div style="margin-top:4px;color:var(--gris)">Todavía se puede corregir y agregar pagos o gastos. Cuando todo cuadre, recepción registra el retiro a banco (si hay) y toca <b>🔒 Cerrar día</b>. Si algo cambia, quedará pendiente de validar otra vez.</div></div>';
   else if (esEditorTotal()) h += '<div style="padding:8px 12px;border-radius:10px;background:rgba(var(--acc-rgb),0.07);border:1px solid rgba(var(--acc-rgb),0.35);font-size:12px;margin-bottom:12px">🛎️ Como '+(esRecepcion()?'recepción':'administrador')+' puedes corregir todo antes de validar: pagos, ventas, cajas e inventario de cada turno (botón ✏️ Corregir turnos), validar cada turno y eliminar turnos repetidos. Para ajustar el inventario usa Recepción → 📦 Inventario. Todo queda en el historial.</div>';
   h += hojaTurnosHtml();
   var ps = pagosTurno(CT.fecha, HOJA);
@@ -5712,6 +5723,7 @@ function turnoHtml(ex) {
   h += '<div class="fg" style="margin:10px 0 0"><label>Observaciones</label><textarea class="ct-in" id="ct_obs" style="'+inS+';height:52px"'+dis+'>'+esc(CT.obs||'')+'</textarea></div></div>';
   h += '<div class="card" id="ct_tot" style="padding:14px;margin-bottom:12px"></div>';
   if (ed) h += '<button class="btn btn-g btn-full" onclick="HOJA_DIRTY.obs=1;turnoLeer();hojaGuardarYa(function(){toast(\'💾 Hoja guardada\')})">💾 Guardar ahora</button>';
+  if (esEditorTotal() && CT.estado === 'validado' && !hojaCerrada(CT)) h += cerrarDiaCardHtml();
   if (esRecepcion() && CT.estado !== 'validado') h += '<div class="card" style="padding:14px;margin-top:12px;border-color:var(--cyan)"><div class="card-title" style="padding:0 0 8px">✅ VALIDACIÓN DE RECEPCIÓN</div><div style="font-size:12px;color:var(--gris);margin-bottom:8px">Revisa los turnos, corrige lo que no corresponda y valida el día. Después solo el administrador puede modificarlo.</div><div class="fg"><label>Nota (opcional)</label><input id="ct_nota_val" placeholder="Ej: cuadró completo"></div><button class="btn btn-p btn-full" onclick="validarHoja()">✅ Validar el día</button></div>';
   if ((CT.historial||[]).length) h += '<details style="margin-top:12px"><summary style="cursor:pointer;font-size:12px;color:var(--cyan);font-weight:600">🕑 Historial de cambios ('+CT.historial.length+')</summary><div style="margin-top:6px;font-size:11px;line-height:1.7;color:var(--gris)">'+CT.historial.slice().reverse().map(function(x){ return '<div><b style="color:var(--blanco)">'+esc(x.hora)+' · '+esc(x.por)+'</b> — '+esc(x.txt)+'</div>'; }).join('')+'</div></details>';
   return h;
@@ -5800,11 +5812,12 @@ function _borrarGasto(id) {
 // ── Membresías pagadas por personas que aún no están en la app: quedan "sin asociar" hasta que se registren ──
 // Un cambio después de validar deja la hoja pendiente de validar otra vez (hasta el retiro a banco)
 function hojaTocar(x, txt) { x.historial = x.historial || []; x.historial.push({ por:CU.name, hora:horaCOL(), txt:txt }); if (x.estado === 'validado' && !hojaCerrada(x)) { x.estado = 'borrador'; x.historial.push({ por:CU.name, hora:horaCOL(), txt:'↩ Quedó pendiente de validar otra vez por cambios después de validar' }); } }
-function hojaAviso(fecha, txt, cb) {
+function hojaAviso(fecha, txt, cb, sinRevalidar) {
   if (!modulo('cierreDiario')) { if (cb) cb(); return; }
-  if (CT && esHoja(CT) && CT.fecha === fecha) { hojaGuardarYa(cb, function(x){ hojaTocar(x, txt); }); return; }
+  var tocar = function(x){ if (sinRevalidar) { x.historial = x.historial || []; x.historial.push({ por:CU.name, hora:horaCOL(), txt:txt }); } else hojaTocar(x, txt); };
+  if (CT && esHoja(CT) && CT.fecha === fecha) { hojaGuardarYa(cb, tocar); return; }
   var hj = turnoDe(fecha, '__dia'); if (!hj) { if (cb) cb(); return; }
-  var x = hojaNorm(JSON.parse(JSON.stringify(hj))); hojaTocar(x, txt); saveAndSync('saveLog', x, function(){ if (cb) cb(); });
+  var x = hojaNorm(JSON.parse(JSON.stringify(hj))); tocar(x); saveAndSync('saveLog', x, function(){ if (cb) cb(); });
 }
 function membresiasSinAsociar() { return gymRecs('pago').filter(function(p){ return p.sinAsociar; }).sort(function(a,b){ return (a.fecha||'').localeCompare(b.fecha||''); }); }
 function sinAsociarHtml() {
@@ -5852,7 +5865,7 @@ function eliminarHoja(fecha) {
   hojaPull(function(){
     var hj = turnoDe(fecha, HOJA); if (!hj) { toast('No existe la hoja de ese día'); return; }
     var x = hojaNorm(JSON.parse(JSON.stringify(hj)));
-    if (hojaCerrada(x) && !esAdminCierre()) { alert('⛔ Ese día ya se cerró con el retiro a banco. Reábrelo primero o pídelo al administrador.'); return; }
+    if (hojaCerrada(x) && !esAdminCierre()) { alert('⛔ Ese día ya está cerrado. Reábrelo primero o pídelo al administrador.'); return; }
     var nP = pagosTurno(fecha, HOJA).length, nG = gymRecs('retiro').filter(function(r){ return (r.hojaFecha || r.fecha) === fecha; }).length;
     var txt = prompt('⚠️ Vas a ELIMINAR la hoja del '+fDate(fecha)+' ('+(x.segs||[]).length+' turnos, ventas, conteos e historial).\n\nNo se borran los '+nP+' pagos ni los '+nG+' gastos/retiros de ese día: si también sobran, anúlalos aparte.\nLos ajustes de inventario hechos al contar en esa hoja se deshacen.\n\nEscribe ELIMINAR para confirmar:');
     if (!txt || txt.trim().toUpperCase() !== 'ELIMINAR') { toast('No se eliminó'); return; }
@@ -5863,6 +5876,70 @@ function eliminarHoja(fecha) {
     ops.push(['deleteLog', { id:hj.id }]);
     var i = 0; (function next(){ if (i >= ops.length) { toast('🗑 Hoja del '+fDate(fecha)+' eliminada'); CT = null; pgCierre(dateCOL(), '', 'hist'); return; } var o = ops[i++]; saveAndSync(o[0], o[1], next); })();
   }, 0);
+}
+
+// ═════ CERRAR DÍA (recepción): fija la caja con la que se recibe el día siguiente ═════
+function diaAnteriorSinCerrar(fecha) {
+  var p = ultimoTurnoAntes(fecha, '__dia');
+  if (!p || !esHoja(p) || p.cerrado) return null;
+  var x = hojaNorm(JSON.parse(JSON.stringify(p)));
+  return x.segs && x.segs.length ? x : null;
+}
+function cerrarDiaCardHtml() {
+  var t = turnoTotales(CT), e = hojaEstadoTurno(CT), u = CT.segs[CT.segs.length-1];
+  var h = '<div class="card" style="padding:14px;margin-top:12px;border-color:rgba(80,200,120,0.6)"><div class="card-title" style="padding:0 0 8px">🔒 CERRAR DÍA</div>';
+  if (!u || !u.entrega) return h + '<div style="font-size:12px;color:#ffb060">Primero se cierra el último turno (🔚) contando las cajas.</div></div>';
+  h += '<div style="font-size:12px;color:var(--gris);margin-bottom:8px;line-height:1.5">Revisa que todo cuadre con el cuaderno. Si se lleva dinero al banco, regístralo antes con 🏦 Retirar a banco. Al cerrar, esta caja es la que recibe el turno del día siguiente.</div>';
+  h += '<div style="overflow-x:auto"><table style="min-width:420px;font-size:12px"><thead><tr><th>Caja</th><th>Conteo final</th><th>− Salidas después</th><th>= Queda para mañana</th></tr></thead><tbody>'
+    + CAJAS.map(function(k){ var c = t.cajas[k[0]], sal = (c.despues||[]); return '<tr><td><b>'+k[1]+'</b></td><td>'+pesos(c.contado)+'</td><td>'+(sal.length?sal.map(function(r){ return retNum(r)+' '+pesos(r.valor)+(r.clase==='gasto'?' ('+esc(r.concepto||'')+')':' banco'); }).join('<br>'):'—')+'</td><td><b style="color:var(--cyan)">'+pesos(c.real)+'</b></td></tr>'; }).join('')
+    + '</tbody></table></div>';
+  return h + '<button class="btn btn-p btn-full" style="margin-top:10px" onclick="cerrarDia()">🔒 Cerrar día</button></div>';
+}
+function cerrarDia() {
+  hojaAccion('correccion', function(){
+    var x = hojaActual(CT.fecha), u = x.segs[x.segs.length-1];
+    if (!u || !u.entrega) { alert('⛔ Primero se cierra el último turno contando las cajas.'); return; }
+    if (x.estado !== 'validado') { alert('⛔ Primero valida el día (✅ Validar el día).'); return; }
+    var t = turnoTotales(x), cajas = {}; CAJAS.forEach(function(k){ cajas[k[0]] = Math.round(t.cajas[k[0]].real); });
+    if (!confirm('🔒 Cerrar el día '+fDate(x.fecha)+'.\n\nPasa al día siguiente:\n'+CAJAS.map(function(k){ return '• '+k[1].replace(/^\S+\s/,'')+': '+pesos(cajas[k[0]]); }).join('\n')+'\n\nDespués ya no se puede modificar (recepción puede reabrirlo). ¿Cerrar?')) return;
+    hojaGuardarYa(function(){ toast('🔒 Día cerrado'); pgCierre(CT.fecha, '', 'turno'); }, function(h){ h.cerrado = { por:CU.name, porId:CU.id, fecha:dateCOL(), hora:horaCOL(), hs:horaSeg(), cajas:cajas, acumulados:acumMes(h.fecha) }; h.historial.push({ por:CU.name, hora:horaCOL(), txt:'🔒 Cerró el día · queda '+CAJAS.map(function(k){ return k[0]+' '+pesos(cajas[k[0]]); }).join(', ') }); }, 'correccion');
+  });
+}
+// ═════ ACUMULADOS DEL MES cuadrados con el cuaderno ═════
+// M = mensualidades (todo plan que no sea Día, 15 días o Clase), en efectivo o transferencia.
+// B = todo lo que entra al banco: transferencias de pagos (día, 15 días, mensualidades) + efectivo llevado al banco.
+function acumMesSistema(fecha) {
+  var mes = fecha.slice(0,7), a = { M:0, B:0, Bold:0, dia:0, quincena:0, retiros:0, pagos:0, gastos:0 };
+  gymRecs('pago').forEach(function(p){ if ((p.fecha||'').slice(0,7) !== mes || p.fecha > fecha) return; var v = parseFloat(p.valor)||0; a.pagos += v;
+    if (p.planId === 'dia') a.dia += v; else if (p.planId === 'quincena') a.quincena += v; else if (p.planId !== 'clase') a.M += v;
+    var pp = pagoPartes(p); a.B += pp.tr; a.Bold += pp.bold; });
+  gymRecs('retiro').forEach(function(r){ var f = r.hojaFecha || r.fecha; if ((f||'').slice(0,7) !== mes || f > fecha) return; var v = parseFloat(r.valor)||0; if (r.clase === 'gasto') a.gastos += v; else { a.retiros += v; a.B += v; } });
+  return a;
+}
+function acumAjusteDe(fecha) { return gymRecs('acumajuste').filter(function(j){ return j.mes === fecha.slice(0,7) && j.fecha <= fecha; }).sort(function(a,b){ return (b.fecha+(b.hs||'')).localeCompare(a.fecha+(a.hs||'')); })[0] || null; }
+function acumMes(fecha) {
+  var a = acumMesSistema(fecha), j = acumAjusteDe(fecha);
+  if (j && j.delta) { ['M','B','dia','quincena'].forEach(function(k){ a[k] += parseFloat(j.delta[k])||0; }); a.ajuste = j; }
+  return a;
+}
+function openAjusteAcum(fecha) {
+  if (!esEditorTotal()) return;
+  var s0 = acumMesSistema(fecha), a = acumMes(fecha);
+  var ov = document.getElementById('m_acum');
+  if (!ov) { ov = document.createElement('div'); ov.className = 'overlay'; ov.id = 'm_acum'; ov.style.zIndex = '2100'; document.body.appendChild(ov); }
+  var f = function(id, l, k){ return '<div class="fg"><label>'+l+' <span style="color:var(--gris);font-weight:400">· el sistema suma '+pesos(s0[k])+'</span></label><input id="'+id+'" inputmode="numeric" value="'+Math.round(a[k])+'"></div>'; };
+  ov.innerHTML = '<div class="modal" style="max-width:460px"><div class="modal-title"><span>📒 CUADRAR CON EL CUADERNO · '+fDate(fecha)+'</span><button class="close-btn" onclick="closeModal(\'m_acum\')">×</button></div>'
+    + '<div style="font-size:12px;color:var(--gris);margin-bottom:10px;line-height:1.5">Escribe los acumulados del mes que tiene el cuaderno a este día (antes de llevar dinero al banco). La app guarda la diferencia con lo registrado para que desde aquí en adelante los totales sigan sumando igual que el cuaderno.<br><b>M</b>: mensualidades (efectivo o transferencia). <b>B</b>: todo lo que va al banco (transferencias de día, 15 días y mensualidades + efectivo consignado).</div>'
+    + f('aj_M','M · Mensualidades','M') + f('aj_B','B · Banco','B') + f('aj_dia','/Día','dia') + f('aj_q','15 días','quincena')
+    + '<button class="btn btn-p btn-full" onclick="guardarAjusteAcum(\''+fecha+'\')">💾 Guardar</button></div>';
+  openModal('m_acum');
+}
+function guardarAjusteAcum(fecha) {
+  var s0 = acumMesSistema(fecha), obj = { M:dinero(document.getElementById('aj_M').value), B:dinero(document.getElementById('aj_B').value), dia:dinero(document.getElementById('aj_dia').value), quincena:dinero(document.getElementById('aj_q').value) };
+  var delta = {}; Object.keys(obj).forEach(function(k){ delta[k] = obj[k] - s0[k]; });
+  var prev = gymRecs('acumajuste').filter(function(j){ return j.mes === fecha.slice(0,7); })[0];
+  var j = { id:'acumaj_'+fecha.slice(0,7), tipo:'acumajuste', userId:'__gym', mes:fecha.slice(0,7), fecha:fecha, hs:horaSeg(), objetivo:obj, sistema:{ M:s0.M, B:s0.B, dia:s0.dia, quincena:s0.quincena }, delta:delta, por:CU.name, hora:horaCOL(), registrado:dateCOL(), anteriores:prev ? (prev.anteriores||[]).concat([{ fecha:prev.fecha, objetivo:prev.objetivo, delta:prev.delta, por:prev.por }]) : [] };
+  saveAndSync('saveLog', j, function(){ hojaAviso(fecha, '📒 cuadró los acumulados con el cuaderno: M '+pesos(obj.M)+' · B '+pesos(obj.B)+' · /Día '+pesos(obj.dia)+' · 15 días '+pesos(obj.quincena), function(){ closeModal('m_acum'); toast('📒 Acumulados cuadrados con el cuaderno'); if (curPage === 'cierre') pgCierre(CT.fecha, '', CT_TAB); }, true); });
 }
 
 function validarHoja(a1) { hojaAccion('correccion', function(){ _validarHoja(a1); }); }
@@ -5882,8 +5959,8 @@ function _validarHoja() {
   }, function(x){ x.estado = 'validado'; x.validadoPor = CU.name; x.validadoPorId = CU.id; x.validadoFecha = dateCOL(); x.validadoHora = horaCOL(); x.validadoHs = horaSeg(); x.notaValidacion = nota; x.historial.push({ por:CU.name, hora:horaCOL(), txt:'✅ Validó el día'+(nota?': '+nota:'') }); });
 }
 function reabrirHoja() {
-  if (!(esRecepcion() || esAdminCierre()) || !confirm('¿Reabrir la hoja de este día para corregirla? Para cerrarla de nuevo se registra otro retiro a banco.')) return;
-  var x = JSON.parse(JSON.stringify(turnoDe(CT.fecha, HOJA))); x.estado = 'borrador'; x.reabiertaTs = ahoraTs(); x.historial = (x.historial||[]).concat([{ por:CU.name, hora:horaCOL(), txt:'🔓 Reabrió la hoja' }]);
+  if (!(esRecepcion() || esAdminCierre()) || !confirm('¿Reabrir la hoja de este día para corregirla? Después hay que validarla y cerrarla de nuevo.')) return;
+  var x = JSON.parse(JSON.stringify(turnoDe(CT.fecha, HOJA))); x.estado = 'borrador'; x.reabiertaTs = ahoraTs(); if (x.cerrado) { x.cerradoAnterior = (x.cerradoAnterior||[]).concat([x.cerrado]); delete x.cerrado; } x.historial = (x.historial||[]).concat([{ por:CU.name, hora:horaCOL(), txt:'🔓 Reabrió la hoja' }]);
   saveAndSync('saveLog', x, function(){ toast('🔓 Hoja reabierta'); pgCierre(x.fecha, '', 'turno'); });
 }
 
@@ -5998,13 +6075,18 @@ function tsDe(f, h) { h = h || '00:00'; return (f||'') + ' ' + (h.length === 5 ?
 function horaSeg() { var x = new Date(); return horaCOL() + ':' + ('0'+x.getSeconds()).slice(-2); }
 function turnoIni(c) { return tsDe(c.fecha, c.recibo && (c.recibo.hs || c.recibo.hora) || '00:00'); }
 function turnoFin(c) { return c.entregadoFecha ? tsDe(c.entregadoFecha, c.entregadoHs || c.entregadoHora) : tsDe(c.fecha, '23:59:59'); }
-function retirosEntre(desde, hasta, caja) { return gymRecs('retiro').filter(function(r){ var t = tsDe(r.fecha, r.hs || r.hora); return t > desde && t <= hasta && (!caja || r.caja === caja); }); }
+function retirosEntre(desde, hasta, caja, deFecha) { return gymRecs('retiro').filter(function(r){ var t = tsDe(r.fecha, r.hs || r.hora); if (deFecha && r.hojaFecha && r.hojaFecha !== deFecha) return false; return t > desde && t <= hasta && (!caja || r.caja === caja); }); }
+// Momento real en que se registró una salida (si se agregó después, cuenta desde ese momento)
+function retTsReal(r) { return r.agregadoEn ? tsDe(r.agregadoEn.fecha, r.agregadoEn.hora) : tsDe(r.fecha, r.hs || r.hora); }
 function ahoraTs() { return tsDe(dateCOL(), horaSeg()); }
 // Lo que debería haber en cada caja según el último turno entregado y los retiros posteriores
 function saldoSistema(fecha, coachId, hasta) {
   var p = ultimoTurnoAntes(fecha, coachId); if (!p) return null;
-  var t = turnoTotales(p), out = { desde:p };
-  CAJAS.forEach(function(k){ var c = t.cajas[k[0]]; out[k[0]] = (c.contado != null ? c.contado : c.esperado) - retirosEntre(turnoFin(p), hasta || ahoraTs(), k[0]).reduce(function(a, r){ return a + (parseFloat(r.valor)||0); }, 0); });
+  var out = { desde:p };
+  if (esHoja(p) && p.cerrado && p.cerrado.cajas) { CAJAS.forEach(function(k){ out[k[0]] = dinero(p.cerrado.cajas[k[0]]); }); return out; }
+  var t = turnoTotales(esHoja(p) ? hojaNorm(JSON.parse(JSON.stringify(p))) : p);
+  CAJAS.forEach(function(k){ var c = t.cajas[k[0]], base = c.real != null ? c.real : (c.contado != null ? c.contado : c.esperado);
+    out[k[0]] = base - retirosEntre(turnoFin(p), hasta || ahoraTs(), k[0]).filter(function(r){ return (r.hojaFecha || '') !== p.fecha; }).reduce(function(a, r){ return a + (parseFloat(r.valor)||0); }, 0); });
   return out;
 }
 // El retiro a banco lo hace SOLO recepción y al final del día: con el último turno ya cerrado (cajas contadas)
@@ -6014,13 +6096,12 @@ function retiroPermitido(tipo) {
   if (tipo === 'gasto') {   // salida de dinero por un pago extraordinario: la puede registrar quien está en turno
     if (!CU || CU.role === 'user') return 'No tienes permiso';
     if (!hj || !hj.segs || !hj.segs.length) return 'Primero se recibe el turno';
-    if (hojaCerrada(hj) && !esAdminCierre()) return 'Este día ya se cerró con el retiro a banco';
+    if (hojaCerrada(hj) && !esAdminCierre()) return 'Este día ya está cerrado';
     return '';
   }
   if (!esRecepcion()) return 'Solo recepción puede retirar a banco';
   if (!hj || !hj.segs || !hj.segs.length) return 'Primero se abre el día (Recibir turno)';
-  if (hojaCerrada(hj)) return 'Este día ya se cerró con un retiro a banco ('+retNum(retiroBancoDe(hj))+'). Si hace falta otro, reabre la hoja.';
-  if (hj.estado === 'validado') return '';
+  if (hojaCerrada(hj)) return 'Este día ya está cerrado. Si hace falta otro retiro, reabre la hoja.';
   var u = hj.segs[hj.segs.length-1];
   if (!u.entrega) return 'El retiro a banco se hace al finalizar el día: primero cierra el último turno ('+u.por+') contando las cajas en «🔚 Cerrar turno».';
   return '';
@@ -6066,7 +6147,7 @@ function _guardarRetiro() {
     var dentro = (fH === dateCOL() && ahoraTs() > base && ahoraTs() < tope);
     if (!dentro) { var hh = (sg.hs || sg.hora || '00:00') + (String(sg.hs||'').length === 5 ? ':00' : ''); var d0 = new Date('2000-01-01T'+(hh.length === 5 ? hh+':00' : hh)); d0.setSeconds(d0.getSeconds() + 1); r.fecha = fH; r.hs = d0.toTimeString().slice(0,8); r.hora = r.hs.slice(0,5); r.agregadoEn = { fecha:dateCOL(), hora:horaCOL() }; }
   }
-  saveAndSync('saveLog', r, function(){ if (g) hojaAviso(fH, '💸 registró el gasto '+retNum(r)+' · '+concepto+' · '+pesos(v)); closeModal('m_retiro'); toast(g ? '💸 Salida G-'+('00'+num).slice(-3)+' registrada · queda '+pesos(s - v) : '🏦 Retiro #'+('00'+num).slice(-3)+' registrado · queda '+pesos(s - v)+' de base'); gymRefrescar(); });
+  saveAndSync('saveLog', r, function(){ if (g) hojaAviso(fH, '💸 registró el gasto '+retNum(r)+' · '+concepto+' · '+pesos(v)); else hojaAviso(fH, '🏦 registró el retiro a banco '+retNum(r)+' · '+pesos(v)+' · queda '+pesos(s - v), null, true); closeModal('m_retiro'); toast(g ? '💸 Salida G-'+('00'+num).slice(-3)+' registrada · queda '+pesos(s - v) : '🏦 Retiro #'+('00'+num).slice(-3)+' registrado · queda '+pesos(s - v)+' de base'); gymRefrescar(); });
 }
 // ── Totales de un turno ──
 function _turnoTotalesBase(c, hasta) {
@@ -6104,7 +6185,7 @@ function _turnoTotalesBase(c, hasta) {
   CAJAS.forEach(function(k){
     var key = k[0], rec = dinero(rc[key]);
     var ent = key === 'principal' ? t.efectivo + t.abonosEf.principal : t.ventasEf[key] + t.abonosEf[key];
-    var rets = retirosEntre(ini, fin, key), ret = rets.reduce(function(a, r){ return a + (parseFloat(r.valor)||0); }, 0);
+    var rets = retirosEntre(ini, fin, key, c.fecha), ret = rets.reduce(function(a, r){ return a + (parseFloat(r.valor)||0); }, 0);
     var esp = rec + ent - ret, ct = (cont[key] === '' || cont[key] == null) ? null : dinero(cont[key]);
     var dif = ct == null ? null : ct - esp; if (dif != null) difTot = (difTot || 0) + dif; espTot += esp;
     t.cajas[key] = { rec:rec, ent:ent, ret:ret, rets:rets, esperado:esp, contado:ct, dif:dif };
@@ -6117,16 +6198,6 @@ function _turnoTotalesBase(c, hasta) {
   return t;
 }
 // Acumulados del mes hasta una fecha (como M, B, /Día y 15 días del libro)
-function acumMes(fecha) {
-  var mes = fecha.slice(0,7), a = { M:0, B:0, Bold:0, dia:0, quincena:0, retiros:0, pagos:0 };
-  gymRecs('pago').forEach(function(p){ if ((p.fecha||'').slice(0,7) !== mes || p.fecha > fecha) return; var v = parseFloat(p.valor)||0; a.pagos += v;
-    if (p.planId === 'dia') a.dia += v; else if (p.planId === 'quincena') a.quincena += v; else if (p.planId !== 'clase') a.M += v;
-    var pp = pagoPartes(p); a.B += pp.tr; a.Bold += pp.bold; });
-  gymRecs('cierre').forEach(function(c){ if (c.fusionado || (c.fecha||'').slice(0,7) !== mes || c.fecha > fecha) return; Object.keys(c.ventas||{}).forEach(function(pid){ var pr = prodPorId(pid); a.B += ventaQ(c.ventas[pid]).tr * (pr ? parseFloat(pr.precio)||0 : 0); }); });
-  gymRecs('deuda').forEach(function(d){ (d.abonos||[]).forEach(function(x){ if ((x.fecha||'').slice(0,7) === mes && x.fecha <= fecha) { if (x.medio === 'Transferencia') a.B += parseFloat(x.valor)||0; else if (x.medio === 'Bold') a.Bold += parseFloat(x.valor)||0; } }); });
-  a.gastos = 0; gymRecs('retiro').forEach(function(r){ if ((r.fecha||'').slice(0,7) === mes && r.fecha <= fecha) { if (r.clase === 'gasto') a.gastos += parseFloat(r.valor)||0; else a.retiros += parseFloat(r.valor)||0; } });
-  return a;
-}
 // ── Recibir turno: efectivo de las 3 cajas + inventario ──
 // ── Pantalla del turno ──
 function _turnoRenderTotLegacy() {
@@ -6145,7 +6216,8 @@ function _turnoRenderTotLegacy() {
   var inv = prodsActivos().map(function(p){ return esc(p.nombre)+'='+(stockDe(p.id, CT.id) - (function(){ var q = ventaQ((CT.ventas||{})[p.id]); return q.ef + q.tr; })()); }).join(' · ');
   var h = '<div class="card-title" style="padding:0 0 4px">🧾 RESUMEN '+(esHoja(CT)?'DEL DÍA':'DEL TURNO')+'</div>';
   h += row('T', 'Total efectivo caja principal', pesos(t.T), 'Recibió '+pesos(t.cajas.principal.rec)+' + pagos en efectivo '+pesos(t.efectivo)+(t.abonosEf.principal?' + deudas '+pesos(t.abonosEf.principal):''));
-  h += row('C', 'Queda en caja principal', pesos(t.C), t.cajas.principal.ret ? 'Después de retirar '+pesos(t.cajas.principal.ret)+' a banco' : 'Base para el día siguiente');
+  var cpX = t.cajas.principal;
+  h += row('C', 'Queda en caja principal', pesos(t.C), cpX.despues ? 'Conteo final '+pesos(cpX.contado)+(cpX.despues.length ? ' − '+cpX.despues.map(function(r){ return (r.clase==='gasto'?esc(r.concepto||'gasto'):'banco')+' '+pesos(r.valor); }).join(' − ') : '')+' · base para el día siguiente' : (cpX.ret ? 'Después de retirar '+pesos(cpX.ret)+' a banco' : 'Base para el día siguiente'));
   h += row('CM', 'Caja menor (líquidos)', pesos(t.CM));
   h += row('$', 'Caja sachets', pesos(t.S));
   h += row('🛒', 'Ventas de la tienda', pesos(t.ventas), 'Efectivo '+pesos(t.ventasEf.menor + t.ventasEf.sachets)+' · Transferencia '+pesos(t.ventasTr));
@@ -6159,7 +6231,8 @@ function _turnoRenderTotLegacy() {
   }
   h += row('#', 'Conteos', t.dia+' día · '+t.clase+' clase · '+t.quincena+' quincena'+(t.externos?' · '+t.externos+' no registrados':''));
   if (t.dif != null) h += row('±', 'Diferencia total con lo contado', (t.dif>0?'+':'')+pesos(t.dif), Math.abs(t.dif)<1?'✅ Cuadra':(t.dif>0?'Sobra dinero':'Falta dinero'), Math.abs(t.dif)<1?'#80d4a0':'#ff8080');
-  h += '<div class="card-title" style="padding:12px 0 4px">📅 ACUMULADO DEL MES</div>';
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 0 4px"><div class="card-title" style="padding:0">📅 ACUMULADO DEL MES</div>'+(esHoja(CT) && esEditorTotal() && !hojaCerrada(CT)?'<button class="btn btn-g btn-sm" onclick="openAjusteAcum(\''+CT.fecha+'\')">📒 Cuadrar con el cuaderno</button>':'')+'</div>';
+  if (m.ajuste) h += '<div style="font-size:10px;color:var(--gris);margin-bottom:4px">Cuadrado con el cuaderno al '+fDate(m.ajuste.fecha)+' por '+esc(m.ajuste.por)+'</div>';
   h += row('M', 'Total mensualidades', pesos(m.M));
   h += row('B', 'Total transferencias a banco', pesos(m.B), m.retiros ? 'Retiros de efectivo a banco: '+pesos(m.retiros) : '');
   if (m.gastos) h += row('💸', 'Salidas de caja (gastos) del mes', pesos(m.gastos));
