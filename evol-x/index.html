@@ -4888,15 +4888,16 @@ function openPago(preUid, fecha) {
 function pagoPlan() {
   var p = planPorId(document.getElementById('pg_plan').value); if (!p) return;
   var us = gymUsers(), box = document.getElementById('pg_users'), prev = [];
-  if (PAGO_PRE.ext && (p.personas||1) > 1) { document.getElementById('pg_plan').value = 'clase'; p = planPorId('clase'); }
   document.getElementById('pg_ini_wrap').style.display = PAGO_PRE.ext ? 'none' : '';
   if (PAGO_PRE.ext) {
-    var nx = (document.getElementById('pg_ext_nom')||{}).value || '', tx = (document.getElementById('pg_ext_tel')||{}).value || '';
-    box.innerHTML = '<div class="fr"><div class="fg"><label>Nombre *</label><input id="pg_ext_nom" value="'+esc(nx)+'" style="text-transform:uppercase"></div><div class="fg"><label>Celular (opcional)</label><input id="pg_ext_tel" inputmode="tel" value="'+esc(tx)+'"></div></div>';
+    var nxs = [], txs = []; document.querySelectorAll('#pg_users .pg-ext-nom').forEach(function(e){ nxs.push(e.value); }); document.querySelectorAll('#pg_users .pg-ext-tel').forEach(function(e){ txs.push(e.value); });
+    var nP = p.personas || 1, hx = '';
+    for (var k = 0; k < nP; k++) hx += '<div class="fr"><div class="fg"><label>Nombre'+(nP>1?' persona '+(k+1)+' de '+nP:'')+' *</label><input class="pg-ext-nom"'+(k===0?' id="pg_ext_nom"':'')+' value="'+esc(nxs[k]||'')+'" style="text-transform:uppercase"></div><div class="fg"><label>Celular (opcional)</label><input class="pg-ext-tel"'+(k===0?' id="pg_ext_tel"':'')+' inputmode="tel" value="'+esc(txs[k]||'')+'"></div></div>';
+    box.innerHTML = hx;
     document.getElementById('pg_valor').value = p.libre ? '' : (p.valor || '');
     document.getElementById('pg_cant').value = p.cant; document.getElementById('pg_unidad').value = p.unidad;
     document.getElementById('pg_dur_wrap').style.display = p.libre ? '' : 'none';
-    document.getElementById('pg_prev').innerHTML = '<div style="font-size:11px;color:var(--gris)">Queda registrado en el cierre, sin crear cuenta ni membresía en la app.</div>';
+    document.getElementById('pg_prev').innerHTML = '<div style="font-size:11px;color:var(--gris)">'+(['dia','clase'].indexOf(p.id) < 0 ? 'Queda registrado en el cierre como <b>membresía sin asociar</b>'+(nP>1?' (una por persona)':'')+': cuando cada persona esté en '+T.Usuarios+' se asocia y se le activa.' : 'Queda registrado en el cierre, sin crear cuenta ni membresía en la app.')+'</div>';
     return;
   }
   box.querySelectorAll('select').forEach(function(s){ prev.push(s.value); });
@@ -4937,14 +4938,16 @@ function guardarPago() {
   if (_saving['pago']) return;
   var p = planPorId(document.getElementById('pg_plan').value);
   if (PAGO_PRE.ext) {
-    var nom = ((document.getElementById('pg_ext_nom')||{}).value||'').trim().toUpperCase();
-    if (!nom) { toast('Escribe el nombre de la persona'); return; }
+    var noms = [], tels = []; document.querySelectorAll('#pg_users .pg-ext-nom').forEach(function(e){ noms.push((e.value||'').trim().toUpperCase()); }); document.querySelectorAll('#pg_users .pg-ext-tel').forEach(function(e){ tels.push((e.value||'').trim()); });
+    if (!noms.length || noms.some(function(n){ return !n; })) { toast(noms.length > 1 ? 'Escribe el nombre de cada persona' : 'Escribe el nombre de la persona'); return; }
+    if (noms.filter(function(n, i){ return noms.indexOf(n) !== i; }).length) { toast('Escribiste el mismo nombre dos veces'); return; }
+    var nom = noms.join(' + ');
     var val = dinero(document.getElementById('pg_valor').value);
     if (!val && !confirm('El valor está en $0. ¿Registrar de todas formas?')) return;
     var mxE = mixtoLeer('pg', val); if (!mxE.ok) return;
     var fe = document.getElementById('pg_fecha').value || dateCOL(), ca = parseInt(document.getElementById('pg_cant').value) || 1, un = document.getElementById('pg_unidad').value;
-    var px = { id:gid('pago_'), tipo:'pago', userId:'__gym', fecha:fe, hora:horaCOL(), hs:horaSeg(), planId:p.id, plan:p.nombre, usuarios:[], nombres:[nom],
-      externo:{ nombre:nom, tel:((document.getElementById('pg_ext_tel')||{}).value||'').trim() }, valor:val, medio:mxE.medio, partes:mxE.partes,
+    var px = { id:gid('pago_'), tipo:'pago', userId:'__gym', fecha:fe, hora:horaCOL(), hs:horaSeg(), planId:p.id, plan:p.nombre, usuarios:[], nombres:noms,
+      externo:{ nombre:noms[0], tel:tels[0]||'', personas:noms.map(function(n, i){ return { nombre:n, tel:tels[i]||'', uid:'' }; }) }, valor:val, medio:mxE.medio, partes:mxE.partes,
       cant:ca, unidad:un, desde:fe, hasta:corteDesde(fe, ca, un), cambios:[], sinAsociar:['dia','clase'].indexOf(p.id) < 0, nota:(document.getElementById('pg_nota').value||'').trim(), por:CU.id, porNombre:CU.name };
     if (!pagoATurno(px)) return;
     _saving['pago'] = true;
@@ -5835,22 +5838,31 @@ function hojaAviso(fecha, txt, cb, sinRevalidar) {
   var x = hojaNorm(JSON.parse(JSON.stringify(hj))); tocar(x); saveAndSync('saveLog', x, function(){ if (cb) cb(); });
 }
 function membresiasSinAsociar() { return gymRecs('pago').filter(function(p){ return p.sinAsociar; }).sort(function(a,b){ return (a.fecha||'').localeCompare(b.fecha||''); }); }
+function extPersonas(p) { var e = p.externo || p.externoAntes || {}; if (e.personas && e.personas.length) return e.personas; return [{ nombre:e.nombre || (p.nombres||[])[0] || '', tel:e.tel || '', uid:(p.usuarios||[])[0] || '' }]; }
 function sinAsociarHtml() {
   var ms = membresiasSinAsociar(); if (!ms.length || CU.role === 'user') return '';
-  return '<div class="card" style="padding:12px 14px;margin-bottom:12px;border-color:rgba(255,176,96,0.6)"><div style="font-size:13px;font-weight:800;color:#ffb060;margin-bottom:6px">🔗 '+ms.length+' membresía'+(ms.length===1?'':'s')+' sin asociar</div><div style="font-size:11px;color:var(--gris);margin-bottom:8px">Pagos de membresía de personas que todavía no están registradas en la app. Cuando la persona esté en '+T.Usuarios+', asóciala para que se le active la membresía.</div>'
-    + ms.map(function(p){ return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 10px;border-radius:8px;background:var(--s1);margin-bottom:5px;font-size:12px"><div style="flex:1;min-width:160px"><b>'+esc((p.nombres||[]).join(' + '))+'</b>'+(p.externo&&p.externo.tel?' · '+esc(p.externo.tel):'')+' · '+esc(p.plan)+' · '+fDate(p.fecha)+'<br><span style="color:var(--gris)">Del '+fDate(p.desde)+' al '+fDate(p.hasta)+' · '+medioTxt(p)+'</span></div><b>'+pesos(p.valor)+'</b><button class="btn btn-p btn-sm" onclick="openAsociarPago(\''+p.id+'\')">🔗 Asociar</button></div>'; }).join('') + '</div>';
+  var n = 0; ms.forEach(function(p){ n += extPersonas(p).filter(function(x){ return !x.uid; }).length; });
+  return '<div class="card" style="padding:12px 14px;margin-bottom:12px;border-color:rgba(255,176,96,0.6)"><div style="font-size:13px;font-weight:800;color:#ffb060;margin-bottom:6px">🔗 '+n+' membresía'+(n===1?'':'s')+' sin asociar</div><div style="font-size:11px;color:var(--gris);margin-bottom:8px">Pagos de membresía de personas que todavía no están registradas en la app. Cuando la persona esté en '+T.Usuarios+', asóciala para que se le active la membresía.</div>'
+    + ms.map(function(p){
+        var ps = extPersonas(p);
+        return '<div style="padding:7px 10px;border-radius:8px;background:var(--s1);margin-bottom:5px;font-size:12px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div style="flex:1;min-width:160px"><b>'+esc(p.plan)+'</b> · '+fDate(p.fecha)+'<br><span style="color:var(--gris)">Del '+fDate(p.desde)+' al '+fDate(p.hasta)+' · '+medioTxt(p)+'</span></div><b>'+pesos(p.valor)+'</b></div>'
+          + ps.map(function(x, i){ return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.06)"><div style="flex:1;min-width:140px">👤 <b>'+esc(x.nombre)+'</b>'+(x.tel?' · '+esc(x.tel):'')+'</div>'+(x.uid ? '<span class="badge bk">✅ '+esc((userById(x.uid)||{}).name||'asociada')+'</span>' : '<button class="btn btn-p btn-sm" onclick="openAsociarPago(\''+p.id+'\','+i+')">🔗 Asociar</button>')+'</div>'; }).join('')
+          + '</div>';
+      }).join('') + '</div>';
 }
-function openAsociarPago(id) {
+function openAsociarPago(id, idx) {
   var p = gymRecs('pago').filter(function(x){ return x.id === id; })[0]; if (!p) return;
-  var ov = document.getElementById('m_asoc');
+  idx = idx || 0;
+  var per = extPersonas(p)[idx] || {}, ov = document.getElementById('m_asoc');
   if (!ov) { ov = document.createElement('div'); ov.className = 'overlay'; ov.id = 'm_asoc'; ov.style.zIndex = '2100'; document.body.appendChild(ov); }
-  var nom = ((p.externo && p.externo.nombre) || (p.nombres||[])[0] || '').toUpperCase(), us = gymUsers();
+  var nom = String(per.nombre || '').toUpperCase(), ya = extPersonas(p).map(function(x){ return x.uid; }).filter(Boolean);
+  var us = gymUsers().filter(function(u){ return ya.indexOf(u.id) < 0; });
   var sug = us.filter(function(u){ var a = (u.name||'').toUpperCase(); return nom && (a.indexOf(nom.split(' ')[0]) >= 0); });
   ov.innerHTML = '<div class="modal" style="max-width:440px"><div class="modal-title"><span>🔗 ASOCIAR MEMBRESÍA</span><button class="close-btn" onclick="closeModal(\'m_asoc\')">×</button></div>'
-    + '<div style="font-size:13px;margin-bottom:10px">Pago de <b>'+esc(nom)+'</b> · '+esc(p.plan)+' · '+pesos(p.valor)+' ('+fDate(p.fecha)+')</div>'
+    + '<div style="font-size:13px;margin-bottom:10px">Pago de <b>'+esc(nom)+'</b> · '+esc(p.plan)+' · '+pesos(p.valor)+' ('+fDate(p.fecha)+')'+(extPersonas(p).length>1?'<br><span style="font-size:11px;color:var(--gris)">Persona '+(idx+1)+' de '+extPersonas(p).length+'</span>':'')+'</div>'
     + '<div class="fg"><label>'+T.Usuario+' registrado</label><select id="as_uid" onchange="asociarPrev(\''+id+'\')"><option value="">— Selecciona —</option>'+(sug.length?'<optgroup label="Parecidos">'+sug.map(function(u){ return '<option value="'+u.id+'">'+esc(u.name)+'</option>'; }).join('')+'</optgroup>':'')+'<optgroup label="Todos">'+us.map(function(u){ return '<option value="'+u.id+'">'+esc(u.name)+'</option>'; }).join('')+'</optgroup></select></div>'
     + '<div id="as_prev" style="font-size:12px;margin-bottom:12px"></div>'
-    + '<button class="btn btn-p btn-full" onclick="guardarAsociarPago(\''+id+'\')">✅ Asociar y activar membresía</button></div>';
+    + '<button class="btn btn-p btn-full" onclick="guardarAsociarPago(\''+id+'\','+idx+')">✅ Asociar y activar membresía</button></div>';
   openModal('m_asoc');
 }
 function asociarFechas(p, uid) { var ini = pagoIniAuto([uid], p.desde || p.fecha); if (ini < (p.desde || p.fecha)) ini = p.desde || p.fecha; return { ini:ini, fin:corteDesde(ini, p.cant || 1, p.unidad || 'meses') }; }
@@ -5860,17 +5872,28 @@ function asociarPrev(id) {
   var u = userById(uid), f = asociarFechas(p, uid);
   box.innerHTML = '<div style="padding:10px 12px;border-radius:10px;background:rgba(var(--acc-rgb),0.08);border:1px solid var(--brd);line-height:1.6">👤 <b>'+esc(u.name)+'</b>: '+(u.mem_end?'corte actual '+fDate(u.mem_end)+' → ':'')+'<b style="color:var(--cyan)">membresía del '+fDate(f.ini)+' al '+fDate(f.fin)+'</b></div>';
 }
-function guardarAsociarPago(id) {
+function guardarAsociarPago(id, idx) {
   var p = gymRecs('pago').filter(function(x){ return x.id === id; })[0], uid = document.getElementById('as_uid').value; if (!p) return;
+  idx = idx || 0;
   if (!uid) { toast('Selecciona la persona'); return; }
   var d = db(), u = d.users.filter(function(x){ return x.id === uid; })[0]; if (!u) return;
   var f = asociarFechas(p, uid), x = JSON.parse(JSON.stringify(p));
-  x.cambios = [{ uid:uid, nombre:u.name, antes:{ start:u.mem_start||null, end:u.mem_end||null, plan:u.mem_plan||'' }, despues:{ start:f.ini, end:f.fin, plan:p.plan } }];
-  x.usuarios = [uid]; x.nombres = [u.name]; x.desde = f.ini; x.hasta = f.fin; x.sinAsociar = false;
-  x.asociado = { por:CU.name, fecha:dateCOL(), hora:horaCOL(), nombreOriginal:(p.nombres||[])[0]||'' }; delete x.externo; x.externoAntes = p.externo;
+  var pers = JSON.parse(JSON.stringify(extPersonas(p)));
+  if (pers.some(function(z, i){ return i !== idx && z.uid === uid; })) { toast('Esa persona ya está asociada en este pago'); return; }
+  var orig = pers[idx] ? pers[idx].nombre : '';
+  if (pers[idx]) { pers[idx].uid = uid; pers[idx].asociado = { por:CU.name, fecha:dateCOL(), hora:horaCOL() }; }
+  x.cambios = (x.cambios||[]).filter(function(c){ return c.uid !== uid; }).concat([{ uid:uid, nombre:u.name, antes:{ start:u.mem_start||null, end:u.mem_end||null, plan:u.mem_plan||'' }, despues:{ start:f.ini, end:f.fin, plan:p.plan } }]);
+  x.usuarios = pers.map(function(z){ return z.uid; }).filter(Boolean);
+  x.nombres = pers.map(function(z){ return z.uid ? ((userById(z.uid)||{}).name || (z.uid === uid ? u.name : z.nombre)) : z.nombre; });
+  if (pers.length === 1) { x.desde = f.ini; x.hasta = f.fin; }
+  x.asociado = { por:CU.name, fecha:dateCOL(), hora:horaCOL(), nombreOriginal:orig };
+  var pendientes = pers.filter(function(z){ return !z.uid; }).length;
+  x.sinAsociar = pendientes > 0;
+  if (pendientes) { x.externo = Object.assign({}, p.externo || {}, { personas:pers }); }
+  else { x.externoAntes = Object.assign({}, p.externo || p.externoAntes || {}, { personas:pers }); delete x.externo; }
   saveAndSync('saveLog', x, function(){
     u.mem_start = f.ini; u.mem_end = f.fin; u.mem_plan = p.plan;
-    saveAndSync('saveUser', u, function(){ closeModal('m_asoc'); toast('🔗 Membresía asociada a '+u.name+' hasta el '+fDate(f.fin)); if (curPage === 'cierre') pgCierre(CT && CT.fecha, '', CT_TAB); else gymRefrescar(); });
+    saveAndSync('saveUser', u, function(){ closeModal('m_asoc'); toast('🔗 Membresía asociada a '+u.name+' hasta el '+fDate(f.fin)+(pendientes ? ' · falta'+(pendientes===1?'':'n')+' '+pendientes+' persona'+(pendientes===1?'':'s')+' de este pago' : '')); if (curPage === 'cierre') pgCierre(CT && CT.fecha, '', CT_TAB); else gymRefrescar(); });
   });
 }
 
